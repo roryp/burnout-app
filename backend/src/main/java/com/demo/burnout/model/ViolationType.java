@@ -1,0 +1,12 @@
+package com.demo.burnout.model;
+
+public enum ViolationType {
+    MULTIPLE_DEEP_WORK,
+    QUICK_WIN_OVERLOAD,
+    MAINTENANCE_OVERLOAD,
+    NO_DEEP_WORK,
+    EXCESSIVE_CONTEXT_SWITCHING,
+    UNCLEAR_QUICK_WINS,
+    DEFERRED_BACKLOG_GROWING,
+    TOTAL_OVERLOAD
+}

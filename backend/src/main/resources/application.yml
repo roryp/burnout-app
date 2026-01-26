@@ -1,0 +1,20 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: burnout-backend
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+demo:
+  repo: roryp/burnout-demo
+  userId: roryp
+  friday:
+    enabled: false
+  clock:
+    zone: America/New_York

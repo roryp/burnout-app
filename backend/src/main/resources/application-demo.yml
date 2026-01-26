@@ -1,0 +1,11 @@
+server:
+  port: 8080
+
+demo:
+  repo: roryp/burnout-demo
+  userId: roryp
+  friday:
+    enabled: true
+  clock:
+    zone: America/New_York
+    fixed: "2026-01-30T14:00:00Z"
