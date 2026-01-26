@@ -4,8 +4,8 @@ import com.demo.burnout.agent.*;
 import com.demo.burnout.agent.tools.*;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
-import dev.langchain4j.model.azure.AzureOpenAiChatModel;
 import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.openaiofficial.OpenAiOfficialChatModel;
 import dev.langchain4j.service.AiServices;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,7 +19,7 @@ import java.time.Duration;
 /**
  * LangChain4j Agent Configuration.
  * 
- * Configures AI services with Azure OpenAI integration.
+ * Configures AI services with Azure OpenAI integration using the official OpenAI SDK.
  * Falls back to stub implementations when Azure credentials are not configured.
  */
 @Configuration
@@ -40,21 +40,20 @@ public class AgentConfiguration {
     private boolean azureEnabled;
 
     /**
-     * Azure OpenAI Chat Model - the LLM backbone for all agents.
+     * Azure OpenAI Chat Model using the official OpenAI SDK.
      */
     @Bean
     @ConditionalOnProperty(name = "azure.openai.enabled", havingValue = "true")
     public ChatLanguageModel azureChatModel() {
         log.info("Configuring Azure OpenAI with deployment: {}", deploymentName);
         
-        return AzureOpenAiChatModel.builder()
-            .endpoint(azureEndpoint)
+        return OpenAiOfficialChatModel.builder()
+            .baseUrl(azureEndpoint)
             .apiKey(azureApiKey)
-            .deploymentName(deploymentName)
+            .azureDeploymentName(deploymentName)
             .temperature(0.3) // Lower temperature for consistent, focused responses
-            .maxTokens(500)   // Keep responses concise
+            .maxCompletionTokens(500)   // Keep responses concise
             .timeout(Duration.ofSeconds(30))
-            .logRequestsAndResponses(false)
             .build();
     }
 
