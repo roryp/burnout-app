@@ -18,3 +18,14 @@ demo:
     enabled: false
   clock:
     zone: America/New_York
+
+# Azure OpenAI Configuration for LangChain4j agents
+# Set azure.openai.enabled=true and provide credentials to enable LLM agents
+# When disabled, the system uses deterministic fallback responses
+azure:
+  openai:
+    enabled: ${AZURE_OPENAI_ENABLED:false}
+    endpoint: ${AZURE_OPENAI_ENDPOINT:}
+    api-key: ${AZURE_OPENAI_API_KEY:}
+    deployment-name: ${AZURE_OPENAI_DEPLOYMENT:gpt-4o}
+

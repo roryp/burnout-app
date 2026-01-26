@@ -8,7 +8,7 @@ const EXPECTED_SCHEMA_VERSIONS: Record<string, number> = {
     GitHubMutationPlan: 1,
     GoapActionSummary: 1,
     FridayScoreResponse: 1,
-    ReshapeResponse: 1,
+    ReshapeResponse: 2,  // Updated: includes agent explanation fields
 };
 
 interface SchemaVersioned {

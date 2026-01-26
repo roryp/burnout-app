@@ -122,6 +122,7 @@ public class GOAPPlanner {
         
         for (Issue issue : actionableIssues) {
             actions.add(new DeferIssue(issue));
+            actions.add(new DelegateIssue(issue));
             actions.add(new ReclassifyAsQuickWin(issue));
             actions.add(new ReclassifyAsMaintenance(issue));
             actions.add(new MarkDeepWorkFocus(issue));

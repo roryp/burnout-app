@@ -37,9 +37,32 @@ export async function reshapePreview(): Promise<void> {
         await vscode.commands.executeCommand("setContext", "burnout.hasPendingPlan", true);
         
         const actionCount = data.actionPlan.actions.length;
+        
+        // Show agent explanation in information message
+        const llmIndicator = data.llmEnabled ? '🤖' : '📊';
         vscode.window.showInformationMessage(
-            `📋 Preview: ${actionCount} actions planned. Stress: ${data.stressScore} → ${data.expectedStressScore}. Click "Apply" to execute.`
+            `${llmIndicator} Preview: ${actionCount} actions planned. Stress: ${data.stressScore} → ${data.expectedStressScore}. Click "Apply" to execute.`
         );
+        
+        // Show protective message if triggered
+        if (data.protectiveTriggered && data.protectiveMessage) {
+            vscode.window.showWarningMessage(`🛡️ ${data.protectiveMessage}`);
+        }
+        
+        // Show agent explanation in output channel
+        const outputChannel = vscode.window.createOutputChannel('Burnout Agent');
+        outputChannel.clear();
+        outputChannel.appendLine('═══════════════════════════════════════════════════════════');
+        outputChannel.appendLine('                    🎯 DAY RESHAPE ANALYSIS                   ');
+        outputChannel.appendLine('═══════════════════════════════════════════════════════════');
+        outputChannel.appendLine('');
+        outputChannel.appendLine(data.agentExplanation);
+        outputChannel.appendLine('');
+        outputChannel.appendLine('───────────────────────────────────────────────────────────');
+        outputChannel.appendLine(`LLM Enabled: ${data.llmEnabled ? 'Yes (Azure OpenAI)' : 'No (Deterministic fallback)'}`);
+        outputChannel.appendLine(`Friday Score: ${data.fridayScore}/100`);
+        outputChannel.appendLine('───────────────────────────────────────────────────────────');
+        outputChannel.show(true);
         
     } catch (error) {
         vscode.window.showErrorMessage(`Reshape failed: ${error instanceof Error ? error.message : String(error)}`);

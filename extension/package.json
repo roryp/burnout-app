@@ -30,6 +30,10 @@
       {
         "command": "burnout.showWheel",
         "title": "Burnout: Show 3-3-3 Wheel"
+      },
+      {
+        "command": "burnout.refreshChaos",
+        "title": "Burnout: Refresh Chaos Score"
       }
     ],
     "menus": {

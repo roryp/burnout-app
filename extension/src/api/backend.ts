@@ -41,6 +41,10 @@ export interface ReshapeResponse {
     stressLevel: string;
     expectedStressScore: number;
     fridayScore: number;
+    agentExplanation: string;
+    protectiveTriggered: boolean;
+    protectiveMessage: string;
+    llmEnabled: boolean;
     schemaVersion: number;
 }
 

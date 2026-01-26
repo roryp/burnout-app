@@ -1,5 +1,6 @@
 package com.demo.burnout.controller;
 
+import com.demo.burnout.agent.AgentOrchestrator;
 import com.demo.burnout.goap.*;
 import com.demo.burnout.model.*;
 import com.demo.burnout.service.*;
@@ -22,6 +23,7 @@ public class ReshapeController {
     private final ComplianceService complianceService;
     private final IssueClassifierService classifier;
     private final GOAPPlanner goapPlanner;
+    private final AgentOrchestrator agentOrchestrator;
     private final Clock clock;
 
     public ReshapeController(IssueCache issueCache, 
@@ -29,12 +31,14 @@ public class ReshapeController {
                             ComplianceService complianceService,
                             IssueClassifierService classifier,
                             GOAPPlanner goapPlanner,
+                            AgentOrchestrator agentOrchestrator,
                             Clock clock) {
         this.issueCache = issueCache;
         this.chaosMetricsService = chaosMetricsService;
         this.complianceService = complianceService;
         this.classifier = classifier;
         this.goapPlanner = goapPlanner;
+        this.agentOrchestrator = agentOrchestrator;
         this.clock = clock;
     }
 
@@ -57,6 +61,13 @@ public class ReshapeController {
         
         int fridayScore = calculateFridayScore(chaos, compliance, state);
         
+        // Generate AI-powered explanation (falls back to deterministic if LLM unavailable)
+        String primaryGoal = determinePrimaryGoal(state);
+        String agentExplanation = agentOrchestrator.explainPlan(state, actionPlan, primaryGoal);
+        
+        // Generate protective response if stress signals detected
+        var protectiveResponse = agentOrchestrator.generateProtectiveResponse(state, 0);
+        
         return new ReshapeResponse(
             "ok",
             dayPlan,
@@ -68,8 +79,20 @@ public class ReshapeController {
             state.getStressLevel(),
             actionPlan.expectedStressScore(),
             fridayScore,
+            agentExplanation,
+            protectiveResponse.triggered(),
+            protectiveResponse.message(),
+            agentOrchestrator.isLlmEnabled(),
             ReshapeResponse.SCHEMA_VERSION
         );
+    }
+
+    private String determinePrimaryGoal(WorldState state) {
+        if (state.calculateStressScore() >= 70) return "Prevent Burnout";
+        if (!state.is333Compliant()) return "Achieve 3-3-3 Compliance";
+        if (state.deepWorkCount() > 1) return "Protect Deep Work Focus";
+        if (state.mysteryMeatCount() > 0) return "Clear Mystery Meat";
+        return "Maintain Balance";
     }
 
     private DayStructure buildDayPlan(List<Issue> issues, String userId) {
@@ -141,15 +164,20 @@ public class ReshapeController {
         StressLevel stressLevel,
         int expectedStressScore,
         int fridayScore,
+        String agentExplanation,
+        boolean protectiveTriggered,
+        String protectiveMessage,
+        boolean llmEnabled,
         int schemaVersion
     ) {
-        public static final int SCHEMA_VERSION = 1;
+        public static final int SCHEMA_VERSION = 2;
         
         public static ReshapeResponse notSynced() {
             return new ReshapeResponse(
                 "not_synced", null, GitHubMutationPlan.empty(), List.of(),
                 ChaosMetrics.notSynced(), ComplianceReport.notSynced(),
-                -1, StressLevel.LOW, -1, -1, SCHEMA_VERSION
+                -1, StressLevel.LOW, -1, -1, 
+                "Issues not synced", false, "", false, SCHEMA_VERSION
             );
         }
     }
