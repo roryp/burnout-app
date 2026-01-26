@@ -101,9 +101,9 @@ public class ReshapeController {
             .thenComparing(Issue::number);
 
         Map<Classification, List<Issue>> buckets = issues.stream()
-            .filter(i -> "open".equals(i.state()))
+            .filter(i -> "open".equalsIgnoreCase(i.state()))
             .filter(i -> i.assignees() != null && i.assignees().stream()
-                .anyMatch(a -> a.login().equals(userId)))
+                .anyMatch(a -> a.login().equalsIgnoreCase(userId)))
             .collect(Collectors.groupingBy(classifier::classify));
 
         List<Issue> deepWork = buckets.getOrDefault(Classification.DEEP_WORK, List.of())

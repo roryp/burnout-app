@@ -1,6 +1,6 @@
 // === SINGLE SOURCE OF TRUTH for demo configuration ===
 export const DemoConfig = {
-    REPO: 'roryp/burnout-demo',
+    REPO: 'roryp/burnout-app',
     USER_ID: 'roryp',
     BACKEND_URL: 'http://localhost:8080',
     DEMO_MODE: true,
