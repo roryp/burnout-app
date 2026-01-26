@@ -1,6 +1,6 @@
 package com.demo.burnout.controller;
 
-import com.demo.burnout.goap.GoapActionPlan;
+import com.demo.burnout.agent.supervisor.BurnoutSupervisorService;
 import com.demo.burnout.goap.GoapActionSummary;
 import com.demo.burnout.model.*;
 import com.demo.burnout.service.*;
@@ -18,18 +18,18 @@ public class StressController {
     private final IssueCache issueCache;
     private final ChaosMetricsService chaosMetricsService;
     private final ComplianceService complianceService;
-    private final GOAPPlanner goapPlanner;
+    private final BurnoutSupervisorService supervisorService;
     private final Clock clock;
 
     public StressController(IssueCache issueCache, 
                            ChaosMetricsService chaosMetricsService,
                            ComplianceService complianceService,
-                           GOAPPlanner goapPlanner,
+                           BurnoutSupervisorService supervisorService,
                            Clock clock) {
         this.issueCache = issueCache;
         this.chaosMetricsService = chaosMetricsService;
         this.complianceService = complianceService;
-        this.goapPlanner = goapPlanner;
+        this.supervisorService = supervisorService;
         this.clock = clock;
     }
 
@@ -44,7 +44,14 @@ public class StressController {
         ComplianceReport compliance = complianceService.analyze(issues, userId);
         WorldState state = WorldState.from(issues, userId, chaos, compliance, clock);
         
-        GoapActionPlan actionPlan = goapPlanner.plan(state, issues, userId);
+        // Use the supervisor service to get stress assessment
+        var supervisorResult = supervisorService.preventBurnout(state, issues, userId, repo, chaos);
+        
+        // Convert mutation actions to summaries for backward compatibility
+        List<GoapActionSummary> actionSummaries = supervisorResult.mutationPlan().actions().stream()
+            .map(a -> new GoapActionSummary(a.type() + " #" + a.issueNumber(), 
+                "LLM-planned action", 5))
+            .toList();
         
         return new StressResponse(
             state.calculateStressScore(),
@@ -58,9 +65,9 @@ public class StressController {
                 "afterHours", Math.min(10, state.issuesUpdatedAfterHours() * 5)
             ),
             state.is333Compliant(),
-            actionPlan.toSummaries(state),
-            actionPlan.initialStressScore(),
-            actionPlan.expectedStressScore(),
+            actionSummaries,
+            state.calculateStressScore(),
+            supervisorResult.estimatedStressScore(),
             StressResponse.SCHEMA_VERSION
         );
     }

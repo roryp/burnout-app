@@ -22,10 +22,11 @@ demo:
 # Azure OpenAI Configuration for LangChain4j agents
 # Set azure.openai.enabled=true and provide credentials to enable LLM agents
 # When disabled, the system uses deterministic fallback responses
+# Credentials are loaded from .env file via spring-dotenv
 azure:
   openai:
-    enabled: ${AZURE_OPENAI_ENABLED:false}
+    enabled: true
     endpoint: ${AZURE_OPENAI_ENDPOINT:}
     api-key: ${AZURE_OPENAI_API_KEY:}
-    deployment-name: ${AZURE_OPENAI_DEPLOYMENT:gpt-4o}
+    deployment: ${AZURE_OPENAI_DEPLOYMENT:gpt-4o}
 

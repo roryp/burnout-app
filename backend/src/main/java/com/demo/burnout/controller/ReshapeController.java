@@ -1,6 +1,7 @@
 package com.demo.burnout.controller;
 
 import com.demo.burnout.agent.AgentOrchestrator;
+import com.demo.burnout.agent.supervisor.BurnoutSupervisorService;
 import com.demo.burnout.goap.*;
 import com.demo.burnout.model.*;
 import com.demo.burnout.service.*;
@@ -22,7 +23,7 @@ public class ReshapeController {
     private final ChaosMetricsService chaosMetricsService;
     private final ComplianceService complianceService;
     private final IssueClassifierService classifier;
-    private final GOAPPlanner goapPlanner;
+    private final BurnoutSupervisorService supervisorService;
     private final AgentOrchestrator agentOrchestrator;
     private final Clock clock;
 
@@ -30,14 +31,14 @@ public class ReshapeController {
                             ChaosMetricsService chaosMetricsService,
                             ComplianceService complianceService,
                             IssueClassifierService classifier,
-                            GOAPPlanner goapPlanner,
+                            BurnoutSupervisorService supervisorService,
                             AgentOrchestrator agentOrchestrator,
                             Clock clock) {
         this.issueCache = issueCache;
         this.chaosMetricsService = chaosMetricsService;
         this.complianceService = complianceService;
         this.classifier = classifier;
-        this.goapPlanner = goapPlanner;
+        this.supervisorService = supervisorService;
         this.agentOrchestrator = agentOrchestrator;
         this.clock = clock;
     }
@@ -54,45 +55,43 @@ public class ReshapeController {
         WorldState state = WorldState.from(issues, req.userId(), chaos, compliance, clock);
         
         DayStructure dayPlan = buildDayPlan(issues, req.userId());
-        GoapActionPlan actionPlan = goapPlanner.plan(state, issues, req.userId());
+        
+        // Use LLM-driven Supervisor pattern instead of deterministic GOAP
+        var supervisorResult = supervisorService.preventBurnout(
+            state, issues, req.userId(), req.repo(), chaos);
+        
         GitHubMutationPlan mutationPlan = req.dryRun() 
             ? GitHubMutationPlan.empty() 
-            : actionPlan.toMutationPlan(req.repo());
+            : supervisorResult.mutationPlan();
         
         int fridayScore = calculateFridayScore(chaos, compliance, state);
         
-        // Generate AI-powered explanation (falls back to deterministic if LLM unavailable)
-        String primaryGoal = determinePrimaryGoal(state);
-        String agentExplanation = agentOrchestrator.explainPlan(state, actionPlan, primaryGoal);
-        
         // Generate protective response if stress signals detected
         var protectiveResponse = agentOrchestrator.generateProtectiveResponse(state, 0);
+        
+        // Convert mutation actions to GOAP-style summaries for backward compatibility
+        List<GoapActionSummary> actionSummaries = mutationPlan.actions().stream()
+            .map(a -> new GoapActionSummary(a.type() + " #" + a.issueNumber(), 
+                "Tool-generated action", 5))
+            .toList();
         
         return new ReshapeResponse(
             "ok",
             dayPlan,
             mutationPlan,
-            actionPlan.toSummaries(state),
+            actionSummaries,
             chaos,
             compliance,
             state.calculateStressScore(),
             state.getStressLevel(),
-            actionPlan.expectedStressScore(),
+            supervisorResult.estimatedStressScore(),
             fridayScore,
-            agentExplanation,
+            supervisorResult.explanation(),
             protectiveResponse.triggered(),
             protectiveResponse.message(),
-            agentOrchestrator.isLlmEnabled(),
+            supervisorResult.llmUsed(),
             ReshapeResponse.SCHEMA_VERSION
         );
-    }
-
-    private String determinePrimaryGoal(WorldState state) {
-        if (state.calculateStressScore() >= 70) return "Prevent Burnout";
-        if (!state.is333Compliant()) return "Achieve 3-3-3 Compliance";
-        if (state.deepWorkCount() > 1) return "Protect Deep Work Focus";
-        if (state.mysteryMeatCount() > 0) return "Clear Mystery Meat";
-        return "Maintain Balance";
     }
 
     private DayStructure buildDayPlan(List<Issue> issues, String userId) {
