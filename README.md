@@ -124,7 +124,7 @@ demo:
   friday:
     enabled: false  # Set true to force Friday mode
   clock:
-    zone: America/New_York
+    zone: Africa/Johannesburg
 ```
 
 ### Extension (`src/config.ts`)
