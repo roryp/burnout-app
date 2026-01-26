@@ -6,8 +6,6 @@ import com.demo.burnout.util.LabelUtils;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZonedDateTime;
 import java.util.List;
 
 /**
@@ -304,5 +302,18 @@ public record WorldState(
         if (timestamp == null) return true;
         Instant cutoff = clock.instant().minus(Duration.ofDays(days));
         return timestamp.isBefore(cutoff);
+    }
+
+    // Convenience methods for compatibility
+    public boolean hasAfterHoursActivity() {
+        return issuesUpdatedAfterHours > 0;
+    }
+
+    public int contextSwitchCount() {
+        return issuesTouchedToday;
+    }
+
+    public int blockedCount() {
+        return urgentUnassigned;
     }
 }

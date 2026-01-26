@@ -24,4 +24,21 @@ public record ChaosMetrics(
     public int schemaVersion() { 
         return SCHEMA_VERSION; 
     }
+
+    // Convenience methods for compatibility
+    public long staleIssues() {
+        return issuesTouchedRecently > 0 ? 0 : 1;
+    }
+
+    public int mysteryMeatItems() {
+        return mysteryMeatCount;
+    }
+
+    public int contradictoryLabels() {
+        return distinctLabelCount > 10 ? distinctLabelCount - 10 : 0;
+    }
+
+    public boolean afterHoursActivity() {
+        return afterHoursSignal;
+    }
 }
