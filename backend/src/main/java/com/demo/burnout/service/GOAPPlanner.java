@@ -70,9 +70,10 @@ public class GOAPPlanner {
         Set<String> appliedIds = new HashSet<>();
 
         while (allActions.size() < MAX_ACTIONS) {
+            final WorldState stateSnapshot = currentState;
             Goal targetGoal = goals.stream()
-                .filter(g -> !g.isSatisfied(currentState))
-                .max(Comparator.comparingInt(g -> g.priority() + g.insistence(currentState)))
+                .filter(g -> !g.isSatisfied(stateSnapshot))
+                .max(Comparator.comparingInt(g -> g.priority() + g.insistence(stateSnapshot)))
                 .orElse(null);
             
             if (targetGoal == null) {

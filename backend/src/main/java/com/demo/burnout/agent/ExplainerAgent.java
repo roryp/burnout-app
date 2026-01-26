@@ -73,10 +73,13 @@ public class ExplainerAgent {
     /**
      * Factory method for creating ExplainerAgent with LLM integration.
      * In production, this would configure LangChain4j with Azure OpenAI.
+     * 
+     * @param apiKey Azure OpenAI API key
+     * @param endpoint Azure OpenAI endpoint URL
+     * @return ExplainerAgent instance (currently returns stub implementation)
      */
     public static ExplainerAgent withLlm(String apiKey, String endpoint) {
-        // TODO: Implement LangChain4j integration
-        // For now, return basic implementation
+        // Stub: LangChain4j integration would go here when LLM is available
         return new ExplainerAgent();
     }
 }
