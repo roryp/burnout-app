@@ -1,0 +1,34 @@
+{
+    "java.jdt.ls.java.home": "C:\\Program Files\\Microsoft\\jdk-25.0.1.8-hotspot",
+    "java.configuration.runtimes": [
+        {
+            "name": "JavaSE-21",
+            "path": "C:\\Program Files\\Microsoft\\jdk-25.0.1.8-hotspot",
+            "default": true
+        }
+    ],
+    "java.project.sourcePaths": [
+        "backend/src/main/java",
+        "backend/src/test/java"
+    ],
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "java.project.referencedLibraries": [
+        "backend/target/**/*.jar"
+    ],
+    "java.import.maven.enabled": true,
+    "java.import.generatesMetadataFilesAtProjectRoot": false,
+    "java.import.exclusions": [
+        "**/node_modules/**",
+        "**/.metadata/**",
+        "**/archetype-resources/**",
+        "**/META-INF/maven/**",
+        "**/extension/**"
+    ],
+    "files.exclude": {
+        "**/target": true,
+        "**/.classpath": true,
+        "**/.project": true,
+        "**/.settings": true,
+        "**/.factorypath": true
+    }
+}
