@@ -17,7 +17,7 @@ demo:
   friday:
     enabled: false
   clock:
-    zone: America/New_York
+    zone: Africa/Johannesburg
 
 # Azure OpenAI Configuration for LangChain4j agents
 # Set azure.openai.enabled=true and provide credentials to enable LLM agents
