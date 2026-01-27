@@ -1,4 +1,3 @@
 package com.demo.burnout.dto;
 
-public class SyncResponse {
-}
+public record SyncResponse(String status, int count) {}
