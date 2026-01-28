@@ -45,21 +45,25 @@ server.resource(
 server.tool(
   'show_burnout_wheel',
   {
-    repo: z.string().optional().describe('GitHub repository (owner/repo). Defaults to roryp/burnout-app'),
+    repo: z.string().describe('GitHub repository in owner/repo format'),
   },
   async ({ repo }) => {
-    const targetRepo = repo || config.defaultRepo;
-    log(`show_burnout_wheel called for ${targetRepo}`);
+    if (!repo) {
+      return {
+        content: [{ type: 'text', text: '❌ Please specify a repository (e.g., "show burnout wheel for owner/repo")' }],
+      };
+    }
+    log(`show_burnout_wheel called for ${repo}`);
     
     let data: ReshapeResponse;
     let isDemo = false;
     
     try {
-      data = await getReshapeData(targetRepo);
+      data = await getReshapeData(repo);
       log(`Backend returned data with stress score: ${data.stressScore}`);
     } catch (error) {
       log(`Backend unavailable, using demo data: ${error}`);
-      data = getDemoReshapeData(targetRepo);
+      data = getDemoReshapeData(repo);
       isDemo = true;
     }
     
@@ -71,7 +75,7 @@ server.tool(
     const stress = data.stressScore < 30 ? '🟢' : data.stressScore < 60 ? '🟡' : '🔴';
     
     const summary = [
-      `## 📊 3-3-3 Day Plan for ${targetRepo}`,
+      `## 📊 3-3-3 Day Plan for ${repo}`,
       '',
       deepWork,
       quickWins,
@@ -101,11 +105,15 @@ server.tool(
 server.tool(
   'reshape_day',
   {
-    repo: z.string().optional().describe('GitHub repository (owner/repo)'),
+    repo: z.string().describe('GitHub repository in owner/repo format'),
   },
   async ({ repo }, extra) => {
-    const targetRepo = repo || config.defaultRepo;
-    log(`reshape_day called for ${targetRepo}`);
+    if (!repo) {
+      return {
+        content: [{ type: 'text', text: '❌ Please specify a repository (e.g., "reshape day for owner/repo")' }],
+      };
+    }
+    log(`reshape_day called for ${repo}`);
     
     // Progress notification
     const progressToken = (extra as any)._meta?.progressToken;
@@ -113,7 +121,7 @@ server.tool(
     if (progressToken !== undefined) {
       await (extra as any).sendNotification?.({
         method: 'notifications/progress',
-        params: { progressToken, progress: 0, message: `🔄 Analyzing ${targetRepo}...` },
+        params: { progressToken, progress: 0, message: `🔄 Analyzing ${repo}...` },
       });
     }
     
@@ -121,10 +129,10 @@ server.tool(
     let isDemo = false;
     
     try {
-      data = await getReshapeData(targetRepo);
+      data = await getReshapeData(repo);
     } catch (error) {
       log(`Backend unavailable: ${error}`);
-      data = getDemoReshapeData(targetRepo);
+      data = getDemoReshapeData(repo);
       isDemo = true;
     }
     
@@ -136,7 +144,7 @@ server.tool(
     }
     
     const summary = [
-      `## 📊 3-3-3 Day Plan for ${targetRepo}`,
+      `## 📊 3-3-3 Day Plan for ${repo}`,
       '',
       data.dayPlan.deepWork 
         ? `🎯 **Deep Work**: #${data.dayPlan.deepWork.number} - ${data.dayPlan.deepWork.title}`
@@ -157,7 +165,7 @@ server.tool(
         text: summary,
       }],
       structuredContent: {
-        repo: targetRepo,
+        repo,
         dayPlan: data.dayPlan,
         stressScore: data.stressScore,
         fridayScore: data.fridayScore,
@@ -181,17 +189,21 @@ server.tool(
 server.tool(
   'get_stress_score',
   {
-    repo: z.string().optional().describe('GitHub repository (owner/repo)'),
+    repo: z.string().describe('GitHub repository in owner/repo format'),
   },
   async ({ repo }) => {
-    const targetRepo = repo || config.defaultRepo;
-    log(`get_stress_score called for ${targetRepo}`);
+    if (!repo) {
+      return {
+        content: [{ type: 'text', text: '❌ Please specify a repository' }],
+      };
+    }
+    log(`get_stress_score called for ${repo}`);
     
     let data: StressResponse;
     let isDemo = false;
     
     try {
-      data = await getStressScore(targetRepo);
+      data = await getStressScore(repo);
     } catch (error) {
       log(`Backend unavailable: ${error}`);
       data = getDemoStressData();
@@ -219,17 +231,21 @@ server.tool(
 server.tool(
   'sync_issues',
   {
-    repo: z.string().optional().describe('GitHub repository (owner/repo)'),
+    repo: z.string().describe('GitHub repository in owner/repo format'),
   },
   async ({ repo }) => {
-    const targetRepo = repo || config.defaultRepo;
-    log(`sync_issues called for ${targetRepo}`);
+    if (!repo) {
+      return {
+        content: [{ type: 'text', text: '❌ Please specify a repository' }],
+      };
+    }
+    log(`sync_issues called for ${repo}`);
     
     let issues: Issue[];
     let isDemo = false;
     
     try {
-      issues = await syncIssues(targetRepo);
+      issues = await syncIssues(repo);
     } catch (error) {
       log(`Backend unavailable: ${error}`);
       issues = getDemoIssues();
@@ -241,7 +257,7 @@ server.tool(
     return {
       content: [{
         type: 'text',
-        text: `📋 Synced ${issues.length} issues from ${targetRepo}${demoNote}`,
+        text: `📋 Synced ${issues.length} issues from ${repo}${demoNote}`,
       }],
     };
   }

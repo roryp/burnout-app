@@ -57,15 +57,18 @@ export async function callBackend<T>(endpoint: string, options?: RequestInit): P
   return response.json() as Promise<T>;
 }
 
-export async function getReshapeData(repo: string, userId = 'roryp'): Promise<ReshapeResponse> {
+export async function getReshapeData(repo: string, userId?: string): Promise<ReshapeResponse> {
+  // Extract owner from repo as default userId
+  const effectiveUserId = userId || repo.split('/')[0];
   return callBackend<ReshapeResponse>('/api/reshape', {
     method: 'POST',
-    body: JSON.stringify({ repo, userId, dryRun: true }),
+    body: JSON.stringify({ repo, userId: effectiveUserId, dryRun: true }),
   });
 }
 
-export async function getStressScore(repo: string, userId = 'roryp'): Promise<StressResponse> {
-  return callBackend<StressResponse>(`/api/stress?repo=${encodeURIComponent(repo)}&userId=${encodeURIComponent(userId)}`);
+export async function getStressScore(repo: string, userId?: string): Promise<StressResponse> {
+  const effectiveUserId = userId || repo.split('/')[0];
+  return callBackend<StressResponse>(`/api/stress?repo=${encodeURIComponent(repo)}&userId=${encodeURIComponent(effectiveUserId)}`);
 }
 
 export async function syncIssues(repo: string): Promise<Issue[]> {
