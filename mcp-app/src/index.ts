@@ -242,24 +242,39 @@ server.tool(
     log(`sync_issues called for ${repo}`);
     
     let issues: Issue[];
-    let isDemo = false;
+    let errorMessage = '';
     
     try {
       issues = await syncIssues(repo);
+      return {
+        content: [{
+          type: 'text',
+          text: `✅ Synced ${issues.length} issues from ${repo}`,
+        }],
+      };
     } catch (error) {
-      log(`Backend unavailable: ${error}`);
-      issues = getDemoIssues();
-      isDemo = true;
+      const err = error as Error;
+      errorMessage = err.message || String(error);
+      log(`Sync failed: ${errorMessage}`);
+      
+      // Check if it's a gh CLI error
+      if (errorMessage.includes('gh') || errorMessage.includes('Command failed')) {
+        return {
+          content: [{
+            type: 'text',
+            text: `❌ Failed to fetch issues from GitHub: ${errorMessage}\n\nMake sure:\n1. gh CLI is installed\n2. You're authenticated (run: gh auth login)\n3. The repo exists and you have access`,
+          }],
+        };
+      }
+      
+      // Backend error
+      return {
+        content: [{
+          type: 'text',
+          text: `❌ Failed to sync issues: ${errorMessage}\n\nMake sure the backend is running at ${config.backendUrl}`,
+        }],
+      };
     }
-    
-    const demoNote = isDemo ? ' *(demo data)*' : '';
-    
-    return {
-      content: [{
-        type: 'text',
-        text: `📋 Synced ${issues.length} issues from ${repo}${demoNote}`,
-      }],
-    };
   }
 );
 
