@@ -2,6 +2,8 @@
 
 An **MCP App** + Java backend that demonstrates **AI-powered burnout prevention** using LangChain4j's agentic patterns, the **3-3-3 day structure**, and Azure OpenAI.
 
+![Burnout Wheel - 3-3-3 Day Structure](docs/burnout-wheel.png)
+
 ## ✨ Features
 
 - **🤖 LLM-Driven Supervisor** - Uses Azure OpenAI (gpt-4o) with `@Tool` annotations to intelligently rebalance workloads
