@@ -29,28 +29,46 @@ server.resource(
     description: 'Interactive 3-3-3 day structure wheel visualization',
     mimeType: 'text/html;profile=mcp-app',
   },
-  async (uri) => ({
-    contents: [{
-      uri: uri.href,
-      mimeType: 'text/html;profile=mcp-app',
-      text: generateWheelUI(),
-    }],
-  })
+  async (uri) => {
+    log(`📱 resources/read called for: ${uri.href}`);
+    return {
+      contents: [{
+        uri: uri.href,
+        mimeType: 'text/html;profile=mcp-app',
+        text: generateWheelUI(),
+        _meta: {
+          ui: {
+            csp: {},
+            prefersBorder: false,
+          },
+        },
+      }],
+    };
+  }
 );
 
 // ============================================================================
 // Tool: Show Day Plan (with UI visualization)
 // ============================================================================
 
-server.tool(
+server.registerTool(
   'show_burnout_wheel',
   {
-    repo: z.string().describe('GitHub repository in owner/repo format'),
+    description: 'Display an interactive 3-3-3 day structure wheel for a GitHub repository. Shows deep work, quick wins, maintenance tasks, and stress score.',
+    inputSchema: {
+      repo: z.string().describe('GitHub repository in owner/repo format'),
+    },
+    _meta: {
+      ui: {
+        resourceUri: 'ui://burnout-app/wheel',
+        visibility: ['model', 'app'],
+      },
+    },
   },
   async ({ repo }) => {
     if (!repo) {
       return {
-        content: [{ type: 'text', text: '❌ Please specify a repository (e.g., "show burnout wheel for owner/repo")' }],
+        content: [{ type: 'text' as const, text: '❌ Please specify a repository (e.g., "show burnout wheel for owner/repo")' }],
       };
     }
     log(`show_burnout_wheel called for ${repo}`);
@@ -61,13 +79,20 @@ server.tool(
     try {
       data = await getReshapeData(repo);
       log(`Backend returned data with stress score: ${data.stressScore}`);
+      
+      // If backend returns empty data (not synced), fall back to demo
+      if (!data.dayPlan || data.stressScore < 0) {
+        log('Backend returned empty data, using demo mode');
+        data = getDemoReshapeData(repo);
+        isDemo = true;
+      }
     } catch (error) {
       log(`Backend unavailable, using demo data: ${error}`);
       data = getDemoReshapeData(repo);
       isDemo = true;
     }
     
-    // Build text summary
+    // Build text summary for the model
     const plan = data.dayPlan;
     const deepWork = plan?.deepWork ? `🎯 **Deep Work**: #${plan.deepWork.number} - ${plan.deepWork.title}` : '🎯 **Deep Work**: None';
     const quickWins = `⚡ **Quick Wins** (${plan?.quickWins?.length || 0}): ${plan?.quickWins?.slice(0,3).map(i => `#${i.number}`).join(', ') || 'None'}`;
@@ -84,16 +109,23 @@ server.tool(
       `${stress} **Stress Score**: ${data.stressScore}/100`,
       `🎉 **Friday Score**: ${data.fridayScore}%`,
       '',
-      isDemo ? '*⚠️ Demo data - backend not available*' : '',
-      '',
-      data.agentExplanation || '',
+      isDemo ? '*Demo data - connect backend for real issues*' : '',
     ].filter(Boolean).join('\n');
     
     return {
       content: [{
-        type: 'text',
+        type: 'text' as const,
         text: summary,
       }],
+      // SEP-1865: structuredContent for the UI panel
+      structuredContent: {
+        repo,
+        dayPlan: data.dayPlan,
+        stressScore: data.stressScore,
+        fridayScore: data.fridayScore,
+        agentExplanation: data.agentExplanation,
+        isDemo,
+      },
     };
   }
 );

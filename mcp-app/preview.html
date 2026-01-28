@@ -1,8 +1,4 @@
-// Burnout Wheel UI Template - Stunning Flame-Graph Inspired Visualization
-// DevConf Ready - Vibrant, Animated, Professional
-
-export function generateWheelUI(): string {
-  return `<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -838,8 +834,8 @@ export function generateWheelUI(): string {
     
     function formatMarkdown(text) {
       return text
-        .replace(/\\*\\*(.+?)\\*\\*/g, '<strong>$1</strong>')
-        .replace(/\\n/g, '<br>');
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n/g, '<br>');
     }
     
     // SVG Donut Chart with Flame-Graph Gradients
@@ -860,13 +856,13 @@ export function generateWheelUI(): string {
       filter.setAttribute('y', '-50%');
       filter.setAttribute('width', '200%');
       filter.setAttribute('height', '200%');
-      filter.innerHTML = \`
+      filter.innerHTML = `
         <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
         <feMerge>
           <feMergeNode in="coloredBlur"/>
           <feMergeNode in="SourceGraphic"/>
         </feMerge>
-      \`;
+      `;
       defs.appendChild(filter);
       
       // Create gradients for each bucket
@@ -874,10 +870,10 @@ export function generateWheelUI(): string {
         const grad = document.createElementNS('http://www.w3.org/2000/svg', 'linearGradient');
         grad.setAttribute('id', 'grad-' + bucket.key);
         grad.setAttribute('gradientTransform', 'rotate(' + (i * 45) + ')');
-        grad.innerHTML = \`
-          <stop offset="0%" stop-color="\${bucket.gradient.start}"/>
-          <stop offset="100%" stop-color="\${bucket.gradient.end}"/>
-        \`;
+        grad.innerHTML = `
+          <stop offset="0%" stop-color="${bucket.gradient.start}"/>
+          <stop offset="100%" stop-color="${bucket.gradient.end}"/>
+        `;
         defs.appendChild(grad);
       });
       
@@ -979,11 +975,11 @@ export function generateWheelUI(): string {
         
         const item = document.createElement('div');
         item.className = 'legend-item ' + bucket.cssClass + (selectedBucket === bucket.key ? ' selected' : '');
-        item.innerHTML = \`
+        item.innerHTML = `
           <div class="legend-dot"></div>
-          <div class="legend-text">\${bucket.name}</div>
-          <div class="legend-count">\${count}</div>
-        \`;
+          <div class="legend-text">${bucket.name}</div>
+          <div class="legend-count">${count}</div>
+        `;
         item.addEventListener('click', () => selectBucket(bucket.key));
         container.appendChild(item);
       });
@@ -1018,13 +1014,13 @@ export function generateWheelUI(): string {
       }
       
       const list = document.getElementById('issue-list');
-      list.innerHTML = issues.map(issue => \`
-        <li class="issue-item" data-number="\${issue.number}">
-          <span class="issue-number">#\${issue.number}</span>
-          <span class="issue-title">\${escapeHtml(issue.title)}</span>
-          \${issue.complexity ? \`<span class="complexity">\${issue.complexity}pts</span>\` : ''}
+      list.innerHTML = issues.map(issue => `
+        <li class="issue-item" data-number="${issue.number}">
+          <span class="issue-number">#${issue.number}</span>
+          <span class="issue-title">${escapeHtml(issue.title)}</span>
+          ${issue.complexity ? `<span class="complexity">${issue.complexity}pts</span>` : ''}
         </li>
-      \`).join('');
+      `).join('');
       
       // Add click handlers for issues
       list.querySelectorAll('.issue-item').forEach(item => {
@@ -1039,7 +1035,7 @@ export function generateWheelUI(): string {
       if (!issue) return;
       
       if (isStandalone) {
-        const url = \`https://github.com/\${wheelData.repo}/issues/\${number}\`;
+        const url = `https://github.com/${wheelData.repo}/issues/${number}`;
         window.open(url, '_blank');
         return;
       }
@@ -1049,7 +1045,7 @@ export function generateWheelUI(): string {
         await sendRequest('ui/message', {
           content: [{
             type: 'text',
-            text: \`Tell me more about issue #\${number}: "\${issue.title}"\`
+            text: `Tell me more about issue #${number}: "${issue.title}"`
           }]
         });
       } catch (err) {
@@ -1068,7 +1064,7 @@ export function generateWheelUI(): string {
     
     function showTooltip(event, bucket, count) {
       const tooltip = document.getElementById('tooltip');
-      tooltip.textContent = \`\${bucket.name}: \${count} item\${count !== 1 ? 's' : ''}\`;
+      tooltip.textContent = `${bucket.name}: ${count} item${count !== 1 ? 's' : ''}`;
       tooltip.style.left = event.clientX + 10 + 'px';
       tooltip.style.top = event.clientY + 10 + 'px';
       tooltip.classList.add('visible');
@@ -1088,5 +1084,4 @@ export function generateWheelUI(): string {
     initialize();
   </script>
 </body>
-</html>`;
-}
+</html>
