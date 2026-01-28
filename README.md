@@ -64,15 +64,43 @@ The `.vscode/mcp.json` is already configured. Open VS Code in this workspace and
 
 ### 5. Use the MCP Tools
 
-In VS Code Copilot Chat, first sync your issues:
-- **"Sync issues for owner/repo"** - Fetches from GitHub and syncs to backend
+In VS Code Copilot Chat, use these prompts to interact with the burnout prevention tools:
 
-Then explore your workload:
-- **"Show my burnout wheel for owner/repo"** - Displays the 3-3-3 visualization
-- **"What's my stress score for owner/repo?"** - Quick stress check
-- **"Reshape my day for owner/repo"** - AI analyzes and optimizes your workload
+#### Step 1: Sync Your GitHub Issues (Required First)
+```
+Sync issues for owner/repo
+```
+This fetches your GitHub issues and syncs them to the backend for analysis.
 
-> **Note**: Replace `owner/repo` with your actual GitHub repository (e.g., `roryp/my-project`)
+#### Step 2: View Your 3-3-3 Day Structure
+```
+Show my burnout wheel for owner/repo
+```
+Displays an interactive visualization showing:
+- 🎯 **Deep Work** - Your one critical focused task
+- ⚡ **Quick Wins** - Small completable items
+- 🔧 **Maintenance** - Routine upkeep tasks
+- 📊 **Stress Score** and **Friday Score** metrics
+
+#### Step 3: Get AI-Powered Insights
+```
+What's my stress score for owner/repo?
+```
+Quick check of your current stress level (🟢 Low / 🟡 Medium / 🔴 High).
+
+```
+Reshape my day for owner/repo
+```
+AI analyzes your workload and provides recommendations to optimize your day.
+
+#### Alternative Prompt Styles
+The tools understand natural language, so you can also try:
+- `"Check burnout wheel for owner/repo"`
+- `"Get stress score for owner/repo"`
+- `"Analyze my workload for owner/repo"`
+- `"What does my day look like for owner/repo?"`
+
+> **Note**: Replace `owner/repo` with your actual GitHub repository (e.g., `myorg/my-project`)
 
 ## Architecture
 
