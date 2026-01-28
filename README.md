@@ -21,7 +21,7 @@ An **MCP App** + Java backend that demonstrates **AI-powered burnout prevention*
   gh auth login
   gh auth status  # Should show ✓ Logged in with 'repo' scope
   ```
-- VS Code with GitHub Copilot
+- **VS Code Insiders** with GitHub Copilot (MCP Apps require Insiders)
 - Azure OpenAI endpoint (or modify for OpenAI API)
 
 ### 1. Configure Azure OpenAI
