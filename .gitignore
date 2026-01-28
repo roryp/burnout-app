@@ -10,10 +10,9 @@ backend/target/
 mvnw
 mvnw.cmd
 
-# Node
-extension/node_modules/
-extension/out/
-extension/.vscode-test/
+# Node / MCP App
+mcp-app/node_modules/
+mcp-app/dist/
 
 # IDE
 .idea/
@@ -37,3 +36,7 @@ Thumbs.db
 # Build
 dist/
 build/
+
+# Temporary files
+demo-issues.json
+real-issues.json
