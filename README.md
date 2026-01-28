@@ -16,7 +16,11 @@ An **MCP App** + Java backend that demonstrates **AI-powered burnout prevention*
 
 - Java 21+
 - Node.js 18+
-- GitHub CLI (`gh`) installed and authenticated
+- GitHub CLI (`gh`) installed and authenticated:
+  ```bash
+  gh auth login
+  gh auth status  # Should show ✓ Logged in with 'repo' scope
+  ```
 - VS Code with GitHub Copilot
 - Azure OpenAI endpoint (or modify for OpenAI API)
 
@@ -56,23 +60,17 @@ npm run build
 
 The `.vscode/mcp.json` is already configured. Open VS Code in this workspace and the MCP server will be available.
 
-### 5. Sync Your Issues
+### 5. Use the MCP Tools
 
-Before using the tools, sync your GitHub issues to the backend:
+In VS Code Copilot Chat, first sync your issues:
+- **"Sync issues for owner/repo"** - Fetches from GitHub and syncs to backend
 
-```bash
-# Fetch issues from GitHub and sync to backend
-gh issue list -R your-username/your-repo --json number,title,body,labels,state,assignees,createdAt,updatedAt --limit 50 > issues.json
-# Then POST to the backend (see scripts/seed-issues.sh for format)
-```
+Then explore your workload:
+- **"Show my burnout wheel for owner/repo"** - Displays the 3-3-3 visualization
+- **"What's my stress score for owner/repo?"** - Quick stress check
+- **"Reshape my day for owner/repo"** - AI analyzes and optimizes your workload
 
-### 6. Use the MCP Tools
-
-In VS Code Copilot Chat, ask:
-- **"What's my current workload?"** - Shows your 3-3-3 day structure
-- **"Show my burnout wheel"** - Displays the visualization
-- **"Reshape my day"** - AI analyzes and optimizes your workload
-- **"What's my stress score?"** - Quick stress check
+> **Note**: Replace `owner/repo` with your actual GitHub repository (e.g., `roryp/my-project`)
 
 ## Architecture
 
@@ -223,12 +221,23 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o
       "command": "node",
       "args": ["${workspaceFolder}/mcp-app/dist/index.js"],
       "env": {
-        "BACKEND_URL": "http://localhost:8080"
+        "BACKEND_URL": "http://localhost:8080",
+        "GITHUB_TOKEN": ""
       }
     }
   }
 }
 ```
+
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| **MCP tools disabled** | Reload VS Code (Ctrl+Shift+P → "Developer: Reload Window") |
+| **Sync fails with auth error** | Run `gh auth login` and ensure `repo` scope is granted |
+| **Backend returns 400** | Make sure backend is running: `java -jar target/burnout-backend-0.0.1-SNAPSHOT.jar` |
+| **GITHUB_TOKEN conflicts** | The mcp.json sets `GITHUB_TOKEN: ""` to use keyring auth instead |
+| **Issues not showing** | Run sync_issues first, then show_burnout_wheel |
 
 ## License
 
