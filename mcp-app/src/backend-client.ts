@@ -72,8 +72,39 @@ export async function getStressScore(repo: string, userId?: string): Promise<Str
 }
 
 export async function syncIssues(repo: string): Promise<Issue[]> {
-  return callBackend<Issue[]>('/api/issues/sync', {
+  // Fetch issues from GitHub using gh CLI
+  const { exec } = await import('child_process');
+  const { promisify } = await import('util');
+  const execAsync = promisify(exec);
+  
+  const { stdout } = await execAsync(
+    `gh issue list --repo ${repo} --state open --json number,title,labels,assignees --limit 100`
+  );
+  
+  const ghIssues = JSON.parse(stdout) as Array<{
+    number: number;
+    title: string;
+    labels: Array<{ name: string }>;
+    assignees: Array<{ login: string }>;
+  }>;
+  
+  const issues: Issue[] = ghIssues.map(i => ({
+    number: i.number,
+    title: i.title,
+    labels: i.labels.map(l => l.name),
+    state: 'open',
+  }));
+  
+  // Push to backend
+  await callBackend('/api/issues/sync', {
     method: 'POST',
-    body: JSON.stringify({ repo }),
+    body: JSON.stringify({
+      repo,
+      issues,
+      fetchedAt: new Date().toISOString(),
+      schemaVersion: 1,
+    }),
   });
+  
+  return issues;
 }
