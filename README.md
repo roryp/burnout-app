@@ -4,6 +4,10 @@ An **MCP App** + Java backend that demonstrates **AI-powered burnout prevention*
 
 ![Burnout Wheel - 3-3-3 Day Structure](docs/burnout-wheel.png)
 
+## What is This?
+
+This project helps developers prevent burnout by intelligently managing their GitHub issue workload. The **Java backend** uses LangChain4j with Azure OpenAI to analyze your assigned issues, detect stress signals (like too much context switching or vague tasks), and automatically organize your day using the 3-3-3 structure: one deep work task, three quick wins, and three maintenance items. The **MCP App** exposes these capabilities as tools you can invoke directly from VS Code Copilot Chat, Claude Desktop, or any MCP-compliant client—simply ask it to show your burnout wheel, check your stress score, or reshape your day, and the AI does the rest.
+
 ## ✨ Features
 
 - **🤖 LLM-Driven Supervisor** - Uses Azure OpenAI (gpt-4o) with `@Tool` annotations to intelligently rebalance workloads
