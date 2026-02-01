@@ -1,16 +1,16 @@
 # Burnout-as-a-Service
 
-An **MCP App** + Java backend that demonstrates **AI-powered burnout prevention** using LangChain4j's agentic patterns, the **3-3-3 day structure**, and Azure OpenAI.
+An **MCP App** + Java backend that demonstrates **AI-powered burnout prevention** using LangChain4j's **Supervisor Pattern** (`langchain4j-agentic`), the **3-3-3 day structure**, and Azure OpenAI.
 
 ![Burnout Flamegraph - 3-3-3 Day Structure](docs/burnout-flamegraph.png)
 
 ## What is This?
 
-This project helps developers prevent burnout by intelligently managing their GitHub issue workload. The **Java backend** uses LangChain4j with Azure OpenAI to analyze your assigned issues, detect stress signals (like too much context switching or vague tasks), and automatically organize your day using the 3-3-3 structure: one deep work task, three quick wins, and three maintenance items. The **MCP App** exposes these capabilities as tools you can invoke directly from VS Code Copilot Chat, Claude Desktop, or any MCP-compliant client—simply ask it to show your burnout wheel, check your stress score, or reshape your day, and the AI does the rest.
+This project helps developers prevent burnout by intelligently managing their GitHub issue workload. The **Java backend** uses LangChain4j's `langchain4j-agentic` library with a **Supervisor Pattern** - a planner LLM orchestrates 5 specialized sub-agents (Defer, Delegate, Classify, Scope, Wellness) to analyze your assigned issues, detect stress signals, and automatically organize your day using the 3-3-3 structure: one deep work task, three quick wins, and three maintenance items. The **MCP App** exposes these capabilities as tools you can invoke directly from VS Code Copilot Chat, Claude Desktop, or any MCP-compliant client—simply ask it to show your burnout wheel, check your stress score, or reshape your day, and the AI does the rest.
 
 ## ✨ Features
 
-- **🤖 LLM-Driven Supervisor** - Uses Azure OpenAI (gpt-4o-mini) with `@Tool` annotations to intelligently rebalance workloads
+- **🤖 LangChain4j Supervisor Pattern** - Uses `langchain4j-agentic` with 5 sub-agents orchestrated by Azure OpenAI (gpt-4o)
 - **📊 3-3-3 Day Structure** - Automatically classifies issues into Deep Work, Quick Wins, and Maintenance
 - **🛡️ Protective AI** - Detects stress signals and provides personalized wellness recommendations
 - **📈 Chaos Scoring** - Measures workload chaos (context switching, mystery meat issues, after-hours work)
@@ -57,8 +57,8 @@ azd up
 ```
 
 This provisions:
-- Azure Container Apps (backend)
-- Azure OpenAI (gpt-4o-mini)
+- Azure Container Apps (backend with 2 CPU, 4GB RAM)
+- Azure OpenAI (gpt-4o with 50K TPM)
 - Azure Container Registry
 - User-assigned managed identity for secure Azure OpenAI access
 
@@ -191,18 +191,18 @@ The tools understand natural language, so you can also try:
 │  │  - Caches valid tokens for 5 minutes                            ││
 │  └─────────────────────────────────────────────────────────────────┘│
 │  ┌─────────────────────────────────────────────────────────────────┐│
-│  │  BurnoutSupervisorService (LLM-Driven Orchestrator)             ││
-│  │  - Analyzes developer stress signals                            ││
-│  │  - Plans workload rebalancing via @Tool methods                 ││
+│  │  BurnoutSupervisorService (Supervisor Pattern Orchestrator)     ││
+│  │  - Uses langchain4j-agentic AgenticServices.supervisorBuilder() ││
+│  │  - Coordinates 5 sub-agents for workload rebalancing            ││
 │  │  - Generates human-readable explanations                        ││
 │  └─────────────────────────────────────────────────────────────────┘│
 │  ┌─────────────────────────────────────────────────────────────────┐│
-│  │  BurnoutMutationTool (@Tool annotations)                        ││
-│  │  - deferIssue() - Push to next sprint                           ││
-│  │  - delegateIssue() - Reassign to balance load                   ││
-│  │  - classifyAsQuickWin() - Mark for quick completion             ││
-│  │  - markAsDeepWork() - Flag for focused time                     ││
-│  │  - ... 9 tools total                                            ││
+│  │  BurnoutAgents (5 Sub-Agents with @Agent annotations)           ││
+│  │  - DeferAgent - Push to next sprint                             ││
+│  │  - DelegateAgent - Reassign to balance load                     ││
+│  │  - ClassifyAgent - Mark as deep-work/quick-win/maintenance      ││
+│  │  - ScopeAgent - Flag issues needing clarification               ││
+│  │  - WellnessAgent - Assess stress and recommend breaks           ││
 │  └─────────────────────────────────────────────────────────────────┘│
 │  - Azure OpenAI integration (managed identity, no API keys)         │
 └─────────────────────────────────────────────────────────────────────┘
@@ -233,31 +233,49 @@ The tools understand natural language, so you can also try:
 
 Everything else gets **deferred** to protect your focus.
 
-## LangChain4j Agentic Pattern
+## LangChain4j Supervisor Pattern
 
-This project demonstrates the **Supervisor Pattern** using LangChain4j:
+This project demonstrates the **Supervisor Pattern** using `langchain4j-agentic`:
 
 ```java
-// AI Service with tools
-public interface WorkloadRebalancerAgent {
-    @SystemMessage("""
-        You are a workload optimization agent. Analyze stress signals 
-        and use tools to rebalance the developer's workload.
-        """)
-    String rebalanceWorkload(@UserMessage String context);
+// 5 Sub-agents with @Agent annotations
+public interface BurnoutAgents {
+    @Agent("Defer issues to next sprint to reduce immediate workload")
+    interface DeferAgent {
+        String deferIssue(@P("issueNumber") int issueNumber, @P("issueTitle") String issueTitle);
+    }
+    
+    @Agent("Delegate issues to balance team workload")
+    interface DelegateAgent {
+        String delegateIssue(@P("issueNumber") int issueNumber, @P("issueTitle") String issueTitle);
+    }
+    
+    @Agent("Classify issues as deep-work, quick-win, or maintenance")
+    interface ClassifyAgent {
+        String classifyIssue(@P("issueNumber") int issueNumber, @P("issueTitle") String issueTitle, 
+                            @P("classification") String classification);
+    }
+    
+    @Agent("Flag issues needing scope clarification")
+    interface ScopeAgent {
+        String flagForScope(@P("issueNumber") int issueNumber, @P("issueTitle") String issueTitle);
+    }
+    
+    @Agent("Assess wellness and recommend breaks")
+    interface WellnessAgent {
+        String assessWellness(@P("stressScore") int stressScore, @P("hasAfterHours") boolean hasAfterHours);
+    }
 }
 
-// Tool class with @Tool annotations
-public class BurnoutMutationTool {
-    @Tool("Defer an issue to the next sprint to reduce immediate workload")
-    public String deferIssue(int issueNumber, String reason) { ... }
-    
-    @Tool("Delegate an issue to another team member")
-    public String delegateIssue(int issueNumber) { ... }
-}
+// Supervisor orchestrates the sub-agents
+SupervisorAgent supervisor = AgenticServices.supervisorBuilder()
+    .chatModel(plannerModel)
+    .subAgents(deferAgent, delegateAgent, classifyAgent, scopeAgent, wellnessAgent)
+    .responseStrategy(SupervisorResponseStrategy.SUMMARY)
+    .build();
 ```
 
-The LLM decides which tools to call based on the stress analysis, creating intelligent workload management.
+The Supervisor LLM decides which sub-agents to invoke based on stress analysis, creating intelligent multi-agent workload management.
 
 ## AI-Powered Features
 
@@ -268,13 +286,13 @@ The system analyzes multiple signals:
 - **After Hours** - Late night activity
 - **Workload Imbalance** - Too many assigned issues
 
-### Intelligent Actions
-When stress is detected, the LLM supervisor can:
-1. **Defer** non-critical issues to next sprint
-2. **Delegate** tasks to balance team load
-3. **Classify** issues into the 3-3-3 structure
-4. **Block** issues waiting on dependencies
-5. **Protect** deep work time
+### Intelligent Actions (5 Sub-Agents)
+When stress is detected, the Supervisor LLM orchestrates these sub-agents:
+1. **DeferAgent** - Push non-critical issues to next sprint
+2. **DelegateAgent** - Reassign tasks to balance team load
+3. **ClassifyAgent** - Apply labels (deep-work, quick-win, maintenance)
+4. **ScopeAgent** - Flag vague issues needing clarification
+5. **WellnessAgent** - Recommend breaks based on stress signals
 
 ### Protective Messages
 The AI generates personalized wellness recommendations:
@@ -285,7 +303,7 @@ The AI generates personalized wellness recommendations:
 ```
 burnout-app/
 ├── backend/                    # Java Spring Boot backend
-│   ├── src/main/java/         # LangChain4j agents, services
+│   ├── src/main/java/         # LangChain4j Supervisor + sub-agents
 │   ├── Dockerfile             # Container image for Azure
 │   └── pom.xml
 ├── mcp-app/                   # MCP App (Node.js)
