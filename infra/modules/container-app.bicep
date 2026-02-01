@@ -59,8 +59,8 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'burnout-backend'
           image: imageName
           resources: {
-            cpu: json('4')
-            memory: '8Gi'
+            cpu: json('2')
+            memory: '4Gi'
           }
           env: [
             {
