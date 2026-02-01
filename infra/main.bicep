@@ -13,6 +13,9 @@ param openAiModelName string = 'gpt-4o'
 @description('Azure OpenAI model version')
 param openAiModelVersion string = '2024-08-06'
 
+@description('Azure OpenAI capacity in thousands of tokens per minute')
+param openAiCapacityK int = 50
+
 // Resource naming
 var identityName = '${environmentName}-identity'
 var openAiName = '${environmentName}-openai'
@@ -39,6 +42,7 @@ module openAi 'modules/openai.bicep' = {
     deploymentName: openAiDeployment
     modelName: openAiModelName
     modelVersion: openAiModelVersion
+    capacityK: openAiCapacityK
   }
 }
 

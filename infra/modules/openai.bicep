@@ -14,7 +14,7 @@ param modelName string = 'gpt-4o'
 param modelVersion string = '2024-08-06'
 
 @description('Capacity in thousands of tokens per minute')
-param capacityK int = 10
+param capacityK int = 50
 
 resource openAi 'Microsoft.CognitiveServices/accounts@2024-10-01' = {
   name: openAiName
