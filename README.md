@@ -159,7 +159,7 @@ Quick check of your current stress level (🟢 Low / 🟡 Medium / 🔴 High).
 ```
 Reshape my day for owner/repo
 ```
-AI analyzes your workload and provides recommendations to optimize your day.
+AI analyzes your workload and **automatically applies labels** to your GitHub issues (deep-work, quick-win, maintenance) to organize them into the 3-3-3 structure.
 
 #### Alternative Prompt Styles
 The tools understand natural language, so you can also try:
@@ -213,7 +213,7 @@ The tools understand natural language, so you can also try:
 | Tool | Description |
 |------|-------------|
 | `show_burnout_wheel` | Display your 3-3-3 day plan with metrics |
-| `reshape_day` | AI-powered workload optimization |
+| `reshape_day` | AI-powered workload optimization - applies labels to GitHub |
 | `get_stress_score` | Quick stress level check |
 | `sync_issues` | Sync issues from GitHub to backend |
 
