@@ -1,18 +1,20 @@
 package com.demo.burnout.config;
 
 import com.azure.core.credential.TokenCredential;
+import com.azure.core.credential.TokenRequestContext;
 import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.demo.burnout.agent.*;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
-import dev.langchain4j.model.azure.AzureOpenAiChatModel;
 import dev.langchain4j.model.chat.ChatModel;
+import dev.langchain4j.model.openaiofficial.OpenAiOfficialChatModel;
 import dev.langchain4j.service.AiServices;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 /**
  * LangChain4j Agent Configuration.
@@ -34,6 +36,9 @@ public class AgentConfiguration {
     @Value("${azure.identity.client-id:}")
     private String managedIdentityClientId;
 
+    @Value("${azure.openai.api-key:}")
+    private String apiKey;
+
     /**
      * Azure credential using DefaultAzureCredential.
      * Supports managed identity in Azure, and falls back to other methods locally.
@@ -54,16 +59,55 @@ public class AgentConfiguration {
     }
 
     /**
-     * Azure OpenAI Chat Model using managed identity.
+     * Get Azure OpenAI access token from managed identity.
+     * This token is used as the API key when calling Azure OpenAI via the official SDK.
+     */
+    private String getAzureOpenAiToken(TokenCredential credential) {
+        // If API key is provided, use it directly
+        if (apiKey != null && !apiKey.isEmpty()) {
+            log.info("Using provided API key for Azure OpenAI");
+            return apiKey;
+        }
+        
+        // Otherwise, get access token from managed identity
+        log.info("Getting access token from managed identity for Azure OpenAI");
+        var tokenRequest = new TokenRequestContext()
+            .addScopes("https://cognitiveservices.azure.com/.default");
+        return credential.getToken(tokenRequest).block().getToken();
+    }
+
+    /**
+     * Azure OpenAI Chat Model using OpenAI Official SDK.
+     * Uses managed identity token or API key for authentication.
      */
     @Bean
+    @Primary
     public ChatModel azureChatModel(TokenCredential azureCredential) {
-        log.info("Configuring Azure OpenAI with deployment: {} using managed identity", deploymentName);
+        log.info("Configuring Azure OpenAI with deployment: {} using OpenAI Official SDK", deploymentName);
+        String token = getAzureOpenAiToken(azureCredential);
         
-        return AzureOpenAiChatModel.builder()
-            .endpoint(azureEndpoint)
-            .tokenCredential(azureCredential)
-            .deploymentName(deploymentName)
+        return OpenAiOfficialChatModel.builder()
+            .baseUrl(azureEndpoint)
+            .apiKey(token)
+            .modelName(deploymentName)
+            .isAzure(true)
+            .build();
+    }
+
+    /**
+     * Planner Model for Supervisor pattern orchestration.
+     * Uses the same deployment but separate instance for planning decisions.
+     */
+    @Bean("plannerModel")
+    public ChatModel plannerModel(TokenCredential azureCredential) {
+        log.info("Configuring Azure OpenAI plannerModel for Supervisor pattern");
+        String token = getAzureOpenAiToken(azureCredential);
+        
+        return OpenAiOfficialChatModel.builder()
+            .baseUrl(azureEndpoint)
+            .apiKey(token)
+            .modelName(deploymentName)
+            .isAzure(true)
             .build();
     }
 

@@ -11,156 +11,101 @@ import dev.langchain4j.service.V;
  * 
  * Pattern: Supervisor autonomously coordinates DeferAgent, DelegateAgent, ClassifyAgent.
  * Uses AgenticServices.supervisorBuilder() for LLM-based planning and coordination.
+ * 
+ * Each sub-agent has @Agent annotation and uses tools from BurnoutMutationTool.
  */
 public interface BurnoutAgents {
 
     /**
-     * DeferAgent: Handles deferring issues to reduce immediate workload.
-     * Uses BurnoutMutationTool for GitHub operations.
+     * DeferAgent: Defers non-critical issues to reduce immediate workload.
+     * Uses BurnoutMutationTool.deferIssue() for GitHub operations.
      */
     interface DeferAgent {
         @SystemMessage("""
-            You are a workload protection agent that defers non-critical issues to reduce immediate stress.
-            Use the deferIssue tool to mark issues for next sprint when the developer is overloaded.
-            Only defer issues that are not marked as priority:critical or urgent.
+            You are a workload protection agent that defers non-critical issues.
+            Use the deferIssue tool to mark issues for next sprint.
+            Only defer issues that are NOT priority:critical or urgent.
             """)
         @UserMessage("""
-            Analyze the following issues and defer appropriate ones to reduce stress.
-            Current stress score: {{stressScore}}/100
-            Target: Reduce assigned count below 7 issues.
-            
-            Issues to consider:
-            {{issueList}}
-            
-            Use the tools to defer issues, then summarize what you deferred and why.
+            Defer issue #{{issueNumber}} to reduce stress.
+            Issue: {{issueTitle}}
             """)
         @Agent(description = "A protective agent that defers non-critical issues to next sprint")
-        String deferIssues(@V("stressScore") int stressScore, @V("issueList") String issueList);
+        String deferIssue(@V("issueNumber") int issueNumber, @V("issueTitle") String issueTitle);
     }
 
     /**
-     * DelegateAgent: Handles delegating issues to redistribute workload.
-     * Uses BurnoutMutationTool for GitHub operations.
+     * DelegateAgent: Delegates issues to redistribute workload.
+     * Uses BurnoutMutationTool.delegateIssue() for GitHub operations.
      */
     interface DelegateAgent {
         @SystemMessage("""
-            You are a workload distribution agent that delegates issues to balance team load.
-            Use the delegateIssue tool to mark issues that should be reassigned to other team members.
-            Focus on issues without clear ownership or that could benefit from fresh perspective.
+            You are a workload distribution agent that delegates issues.
+            Use the delegateIssue tool to mark issues for reassignment.
             """)
         @UserMessage("""
-            Analyze the following issues and delegate appropriate ones to balance workload.
-            Current assigned count: {{totalAssigned}} issues (max recommended: 7)
-            
-            Issues to consider:
-            {{issueList}}
-            
-            Use the tools to mark issues for delegation, then summarize what you delegated and why.
+            Delegate issue #{{issueNumber}} to balance workload.
+            Issue: {{issueTitle}}
             """)
         @Agent(description = "A distribution agent that delegates issues to balance team workload")
-        String delegateIssues(@V("totalAssigned") int totalAssigned, @V("issueList") String issueList);
+        String delegateIssue(@V("issueNumber") int issueNumber, @V("issueTitle") String issueTitle);
     }
 
     /**
-     * ClassifyAgent: Handles reclassifying issues for 3-3-3 compliance.
-     * Uses BurnoutMutationTool for GitHub operations.
+     * ClassifyAgent: Classifies issues for 3-3-3 compliance.
+     * Uses BurnoutMutationTool classification methods.
      */
     interface ClassifyAgent {
         @SystemMessage("""
-            You are a workload organization agent that classifies issues according to the 3-3-3 structure:
-            - 1 deep work item (complex, architectural, requires focus)
-            - 3 quick wins (small tasks under 30 minutes)
-            - 3 maintenance tasks (tech debt, docs, cleanup)
-            
-            Use the classification tools:
-            - markAsDeepWork for the most critical/architectural issue
-            - classifyAsQuickWin for small, quick tasks
-            - classifyAsMaintenance for tech debt and cleanup
+            You are a workload organization agent that classifies issues for 3-3-3 structure:
+            - 1 deep work (markAsDeepWork)
+            - 3 quick wins (classifyAsQuickWin) 
+            - 3 maintenance (classifyAsMaintenance)
             """)
         @UserMessage("""
-            Organize the following issues to achieve 3-3-3 compliance.
-            Current state:
-            - Deep work: {{deepWorkCount}} (need exactly 1)
-            - Quick wins: {{quickWinCount}} (max 3)
-            - Maintenance: {{maintenanceCount}} (max 3)
-            
-            Issues to classify:
-            {{issueList}}
-            
-            Use the tools to classify issues, then summarize the new structure.
+            Classify issue #{{issueNumber}} as {{classification}}.
+            Issue: {{issueTitle}}
             """)
         @Agent(description = "An organization agent that classifies issues for 3-3-3 structure")
-        String classifyIssues(
-            @V("deepWorkCount") int deepWorkCount,
-            @V("quickWinCount") int quickWinCount,
-            @V("maintenanceCount") int maintenanceCount,
-            @V("issueList") String issueList
+        String classifyIssue(
+            @V("issueNumber") int issueNumber, 
+            @V("issueTitle") String issueTitle,
+            @V("classification") String classification
         );
     }
 
     /**
-     * ScopeAgent: Handles flagging unclear issues that need better definition.
-     * Uses BurnoutMutationTool for GitHub operations.
+     * ScopeAgent: Flags unclear issues needing scope clarification.
+     * Uses BurnoutMutationTool.addScopeNeeded() for GitHub operations.
      */
     interface ScopeAgent {
         @SystemMessage("""
-            You are a clarity agent that identifies issues lacking clear scope or definition.
-            Use the addScopeNeeded tool to flag issues that:
-            - Have no description or vague descriptions
-            - Don't have clear "done" criteria
-            - Are ambiguous about requirements
-            
-            Mystery meat issues create cognitive load and should be clarified before work begins.
+            You are a clarity agent that identifies unclear issues.
+            Use addScopeNeeded for issues lacking clear scope or "done" criteria.
             """)
         @UserMessage("""
-            Review the following issues and flag those needing scope clarification.
-            Current mystery meat count: {{mysteryMeatCount}}
-            
-            Issues to review:
-            {{issueList}}
-            
-            Use the tools to flag unclear issues, then summarize what needs clarification.
+            Flag issue #{{issueNumber}} as needing scope clarification.
+            Issue: {{issueTitle}}
             """)
         @Agent(description = "A clarity agent that flags issues needing scope definition")
-        String reviewScope(@V("mysteryMeatCount") int mysteryMeatCount, @V("issueList") String issueList);
+        String flagForScope(@V("issueNumber") int issueNumber, @V("issueTitle") String issueTitle);
     }
 
     /**
-     * WellnessAgent: Handles wellness recommendations when stress is high.
-     * Uses BurnoutMutationTool for recommendations.
+     * WellnessAgent: Provides stress reduction recommendations.
+     * Uses BurnoutMutationTool wellness methods.
      */
     interface WellnessAgent {
         @SystemMessage("""
-            You are a wellness agent focused on developer health and sustainable productivity.
-            When stress indicators are high, recommend:
-            - Taking breaks (suggestBreak tool)
-            - Slowing issue intake (slowIntake tool)
-            - Blocking calendar time for focus (blockCalendarTime tool)
-            
-            Be supportive and emphasize that rest improves long-term productivity.
+            You are a wellness agent focused on developer health.
+            Use suggestBreak, slowIntake, or blockCalendarTime as needed.
+            Be supportive and emphasize sustainable productivity.
             """)
         @UserMessage("""
-            Assess wellness needs based on current stress indicators:
-            - Stress score: {{stressScore}}/100
-            - After hours activity: {{hasAfterHours}}
-            - Chaos score: {{chaosScore}}/10
-            
-            Provide wellness recommendations as needed.
+            Assess wellness needs for stress score {{stressScore}}/100.
+            After hours activity: {{hasAfterHours}}
             """)
         @Agent(description = "A wellness agent that provides stress reduction recommendations")
-        String assessWellness(
-            @V("stressScore") int stressScore,
-            @V("hasAfterHours") boolean hasAfterHours,
-            @V("chaosScore") double chaosScore
-        );
-    }
-
-    /**
-     * BurnoutSupervisor: Typed interface for the supervisor pattern.
-     * The supervisor autonomously plans and coordinates sub-agents.
-     */
-    interface BurnoutSupervisor {
-        @Agent
-        String invoke(@V("request") String request);
+        String assessWellness(@V("stressScore") int stressScore, @V("hasAfterHours") boolean hasAfterHours);
     }
 }
