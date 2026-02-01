@@ -10,7 +10,7 @@ This project helps developers prevent burnout by intelligently managing their Gi
 
 ## ✨ Features
 
-- **🤖 LLM-Driven Supervisor** - Uses Azure OpenAI (gpt-4o) with `@Tool` annotations to intelligently rebalance workloads
+- **🤖 LLM-Driven Supervisor** - Uses Azure OpenAI (gpt-4o-mini) with `@Tool` annotations to intelligently rebalance workloads
 - **📊 3-3-3 Day Structure** - Automatically classifies issues into Deep Work, Quick Wins, and Maintenance
 - **🛡️ Protective AI** - Detects stress signals and provides personalized wellness recommendations
 - **📈 Chaos Scoring** - Measures workload chaos (context switching, mystery meat issues, after-hours work)
@@ -311,14 +311,6 @@ burnout-app/
 
 ## Configuration
 
-### Environment Variables (`.env`)
-
-```env
-AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
-AZURE_OPENAI_API_KEY=your-api-key
-AZURE_OPENAI_DEPLOYMENT=gpt-4o
-```
-
 ### MCP Configuration (`.vscode/mcp.json`)
 
 ```json
@@ -337,11 +329,14 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o
 ### Environment File (`.env`)
 
 ```env
-# For Azure deployment
+# For Azure deployment (just the backend URL - OpenAI uses managed identity)
 BACKEND_URL=https://your-backend.nicepebble-xxxxx.eastus.azurecontainerapps.io
 
-# For local development
+# For local development (requires Azure OpenAI credentials)
 BACKEND_URL=http://localhost:8080
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
+AZURE_OPENAI_API_KEY=your-api-key
+AZURE_OPENAI_DEPLOYMENT=gpt-4o
 ```
 
 ## Troubleshooting
