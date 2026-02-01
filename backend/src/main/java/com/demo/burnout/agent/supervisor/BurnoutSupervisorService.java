@@ -4,8 +4,10 @@ import com.demo.burnout.goap.GitHubMutationPlan;
 import com.demo.burnout.model.ChaosMetrics;
 import com.demo.burnout.model.Issue;
 import com.demo.burnout.model.WorldState;
+import dev.langchain4j.agentic.AgenticServices;
+import dev.langchain4j.agentic.supervisor.SupervisorAgent;
+import dev.langchain4j.agentic.supervisor.SupervisorResponseStrategy;
 import dev.langchain4j.model.chat.ChatModel;
-import dev.langchain4j.service.AiServices;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,14 +19,18 @@ import java.util.stream.Collectors;
 /**
  * Burnout Supervisor Service - LLM-driven workload management using the Supervisor pattern.
  * 
- * This replaces the deterministic GOAPPlanner with an agentic approach where:
- * 1. The LLM scores the developer's stress level
- * 2. The LLM decides which tools to invoke to reduce stress
- * 3. Tool calls generate GitHub mutations to rebalance workload
+ * Uses AgenticServices.supervisorBuilder() from langchain4j-agentic module for
+ * autonomous agent orchestration where:
+ * 1. The supervisor analyzes the developer's stress level
+ * 2. The supervisor coordinates sub-agents to reduce stress
+ * 3. Sub-agents use tools to generate GitHub mutations
  * 
- * The supervisor coordinates subagents:
- * - StressScorerAgent: Assesses stress from metrics
- * - WorkloadRebalancerAgent: Uses tools to modify issues
+ * The supervisor coordinates sub-agents:
+ * - DeferAgent: Defers non-critical issues to next sprint
+ * - DelegateAgent: Redistributes workload across team
+ * - ClassifyAgent: Organizes issues for 3-3-3 compliance
+ * - ScopeAgent: Flags unclear issues needing definition
+ * - WellnessAgent: Provides stress reduction recommendations
  */
 @Service
 public class BurnoutSupervisorService {
@@ -58,10 +64,13 @@ public class BurnoutSupervisorService {
     /**
      * Run the burnout prevention supervisor on the given workload.
      * 
-     * The supervisor will:
-     * 1. Analyze the current stress level
-     * 2. Invoke tools to reduce stress if needed
-     * 3. Return an explanation and mutation plan
+     * Uses AgenticServices.supervisorBuilder() for autonomous agent orchestration.
+     * The supervisor coordinates sub-agents:
+     * - DeferAgent: Defers non-critical issues
+     * - DelegateAgent: Redistributes workload
+     * - ClassifyAgent: Organizes for 3-3-3 compliance
+     * - ScopeAgent: Flags unclear issues
+     * - WellnessAgent: Provides stress reduction recommendations
      */
     public SupervisorResult preventBurnout(
             WorldState state,
@@ -79,19 +88,69 @@ public class BurnoutSupervisorService {
             // Create the mutation tool with access to issues
             BurnoutMutationTool mutationTool = new BurnoutMutationTool(issues, repo);
             
-            // Build the WorkloadRebalancerAgent with tools
-            WorkloadRebalancerAgent rebalancer = AiServices.builder(WorkloadRebalancerAgent.class)
+            // Format issues for the prompt
+            String issueList = formatIssueList(issues, userId);
+            
+            // Build sub-agents using AgenticServices.agentBuilder() with tools
+            BurnoutAgents.DeferAgent deferAgent = AgenticServices.agentBuilder(BurnoutAgents.DeferAgent.class)
                 .chatModel(chatModel)
                 .tools(mutationTool)
                 .build();
             
-            // Format issues for the prompt
-            String issueList = formatIssueList(issues, userId);
+            BurnoutAgents.DelegateAgent delegateAgent = AgenticServices.agentBuilder(BurnoutAgents.DelegateAgent.class)
+                .chatModel(chatModel)
+                .tools(mutationTool)
+                .build();
             
-            // Invoke the rebalancer agent
-            log.info("Invoking WorkloadRebalancerAgent for user {} in repo {}", userId, repo);
+            BurnoutAgents.ClassifyAgent classifyAgent = AgenticServices.agentBuilder(BurnoutAgents.ClassifyAgent.class)
+                .chatModel(chatModel)
+                .tools(mutationTool)
+                .build();
             
-            String explanation = rebalancer.rebalanceWorkload(
+            BurnoutAgents.ScopeAgent scopeAgent = AgenticServices.agentBuilder(BurnoutAgents.ScopeAgent.class)
+                .chatModel(chatModel)
+                .tools(mutationTool)
+                .build();
+            
+            BurnoutAgents.WellnessAgent wellnessAgent = AgenticServices.agentBuilder(BurnoutAgents.WellnessAgent.class)
+                .chatModel(chatModel)
+                .tools(mutationTool)
+                .build();
+            
+            // Build supervisor using AgenticServices.supervisorBuilder() with sub-agents
+            SupervisorAgent supervisor = AgenticServices.supervisorBuilder()
+                .chatModel(chatModel)
+                .subAgents(deferAgent, delegateAgent, classifyAgent, scopeAgent, wellnessAgent)
+                .responseStrategy(SupervisorResponseStrategy.SUMMARY)
+                .build();
+            
+            log.info("Invoking BurnoutSupervisor for user {} in repo {}", userId, repo);
+            
+            // Build the supervisor request with full context
+            String supervisorRequest = String.format("""
+                Analyze and rebalance this developer's workload to reduce stress.
+                
+                Current State:
+                - Stress Score: %d/100 (%s)
+                - Total Assigned: %d issues
+                - Deep Work: %d (need exactly 1)
+                - Quick Wins: %d (max 3)
+                - Maintenance: %d (max 3)
+                - 3-3-3 Compliant: %s
+                - Chaos Score: %.1f/10
+                - After Hours Activity: %s
+                - Mystery Meat Issues: %d
+                
+                Available Issues:
+                %s
+                
+                Goals:
+                1. Reduce stress score below 50
+                2. Achieve 3-3-3 compliance
+                3. Protect the developer's focus time
+                4. Flag unclear issues for scope clarification
+                5. Recommend wellness actions if needed
+                """,
                 state.calculateStressScore(),
                 state.getStressLevel().name(),
                 state.totalAssigned(),
@@ -104,6 +163,9 @@ public class BurnoutSupervisorService {
                 state.mysteryMeatCount(),
                 issueList
             );
+            
+            // Supervisor autonomously plans and executes
+            String explanation = supervisor.invoke(supervisorRequest);
             
             // Get the mutation plan from the tool
             GitHubMutationPlan mutationPlan = mutationTool.getMutationPlan();

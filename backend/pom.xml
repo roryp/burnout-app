@@ -52,6 +52,12 @@
             <artifactId>langchain4j-azure-open-ai</artifactId>
             <version>${langchain4j.version}</version>
         </dependency>
+        <!-- LangChain4j Agentic Module - Supervisor Pattern -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-agentic</artifactId>
+            <version>${langchain4j.mcp.version}</version>
+        </dependency>
 
         <!-- Azure SDK Core (required by langchain4j-open-ai-official for Azure OpenAI) -->
         <dependency>

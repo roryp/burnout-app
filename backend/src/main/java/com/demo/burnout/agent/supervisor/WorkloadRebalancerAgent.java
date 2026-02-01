@@ -1,5 +1,6 @@
 package com.demo.burnout.agent.supervisor;
 
+import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.V;
@@ -7,7 +8,10 @@ import dev.langchain4j.service.V;
 /**
  * Workload Rebalancer Agent - Uses tools to reorganize developer's workload.
  * This AI service has access to burnout prevention tools and can invoke them to reduce stress.
+ * 
+ * @deprecated Use {@link BurnoutAgents} sub-agents with AgenticServices.supervisorBuilder() instead.
  */
+@Deprecated
 public interface WorkloadRebalancerAgent {
 
     @SystemMessage("""
