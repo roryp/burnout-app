@@ -191,7 +191,8 @@ server.tool(
     let isDemo = false;
     
     try {
-      data = await getReshapeData(repo);
+      // Pass applyMutations: true to execute AI-recommended label changes
+      data = await getReshapeData(repo, undefined, true);
     } catch (error) {
       log(`Backend unavailable: ${error}`);
       data = getDemoReshapeData(repo);
@@ -204,6 +205,8 @@ server.tool(
         params: { progressToken, progress: 100, message: `✅ Plan ready!` },
       });
     }
+    
+    const mutationsApplied = data.actionPlan?.actions?.length || 0;
     
     const summary = [
       `## 📊 3-3-3 Day Plan for ${repo}`,
@@ -218,6 +221,7 @@ server.tool(
       `**Stress Score**: ${data.stressScore}/100`,
       `**Friday Score**: ${data.fridayScore}%`,
       '',
+      mutationsApplied > 0 ? `✨ Applied ${mutationsApplied} label changes to GitHub` : '',
       isDemo ? '*⚠️ Demo data - backend not available*' : '',
     ].filter(Boolean).join('\n');
     

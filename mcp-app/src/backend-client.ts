@@ -15,17 +15,21 @@ export interface DayPlan {
   deferred: Issue[];
 }
 
+export interface GitHubAction {
+  type: string;
+  issueNumber: number;
+  labels?: string[];
+  body?: string;
+}
+
 export interface ReshapeResponse {
   dayPlan: DayPlan;
   stressScore: number;
   fridayScore: number;
   agentExplanation: string;
   actionPlan?: {
-    actions: Array<{
-      type: string;
-      issueNumber: number;
-      label: string;
-    }>;
+    repo: string;
+    actions: GitHubAction[];
   };
 }
 
@@ -50,9 +54,11 @@ async function getGitHubToken(): Promise<string> {
   const execAsync = promisify(exec);
 
   try {
-    const { stdout } = await execAsync('gh auth token');
+    // Clear GITHUB_TOKEN to force gh CLI to use keyring token with full scopes
+    const env = { ...process.env, GITHUB_TOKEN: '' };
+    const { stdout } = await execAsync('gh auth token', { env });
     cachedToken = stdout.trim();
-    console.error('[Auth] Retrieved GitHub token from gh CLI');
+    console.error('[Auth] Retrieved GitHub token from gh CLI (keyring)');
     return cachedToken;
   } catch (error) {
     console.error('[Auth] Failed to get GitHub token. Make sure gh CLI is authenticated.');
@@ -84,13 +90,80 @@ export async function callBackend<T>(endpoint: string, options?: RequestInit): P
   return response.json() as Promise<T>;
 }
 
-export async function getReshapeData(repo: string, userId?: string): Promise<ReshapeResponse> {
+/**
+ * Execute GitHub mutations via gh CLI.
+ * This applies the AI-recommended changes (labels, comments) to issues.
+ */
+async function executeMutations(repo: string, actions: GitHubAction[]): Promise<void> {
+  const { exec } = await import('child_process');
+  const { promisify } = await import('util');
+  const execAsync = promisify(exec);
+  
+  // Clear GITHUB_TOKEN to use keyring token with full scopes
+  const env = { ...process.env, GITHUB_TOKEN: '' };
+  
+  for (const action of actions) {
+    try {
+      if (action.type === 'AddLabels' && action.labels?.length) {
+        // Ensure labels exist first, then add them
+        for (const label of action.labels) {
+          // Create label if it doesn't exist (--force updates if exists)
+          try {
+            await execAsync(
+              `gh label create "${label}" --repo ${repo} --force --color auto`,
+              { env }
+            );
+          } catch {
+            // Label creation may fail if it exists, that's ok
+          }
+        }
+        // Add labels to the issue
+        const labelsArg = action.labels.map(l => `--add-label "${l}"`).join(' ');
+        await execAsync(
+          `gh issue edit ${action.issueNumber} --repo ${repo} ${labelsArg}`,
+          { env }
+        );
+        console.error(`[Mutations] Added labels [${action.labels.join(', ')}] to #${action.issueNumber}`);
+      }
+      
+      if (action.type === 'RemoveLabels' && action.labels?.length) {
+        const labelsArg = action.labels.map(l => `--remove-label "${l}"`).join(' ');
+        await execAsync(
+          `gh issue edit ${action.issueNumber} --repo ${repo} ${labelsArg}`,
+          { env }
+        );
+        console.error(`[Mutations] Removed labels [${action.labels.join(', ')}] from #${action.issueNumber}`);
+      }
+      
+      if (action.type === 'Comment' && action.body) {
+        await execAsync(
+          `gh issue comment ${action.issueNumber} --repo ${repo} --body "${action.body.replace(/"/g, '\\"')}"`,
+          { env }
+        );
+        console.error(`[Mutations] Added comment to #${action.issueNumber}`);
+      }
+    } catch (error) {
+      console.error(`[Mutations] Failed to apply ${action.type} to #${action.issueNumber}: ${error}`);
+      // Continue with other mutations even if one fails
+    }
+  }
+}
+
+export async function getReshapeData(repo: string, userId?: string, applyMutations: boolean = false): Promise<ReshapeResponse> {
   // Extract owner from repo as default userId
   const effectiveUserId = userId || repo.split('/')[0];
-  return callBackend<ReshapeResponse>('/api/reshape', {
+  const response = await callBackend<ReshapeResponse>('/api/reshape', {
     method: 'POST',
-    body: JSON.stringify({ repo, userId: effectiveUserId, dryRun: true }),
+    body: JSON.stringify({ repo, userId: effectiveUserId, dryRun: !applyMutations }),
   });
+  
+  // Execute mutations if requested and available
+  if (applyMutations && response.actionPlan?.actions?.length) {
+    console.error(`[Mutations] Executing ${response.actionPlan.actions.length} GitHub mutations...`);
+    await executeMutations(repo, response.actionPlan.actions);
+  }
+  
+  return response;
 }
 
 export async function getStressScore(repo: string, userId?: string): Promise<StressResponse> {
@@ -118,8 +191,11 @@ export async function syncIssues(repo: string): Promise<Issue[]> {
   
   console.error(`[Sync] Fetching issues from GitHub for ${repo}...`);
   
+  // Clear GITHUB_TOKEN to force gh CLI to use keyring token with full scopes (including private repo access)
+  const env = { ...process.env, GITHUB_TOKEN: '' };
   const { stdout, stderr } = await execAsync(
-    `gh issue list --repo ${repo} --state open --json number,title,body,labels,assignees,createdAt,updatedAt,state --limit 100`
+    `gh issue list --repo ${repo} --state open --json number,title,body,labels,assignees,createdAt,updatedAt,state --limit 100`,
+    { env }
   );
   
   if (stderr) {
