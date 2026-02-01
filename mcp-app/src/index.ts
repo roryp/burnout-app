@@ -107,17 +107,19 @@ server.registerTool(
     let isDemo = false;
     
     try {
-      data = await getReshapeData(repo);
+      // Call with dryRun=true (applyMutations=false) - just get the plan, don't apply labels
+      data = await getReshapeData(repo, undefined, false);
       log(`Backend returned data with stress score: ${data.stressScore}`);
       
-      // If backend returns empty data (not synced), fall back to demo
-      if (!data.dayPlan || data.stressScore < 0) {
-        log('Backend returned empty data, using demo mode');
+      // If backend returns not-synced status, fall back to demo
+      if (data.stressScore < 0) {
+        log('Backend returned not-synced, using demo mode');
         data = getDemoReshapeData(repo);
         isDemo = true;
       }
     } catch (error) {
-      log(`Backend unavailable, using demo data: ${error}`);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      log(`Backend unavailable, using demo data: ${errorMsg}`);
       data = getDemoReshapeData(repo);
       isDemo = true;
     }
