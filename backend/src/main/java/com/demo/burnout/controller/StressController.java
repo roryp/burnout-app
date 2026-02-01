@@ -4,6 +4,8 @@ import com.demo.burnout.agent.supervisor.BurnoutSupervisorService;
 import com.demo.burnout.goap.GoapActionSummary;
 import com.demo.burnout.model.*;
 import com.demo.burnout.service.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Clock;
@@ -14,6 +16,8 @@ import java.util.Map;
 @RequestMapping("/api")
 @CrossOrigin(origins = "*")
 public class StressController {
+    
+    private static final Logger log = LoggerFactory.getLogger(StressController.class);
     
     private final IssueCache issueCache;
     private final ChaosMetricsService chaosMetricsService;
@@ -44,14 +48,22 @@ public class StressController {
         ComplianceReport compliance = complianceService.analyze(issues, userId);
         WorldState state = WorldState.from(issues, userId, chaos, compliance, clock);
         
-        // Use the supervisor service to get stress assessment
-        var supervisorResult = supervisorService.preventBurnout(state, issues, userId, repo, chaos);
-        
-        // Convert mutation actions to summaries for backward compatibility
-        List<GoapActionSummary> actionSummaries = supervisorResult.mutationPlan().actions().stream()
-            .map(a -> new GoapActionSummary(a.type() + " #" + a.issueNumber(), 
-                "LLM-planned action", 5))
-            .toList();
+        // Use the supervisor service to get stress assessment, with graceful fallback
+        List<GoapActionSummary> actionSummaries;
+        int estimatedStress;
+        try {
+            var supervisorResult = supervisorService.preventBurnout(state, issues, userId, repo, chaos);
+            // Convert mutation actions to summaries for backward compatibility
+            actionSummaries = supervisorResult.mutationPlan().actions().stream()
+                .map(a -> new GoapActionSummary(a.type() + " #" + a.issueNumber(), 
+                    "LLM-planned action", 5))
+                .toList();
+            estimatedStress = supervisorResult.estimatedStressScore();
+        } catch (Exception e) {
+            log.warn("Supervisor service failed (rate limit?), returning stress score without AI: {}", e.getMessage());
+            actionSummaries = List.of();
+            estimatedStress = state.calculateStressScore(); // fallback to current score
+        }
         
         return new StressResponse(
             state.calculateStressScore(),
@@ -67,7 +79,7 @@ public class StressController {
             state.is333Compliant(),
             actionSummaries,
             state.calculateStressScore(),
-            supervisorResult.estimatedStressScore(),
+            estimatedStress,
             StressResponse.SCHEMA_VERSION
         );
     }

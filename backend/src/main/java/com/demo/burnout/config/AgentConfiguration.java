@@ -91,6 +91,7 @@ public class AgentConfiguration {
             .apiKey(token)
             .modelName(deploymentName)
             .isAzure(true)
+            .maxRetries(5) // Handle rate limiting with retries
             .build();
     }
 
@@ -108,6 +109,7 @@ public class AgentConfiguration {
             .apiKey(token)
             .modelName(deploymentName)
             .isAzure(true)
+            .maxRetries(5) // Handle rate limiting with retries
             .build();
     }
 
