@@ -1,6 +1,5 @@
 package com.demo.burnout.agent;
 
-import com.demo.burnout.goap.GoapActionPlan;
 import com.demo.burnout.model.ComplianceReport;
 import com.demo.burnout.model.WorldState;
 import org.slf4j.Logger;
@@ -12,7 +11,6 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.format.TextStyle;
 import java.util.Locale;
-import java.util.stream.Collectors;
 
 /**
  * Agent Orchestrator - coordinates all AI agents for burnout prevention.
@@ -47,40 +45,6 @@ public class AgentOrchestrator {
         this.llmEnabled = explainerAiService != null;
         
         log.info("AgentOrchestrator initialized. LLM enabled: {}", llmEnabled);
-    }
-
-    /**
-     * Generate a human-friendly explanation of a GOAP action plan.
-     */
-    public String explainPlan(WorldState state, GoapActionPlan plan, String primaryGoal) {
-        if (!llmEnabled) {
-            return generateFallbackExplanation(state, plan, primaryGoal);
-        }
-
-        try {
-            String actionsList = plan.actions().isEmpty() 
-                ? "No actions needed"
-                : plan.actions().stream()
-                    .map(a -> "- " + a.name())
-                    .collect(Collectors.joining("\n"));
-
-            return explainerAiService.explainPlan(
-                state.calculateStressScore(),
-                state.getStressLevel().name(),
-                state.deepWorkCount(),
-                state.quickWinCount(),
-                state.maintenanceCount(),
-                state.totalAssigned(),
-                state.is333Compliant(),
-                primaryGoal,
-                plan.actions().size(),
-                actionsList,
-                plan.expectedStressScore()
-            );
-        } catch (Exception e) {
-            log.warn("LLM call failed, using fallback: {}", e.getMessage());
-            return generateFallbackExplanation(state, plan, primaryGoal);
-        }
     }
 
     /**
@@ -148,42 +112,6 @@ public class AgentOrchestrator {
     }
 
     // ======================== Fallback Implementations ========================
-
-    private String generateFallbackExplanation(WorldState state, GoapActionPlan plan, String primaryGoal) {
-        StringBuilder sb = new StringBuilder();
-        
-        int stress = state.calculateStressScore();
-        if (stress >= 70) {
-            sb.append("🔴 **Critical stress detected.** ");
-        } else if (stress >= 50) {
-            sb.append("🟡 **Elevated stress levels.** ");
-        } else {
-            sb.append("🟢 **Stress levels manageable.** ");
-        }
-        sb.append("Current stress score: ").append(stress).append("/100\n\n");
-        
-        if (!state.is333Compliant()) {
-            sb.append("⚠️ Your workload exceeds the 3-3-3 structure. ");
-            sb.append("You have ").append(state.deepWorkCount()).append(" deep work items (max 1), ");
-            sb.append(state.quickWinCount()).append(" quick wins (max 3), ");
-            sb.append("and ").append(state.maintenanceCount()).append(" maintenance tasks (max 3).\n\n");
-        } else {
-            sb.append("✅ You're within the 3-3-3 structure. Good balance!\n\n");
-        }
-        
-        if (!plan.isEmpty()) {
-            sb.append("### Recommended Actions\n\n");
-            sb.append("The following ").append(plan.actions().size()).append(" actions will reduce stress from ");
-            sb.append(plan.initialStressScore()).append(" to ").append(plan.expectedStressScore()).append(":\n\n");
-            for (var action : plan.actions()) {
-                sb.append("- **").append(action.name()).append("**\n");
-            }
-        } else {
-            sb.append("No actions needed - your day is already well-structured! 🎉\n");
-        }
-        
-        return sb.toString();
-    }
 
     private ProtectiveResponse generateFallbackProtectiveResponse(WorldState state, int consecutiveHighDays, String dayOfWeek) {
         boolean shouldProtect = shouldTriggerProtection(state, consecutiveHighDays);
