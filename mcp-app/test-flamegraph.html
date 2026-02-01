@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark light">
+  <title>Burnout Flamegraph Test</title>
+  <style>
+    :root {
+      --bg: #0d0d0d;
+      --bg-gradient: linear-gradient(135deg, #0d0d0d 0%, #1a1a2e 50%, #16213e 100%);
+      --text: #ffffff;
+      --text-muted: #94a3b8;
+      --card-bg: rgba(255,255,255,0.05);
+      --card-border: rgba(255,255,255,0.1);
+      
+      --deep-work: linear-gradient(90deg, #00f260, #0575e6);
+      --quick-wins: linear-gradient(90deg, #f857a6, #ff5858);
+      --maintenance: linear-gradient(90deg, #f7971e, #ffd200);
+      --deferred: linear-gradient(90deg, #8e2de2, #4a00e0);
+      
+      --stress-low: #00f260;
+      --stress-moderate: #f7971e;
+      --stress-high: #ff5858;
+    }
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-gradient);
+      color: var(--text);
+      padding: 24px;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+    
+    .container { max-width: 1000px; margin: 0 auto; }
+    
+    .header { text-align: center; margin-bottom: 32px; }
+    
+    .header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f857a6 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    
+    .header .repo { color: var(--text-muted); font-size: 0.95rem; }
+    
+    .metrics {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      margin-bottom: 32px;
+    }
+    
+    .metric {
+      background: var(--card-bg);
+      padding: 16px 24px;
+      border-radius: 12px;
+      text-align: center;
+      min-width: 120px;
+      border: 1px solid var(--card-border);
+    }
+    
+    .metric .value { font-size: 1.8rem; font-weight: 700; }
+    .metric .label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; }
+    .metric.stress .value { color: var(--stress-moderate); }
+    .metric.friday .value { color: var(--stress-low); }
+    
+    .flamegraph {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 24px;
+      border: 1px solid var(--card-border);
+    }
+    
+    .flame-section { margin-bottom: 24px; }
+    .flame-section:last-child { margin-bottom: 0; }
+    
+    .flame-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+    
+    .flame-header .dot { width: 12px; height: 12px; border-radius: 50%; }
+    .flame-header.deep-work .dot { background: var(--deep-work); }
+    .flame-header.quick-wins .dot { background: var(--quick-wins); }
+    .flame-header.maintenance .dot { background: var(--maintenance); }
+    .flame-header.deferred .dot { background: var(--deferred); }
+    
+    .flame-stack { display: flex; flex-direction: column; gap: 4px; }
+    
+    .flame-bar {
+      height: 44px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #fff;
+      transition: all 0.2s ease;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.3);
+      text-decoration: none;
+    }
+    
+    .flame-bar:visited { color: #fff; }
+    
+    .flame-bar:hover {
+      transform: translateX(4px);
+      filter: brightness(1.15);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      color: #fff;
+    }
+    
+    .flame-bar:active {
+      transform: scale(0.98);
+      opacity: 0.8;
+    }
+    
+    .flame-bar.deep-work { background: var(--deep-work); }
+    .flame-bar.quick-wins { background: var(--quick-wins); }
+    .flame-bar.maintenance { background: var(--maintenance); }
+    .flame-bar.deferred { background: var(--deferred); }
+    
+    .flame-bar .issue-num { opacity: 1; margin-right: 10px; font-family: monospace; font-weight: 700; background: rgba(0,0,0,0.25); padding: 2px 6px; border-radius: 4px; }
+    .flame-bar .stress-indicator {
+      margin-left: auto;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      background: rgba(0,0,0,0.4);
+    }
+    .flame-bar .stress-indicator.low { color: var(--stress-low); }
+    .flame-bar .stress-indicator.moderate { color: var(--stress-moderate); }
+    .flame-bar .stress-indicator.high { color: var(--stress-high); }
+    
+    .tooltip {
+      position: fixed;
+      background: rgba(15, 23, 42, 0.95);
+      color: #fff;
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      pointer-events: none;
+      z-index: 1000;
+      display: none;
+      max-width: 320px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .tooltip.visible { display: block; }
+    .tooltip .title { font-weight: 600; margin-bottom: 6px; }
+    .tooltip .stress-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); }
+    .tooltip .stress-bar { flex: 1; height: 6px; background: rgba(255,255,255,0.2); border-radius: 3px; overflow: hidden; }
+    .tooltip .stress-fill { height: 100%; border-radius: 3px; }
+    .tooltip .stress-fill.low { background: var(--stress-low); }
+    .tooltip .stress-fill.moderate { background: var(--stress-moderate); }
+    .tooltip .stress-fill.high { background: var(--stress-high); }
+    .tooltip .click-hint { margin-top: 8px; font-size: 0.75rem; color: var(--text-muted); }
+    
+    #click-log {
+      margin-top: 24px;
+      padding: 16px;
+      background: rgba(0,255,0,0.1);
+      border: 1px solid rgba(0,255,0,0.3);
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Burnout Flamegraph</h1>
+      <div class="repo" id="repo-name">roryp/burnout-app</div>
+    </div>
+    
+    <div class="metrics">
+      <div class="metric stress">
+        <div class="value" id="stress-score">30/100</div>
+        <div class="label">Stress Score</div>
+      </div>
+      <div class="metric friday">
+        <div class="value" id="friday-score">100%</div>
+        <div class="label">Friday Score</div>
+      </div>
+    </div>
+    
+    <div class="flamegraph" id="flamegraph"></div>
+    
+    <div id="click-log">Click log will appear here...</div>
+  </div>
+  
+  <div class="tooltip" id="tooltip"></div>
+  
+  <script>
+    const wheelData = {
+      repo: 'roryp/burnout-app',
+      stressScore: 30,
+      deepWork: { number: 26, title: 'Refactor authentication module', labels: [{ name: 'deep-work' }] },
+      quickWins: [
+        { number: 33, title: 'Add alt text to images', labels: [{ name: 'quick-win' }] },
+        { number: 32, title: 'Fix typo in docs', labels: [{ name: 'quick-win' }] },
+        { number: 31, title: 'Add alt text to images', labels: [{ name: 'quick-win' }] },
+      ],
+      maintenance: [
+        { number: 38, title: 'Update dependencies', labels: [{ name: 'maintenance' }] },
+        { number: 37, title: 'Remove unused CSS', labels: [{ name: 'maintenance' }] },
+        { number: 36, title: 'Update dependencies', labels: [{ name: 'maintenance' }] },
+      ],
+      deferred: [
+        { number: 25, title: 'Refactor authentication module', labels: [{ name: 'deep-work' }] },
+        { number: 30, title: 'Bump lodash to 4.17.21', labels: [{ name: 'quick-win' }] },
+      ],
+    };
+    
+    const BUCKETS = [
+      { key: 'deepWork', name: 'Deep Work', cssClass: 'deep-work', baseStress: 60 },
+      { key: 'quickWins', name: 'Quick Wins', cssClass: 'quick-wins', baseStress: 20 },
+      { key: 'maintenance', name: 'Maintenance', cssClass: 'maintenance', baseStress: 30 },
+      { key: 'deferred', name: 'Deferred', cssClass: 'deferred', baseStress: 10 },
+    ];
+    
+    function calculateIssueStress(issue, bucketKey, globalStress) {
+      const bucket = BUCKETS.find(b => b.key === bucketKey);
+      let stress = bucket ? bucket.baseStress : 30;
+      stress += (globalStress || 30) * 0.3;
+      return Math.min(100, Math.round(stress));
+    }
+    
+    function getStressLevel(stress) {
+      if (stress < 35) return 'low';
+      if (stress < 65) return 'moderate';
+      return 'high';
+    }
+    
+    function logClick(message) {
+      const log = document.getElementById('click-log');
+      log.textContent = new Date().toISOString() + ': ' + message;
+    }
+    
+    function openIssueInVSCode(repo, issueNumber) {
+      const githubUrl = 'https://github.com/' + repo + '/issues/' + issueNumber;
+      
+      logClick('Opening issue #' + issueNumber + ' -> ' + githubUrl);
+      
+      // In MCP app context, use ui/openExternal to open URLs
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({
+          jsonrpc: '2.0',
+          id: Date.now(),
+          method: 'ui/openExternal',
+          params: { url: githubUrl }
+        }, '*');
+      } else {
+        // Fallback for standalone browser
+        window.open(githubUrl, '_blank');
+      }
+    }
+    
+    function renderFlamegraph() {
+      const container = document.getElementById('flamegraph');
+      container.innerHTML = '';
+      
+      BUCKETS.forEach(bucket => {
+        let issues = [];
+        if (bucket.key === 'deepWork' && wheelData.deepWork) {
+          issues = [wheelData.deepWork];
+        } else if (wheelData[bucket.key]) {
+          issues = wheelData[bucket.key];
+        }
+        
+        const section = document.createElement('div');
+        section.className = 'flame-section';
+        
+        const header = document.createElement('div');
+        header.className = 'flame-header ' + bucket.cssClass;
+        header.innerHTML = '<div class="dot"></div>' + bucket.name + ' (' + issues.length + ')';
+        section.appendChild(header);
+        
+        const stack = document.createElement('div');
+        stack.className = 'flame-stack';
+        
+        issues.forEach(issue => {
+          const stress = calculateIssueStress(issue, bucket.key, wheelData.stressScore);
+          const stressLevel = getStressLevel(stress);
+          const githubUrl = 'https://github.com/' + wheelData.repo + '/issues/' + issue.number;
+          
+          const bar = document.createElement('a');
+          bar.href = githubUrl;
+          bar.target = '_blank';
+          bar.rel = 'noopener noreferrer';
+          bar.className = 'flame-bar ' + bucket.cssClass;
+          bar.innerHTML = '<span class="issue-num">#' + issue.number + '</span>' +
+            '<span class="issue-title">' + issue.title + '</span>' +
+            '<span class="stress-indicator ' + stressLevel + '">' + stress + '%</span>';
+          
+          bar.addEventListener('mouseenter', function(e) {
+            const tooltip = document.getElementById('tooltip');
+            tooltip.innerHTML = '<div class="title">#' + issue.number + ': ' + issue.title + '</div>' +
+              '<div class="stress-row"><span>Stress:</span><div class="stress-bar"><div class="stress-fill ' + stressLevel + '" style="width: ' + stress + '%"></div></div><span>' + stress + '%</span></div>' +
+              '<div class="click-hint">Click to open in GitHub</div>';
+            tooltip.style.left = (e.clientX + 15) + 'px';
+            tooltip.style.top = (e.clientY + 15) + 'px';
+            tooltip.classList.add('visible');
+          });
+          
+          bar.addEventListener('mousemove', function(e) {
+            const tooltip = document.getElementById('tooltip');
+            tooltip.style.left = (e.clientX + 15) + 'px';
+            tooltip.style.top = (e.clientY + 15) + 'px';
+          });
+          
+          bar.addEventListener('mouseleave', function() {
+            document.getElementById('tooltip').classList.remove('visible');
+          });
+          
+          stack.appendChild(bar);
+        });
+        
+        section.appendChild(stack);
+        container.appendChild(section);
+      });
+    }
+    
+    renderFlamegraph();
+  </script>
+</body>
+</html>

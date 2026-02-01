@@ -2,7 +2,7 @@
 
 An **MCP App** + Java backend that demonstrates **AI-powered burnout prevention** using LangChain4j's agentic patterns, the **3-3-3 day structure**, and Azure OpenAI.
 
-![Burnout Wheel - 3-3-3 Day Structure](docs/burnout-wheel.png)
+![Burnout Flamegraph - 3-3-3 Day Structure](docs/burnout-flamegraph.png)
 
 ## What is This?
 
@@ -14,7 +14,7 @@ This project helps developers prevent burnout by intelligently managing their Gi
 - **📊 3-3-3 Day Structure** - Automatically classifies issues into Deep Work, Quick Wins, and Maintenance
 - **🛡️ Protective AI** - Detects stress signals and provides personalized wellness recommendations
 - **📈 Chaos Scoring** - Measures workload chaos (context switching, mystery meat issues, after-hours work)
-- **🎡 MCP App Visualization** - Interactive burnout wheel that works in any MCP-compliant viewer (VS Code, Claude Desktop, Cursor)
+- **🎡 MCP App Visualization** - Interactive flamegraph with stress indicators and click-to-open GitHub issues
 
 ## Quick Start
 
@@ -80,11 +80,14 @@ This fetches your GitHub issues and syncs them to the backend for analysis.
 ```
 Show my burnout wheel for owner/repo
 ```
-Displays an interactive visualization showing:
+Displays an interactive flamegraph visualization showing:
 - 🎯 **Deep Work** - Your one critical focused task
 - ⚡ **Quick Wins** - Small completable items
 - 🔧 **Maintenance** - Routine upkeep tasks
+- 📦 **Deferred** - Items pushed to next sprint
 - 📊 **Stress Score** and **Friday Score** metrics
+
+**Hover** over any issue bar to see its stress percentage. **Click** to open the issue directly on GitHub.
 
 #### Step 3: Get AI-Powered Insights
 ```

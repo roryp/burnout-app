@@ -6,6 +6,7 @@ import { config } from './config.js';
 import { getReshapeData, getStressScore, syncIssues, type ReshapeResponse, type StressResponse, type Issue } from './backend-client.js';
 import { getDemoReshapeData, getDemoStressData, getDemoIssues } from './demo-data.js';
 import { generateWheelUI } from './ui/burnout-wheel.js';
+import { generateFlamegraphUI } from './ui/burnout-flamegraph.js';
 
 // Create MCP server
 const server = new McpServer({
@@ -48,19 +49,48 @@ server.resource(
 );
 
 // ============================================================================
+// UI Resource: Burnout Flamegraph
+// ============================================================================
+
+server.resource(
+  'burnout-flamegraph-ui',
+  'ui://burnout-app/flamegraph',
+  {
+    description: 'Interactive flamegraph visualization showing issue stress levels',
+    mimeType: 'text/html;profile=mcp-app',
+  },
+  async (uri) => {
+    log(`📱 resources/read called for: ${uri.href}`);
+    return {
+      contents: [{
+        uri: uri.href,
+        mimeType: 'text/html;profile=mcp-app',
+        text: generateFlamegraphUI(),
+        _meta: {
+          ui: {
+            csp: {},
+            prefersBorder: false,
+          },
+        },
+      }],
+    };
+  }
+);
+
+// ============================================================================
 // Tool: Show Day Plan (with UI visualization)
 // ============================================================================
 
 server.registerTool(
   'show_burnout_wheel',
   {
-    description: 'Display an interactive 3-3-3 day structure wheel for a GitHub repository. Shows deep work, quick wins, maintenance tasks, and stress score.',
+    description: 'Display an interactive flamegraph visualization for a GitHub repository. Shows deep work, quick wins, maintenance tasks, and stress score per issue.',
     inputSchema: {
       repo: z.string().describe('GitHub repository in owner/repo format'),
     },
     _meta: {
       ui: {
-        resourceUri: 'ui://burnout-app/wheel',
+        resourceUri: 'ui://burnout-app/flamegraph',
         visibility: ['model', 'app'],
       },
     },
@@ -207,7 +237,7 @@ server.tool(
       },
       _meta: {
         ui: {
-          resourceUri: 'ui://burnout-app/wheel',
+          resourceUri: 'ui://burnout-app/flamegraph',
         },
       },
     };
