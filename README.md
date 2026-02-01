@@ -212,10 +212,10 @@ The tools understand natural language, so you can also try:
 
 | Tool | Description |
 |------|-------------|
-| `show_burnout_wheel` | Display your 3-3-3 day plan with metrics |
-| `reshape_day` | AI-powered workload optimization - applies labels to GitHub |
-| `get_stress_score` | Quick stress level check |
-| `sync_issues` | Sync issues from GitHub to backend |
+| `show_burnout_wheel` | Display interactive flamegraph with 3-3-3 day plan and stress metrics |
+| `reshape_day` | AI-powered workload optimization - applies labels (deep-work, quick-win, maintenance) to GitHub |
+| `get_stress_score` | Quick stress check returning score 0-100 (🟢 LOW / 🟡 MODERATE / 🔴 HIGH) |
+| `sync_issues` | Fetch issues from GitHub and sync to backend - works with public and private repos |
 
 ## API Endpoints
 

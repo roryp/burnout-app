@@ -166,6 +166,7 @@ server.registerTool(
 
 server.tool(
   'reshape_day',
+  'AI-powered workload optimization that analyzes your GitHub issues and automatically applies labels (deep-work, quick-win, maintenance) to organize them into the 3-3-3 structure.',
   {
     repo: z.string().describe('GitHub repository in owner/repo format'),
   },
@@ -254,6 +255,7 @@ server.tool(
 
 server.tool(
   'get_stress_score',
+  'Get a quick stress score (0-100) based on your open issues. Returns LOW (🟢), MODERATE (🟡), or HIGH (🔴) stress level.',
   {
     repo: z.string().describe('GitHub repository in owner/repo format'),
   },
@@ -296,6 +298,7 @@ server.tool(
 
 server.tool(
   'sync_issues',
+  'Fetch open issues from GitHub and sync them to the backend for analysis. Required before using other tools. Works with public and private repos.',
   {
     repo: z.string().describe('GitHub repository in owner/repo format'),
   },
