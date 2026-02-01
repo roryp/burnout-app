@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/Azure/azure-dev/main/schemas/v1.0/azure.yaml.json
+name: burnout-app
+metadata:
+  template: burnout-app
+
+services:
+  backend:
+    project: ./backend
+    language: java
+    host: containerapp
+    docker:
+      path: ./Dockerfile
+
+hooks:
+  postprovision:
+    shell: pwsh
+    run: |
+      Write-Host "Provisioning complete!"
+      Write-Host "Container App URL: $env:SERVICE_BACKEND_URI"

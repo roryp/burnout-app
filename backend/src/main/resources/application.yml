@@ -5,6 +5,11 @@ spring:
   application:
     name: burnout-backend
 
+# Security - validates GitHub tokens against GitHub API
+# Set to true in production, false for local development
+security:
+  enabled: ${SECURITY_ENABLED:false}
+
 management:
   endpoints:
     web:
@@ -20,13 +25,13 @@ demo:
     zone: Africa/Johannesburg
 
 # Azure OpenAI Configuration for LangChain4j agents
-# Set azure.openai.enabled=true and provide credentials to enable LLM agents
+# Uses managed identity for secure, keyless authentication
 # When disabled, the system uses deterministic fallback responses
-# Credentials are loaded from .env file via spring-dotenv
 azure:
   openai:
     enabled: true
     endpoint: ${AZURE_OPENAI_ENDPOINT:}
-    api-key: ${AZURE_OPENAI_API_KEY:}
     deployment: ${AZURE_OPENAI_DEPLOYMENT:gpt-4o}
+  identity:
+    client-id: ${AZURE_IDENTITY_CLIENT_ID:}
 

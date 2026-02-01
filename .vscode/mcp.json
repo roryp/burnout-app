@@ -1,0 +1,10 @@
+{
+  "servers": {
+    "burnout-app": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${workspaceFolder}/mcp-app/dist/index.js"],
+      "envFile": "${workspaceFolder}/.env"
+    }
+  }
+}

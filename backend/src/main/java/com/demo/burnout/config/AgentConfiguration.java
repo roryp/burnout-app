@@ -1,10 +1,12 @@
 package com.demo.burnout.config;
 
+import com.azure.core.credential.TokenCredential;
+import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.demo.burnout.agent.*;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
-import dev.langchain4j.model.chat.ChatLanguageModel;
-import dev.langchain4j.model.openaiofficial.OpenAiOfficialChatModel;
+import dev.langchain4j.model.azure.AzureOpenAiChatModel;
+import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.service.AiServices;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,7 +17,8 @@ import org.springframework.context.annotation.Configuration;
 /**
  * LangChain4j Agent Configuration.
  * 
- * Configures AI services with Azure OpenAI integration using the official OpenAI SDK.
+ * Configures AI services with Azure OpenAI integration using managed identity
+ * for secure, keyless authentication.
  */
 @Configuration
 public class AgentConfiguration {
@@ -25,24 +28,42 @@ public class AgentConfiguration {
     @Value("${azure.openai.endpoint:}")
     private String azureEndpoint;
 
-    @Value("${azure.openai.api-key:}")
-    private String azureApiKey;
-
     @Value("${azure.openai.deployment:gpt-4o}")
     private String deploymentName;
 
+    @Value("${azure.identity.client-id:}")
+    private String managedIdentityClientId;
+
     /**
-     * Azure OpenAI Chat Model using the official OpenAI SDK.
+     * Azure credential using DefaultAzureCredential.
+     * Supports managed identity in Azure, and falls back to other methods locally.
      */
     @Bean
-    public ChatLanguageModel azureChatModel() {
-        log.info("Configuring Azure OpenAI with deployment: {}", deploymentName);
+    public TokenCredential azureCredential() {
+        DefaultAzureCredentialBuilder builder = new DefaultAzureCredentialBuilder();
         
-        return OpenAiOfficialChatModel.builder()
-            .baseUrl(azureEndpoint)
-            .apiKey(azureApiKey)
-            .modelName(deploymentName)
-            .isAzure(true)  // Required for Azure OpenAI!
+        // If a specific managed identity client ID is provided, use it
+        if (managedIdentityClientId != null && !managedIdentityClientId.isEmpty()) {
+            log.info("Using user-assigned managed identity: {}", managedIdentityClientId);
+            builder.managedIdentityClientId(managedIdentityClientId);
+        } else {
+            log.info("Using DefaultAzureCredential (auto-detect)");
+        }
+        
+        return builder.build();
+    }
+
+    /**
+     * Azure OpenAI Chat Model using managed identity.
+     */
+    @Bean
+    public ChatModel azureChatModel(TokenCredential azureCredential) {
+        log.info("Configuring Azure OpenAI with deployment: {} using managed identity", deploymentName);
+        
+        return AzureOpenAiChatModel.builder()
+            .endpoint(azureEndpoint)
+            .tokenCredential(azureCredential)
+            .deploymentName(deploymentName)
             .build();
     }
 
@@ -60,10 +81,10 @@ public class AgentConfiguration {
      * Explainer AI Service - explains GOAP plans in human-friendly terms.
      */
     @Bean
-    public ExplainerAiService explainerAiService(ChatLanguageModel chatModel) {
+    public ExplainerAiService explainerAiService(ChatModel chatModel) {
         log.info("Creating LangChain4j ExplainerAiService with Azure OpenAI");
         return AiServices.builder(ExplainerAiService.class)
-            .chatLanguageModel(chatModel)
+            .chatModel(chatModel)
             .build();
     }
 
@@ -71,10 +92,10 @@ public class AgentConfiguration {
      * Protective AI Service - generates emotionally supportive responses.
      */
     @Bean
-    public ProtectiveAiService protectiveAiService(ChatLanguageModel chatModel) {
+    public ProtectiveAiService protectiveAiService(ChatModel chatModel) {
         log.info("Creating LangChain4j ProtectiveAiService with Azure OpenAI");
         return AiServices.builder(ProtectiveAiService.class)
-            .chatLanguageModel(chatModel)
+            .chatModel(chatModel)
             .build();
     }
 
@@ -82,10 +103,10 @@ public class AgentConfiguration {
      * Friday Deploy AI Service - assesses deploy readiness.
      */
     @Bean
-    public FridayDeployAiService fridayDeployAiService(ChatLanguageModel chatModel) {
+    public FridayDeployAiService fridayDeployAiService(ChatModel chatModel) {
         log.info("Creating LangChain4j FridayDeployAiService with Azure OpenAI");
         return AiServices.builder(FridayDeployAiService.class)
-            .chatLanguageModel(chatModel)
+            .chatModel(chatModel)
             .build();
     }
 }

@@ -17,7 +17,9 @@ mcp-app/dist/
 # IDE
 .idea/
 *.iml
-.vscode/
+.vscode/*
+!.vscode/mcp.json
+!.vscode/settings.json
 *.swp
 *.swo
 
@@ -32,6 +34,9 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+
+# Azure Developer CLI
+.azure/
 
 # Build
 dist/

@@ -37,14 +37,41 @@ export interface StressResponse {
   expectedStressScore?: number;
 }
 
+// Cache the GitHub token to avoid calling gh auth token repeatedly
+let cachedToken: string | null = null;
+
+async function getGitHubToken(): Promise<string> {
+  if (cachedToken) {
+    return cachedToken;
+  }
+
+  const { exec } = await import('child_process');
+  const { promisify } = await import('util');
+  const execAsync = promisify(exec);
+
+  try {
+    const { stdout } = await execAsync('gh auth token');
+    cachedToken = stdout.trim();
+    console.error('[Auth] Retrieved GitHub token from gh CLI');
+    return cachedToken;
+  } catch (error) {
+    console.error('[Auth] Failed to get GitHub token. Make sure gh CLI is authenticated.');
+    throw new Error('Not authenticated with GitHub. Run: gh auth login');
+  }
+}
+
 export async function callBackend<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${config.backendUrl}${endpoint}`;
   console.error(`[Backend] Calling ${url}`);
+  
+  // Get GitHub token for authentication
+  const token = await getGitHubToken();
   
   const response = await fetch(url, {
     headers: { 
       'Accept': 'application/json',
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
     },
     signal: AbortSignal.timeout(30000),
     ...options,

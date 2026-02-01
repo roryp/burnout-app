@@ -4,7 +4,7 @@ import com.demo.burnout.goap.GitHubMutationPlan;
 import com.demo.burnout.model.ChaosMetrics;
 import com.demo.burnout.model.Issue;
 import com.demo.burnout.model.WorldState;
-import dev.langchain4j.model.chat.ChatLanguageModel;
+import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.service.AiServices;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,11 +31,11 @@ public class BurnoutSupervisorService {
 
     private static final Logger log = LoggerFactory.getLogger(BurnoutSupervisorService.class);
 
-    private final ChatLanguageModel chatModel;
+    private final ChatModel chatModel;
     private final boolean llmEnabled;
 
     @Autowired
-    public BurnoutSupervisorService(@Autowired(required = false) ChatLanguageModel chatModel) {
+    public BurnoutSupervisorService(@Autowired(required = false) ChatModel chatModel) {
         this.chatModel = chatModel;
         this.llmEnabled = chatModel != null;
         log.info("BurnoutSupervisorService initialized. LLM enabled: {}", llmEnabled);
@@ -81,7 +81,7 @@ public class BurnoutSupervisorService {
             
             // Build the WorkloadRebalancerAgent with tools
             WorkloadRebalancerAgent rebalancer = AiServices.builder(WorkloadRebalancerAgent.class)
-                .chatLanguageModel(chatModel)
+                .chatModel(chatModel)
                 .tools(mutationTool)
                 .build();
             
