@@ -20,39 +20,47 @@ This project helps developers prevent burnout by intelligently managing their Gi
 
 ### Prerequisites
 
-- Java 21+
-- Node.js 18+
-- GitHub CLI (`gh`) installed and authenticated:
+- **GitHub CLI** (`gh`) installed and authenticated:
   ```bash
   gh auth login
   gh auth status  # Should show ✓ Logged in with 'repo' scope
   ```
 - **VS Code Insiders** with GitHub Copilot (MCP Apps require Insiders)
-- Azure OpenAI endpoint (or modify for OpenAI API)
+- **Node.js 18+** (for MCP app)
 
-### 1. Configure Azure OpenAI
+Choose your deployment option:
 
-Create a `.env` file in the project root:
+---
 
-```env
-AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
-AZURE_OPENAI_API_KEY=your-api-key
-AZURE_OPENAI_DEPLOYMENT=gpt-4o
-```
+## Option A: Deploy to Azure (Recommended)
 
-### 2. Start the Backend
+One command deploys everything - Container Apps, Azure OpenAI, Container Registry with managed identity (no API keys needed).
+
+### 1. Install Azure Developer CLI
 
 ```bash
-cd backend
-java -jar target/burnout-backend-0.0.1-SNAPSHOT.jar --spring.profiles.active=demo
+# Windows
+winget install Microsoft.Azd
+
+# macOS
+brew install azure/tap/azd
+
+# Linux
+curl -fsSL https://aka.ms/install-azd.sh | bash
 ```
 
-Or build and run:
+### 2. Deploy to Azure
+
 ```bash
-cd backend
-mvn clean package -DskipTests
-java -jar target/burnout-backend-0.0.1-SNAPSHOT.jar
+azd auth login
+azd up
 ```
+
+This provisions:
+- Azure Container Apps (backend)
+- Azure OpenAI (gpt-4o-mini)
+- Azure Container Registry
+- User-assigned managed identity for secure Azure OpenAI access
 
 ### 3. Build the MCP App
 
@@ -62,11 +70,64 @@ npm install
 npm run build
 ```
 
-### 4. Configure VS Code MCP
+### 4. Configure MCP to Use Azure Backend
 
-The `.vscode/mcp.json` is already configured. Open VS Code in this workspace and the MCP server will be available.
+Create a `.env` file in the project root with your backend URL (shown after `azd up`):
 
-### 5. Use the MCP Tools
+```env
+BACKEND_URL=https://your-backend.nicepebble-xxxxx.eastus.azurecontainerapps.io
+```
+
+The `.vscode/mcp.json` is already configured to read from this file.
+
+### 5. Restart MCP Server
+
+In VS Code, open the MCP panel and restart the `burnout-app` server to pick up the new configuration.
+
+---
+
+## Option B: Local Development
+
+### 1. Prerequisites (Local)
+
+- Java 21+
+- Maven
+- Azure OpenAI endpoint (or modify for OpenAI API)
+
+### 2. Configure Azure OpenAI
+
+Create a `.env` file in the project root:
+
+```env
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
+AZURE_OPENAI_API_KEY=your-api-key
+AZURE_OPENAI_DEPLOYMENT=gpt-4o
+BACKEND_URL=http://localhost:8080
+```
+
+### 3. Start the Backend
+
+```bash
+cd backend
+mvn clean package -DskipTests
+java -jar target/burnout-backend-0.0.1-SNAPSHOT.jar
+```
+
+### 4. Build the MCP App
+
+```bash
+cd mcp-app
+npm install
+npm run build
+```
+
+### 5. Reload VS Code
+
+The `.vscode/mcp.json` is already configured. Reload the window to activate the MCP server.
+
+---
+
+## Using the MCP Tools
 
 In VS Code Copilot Chat, use these prompts to interact with the burnout prevention tools:
 
@@ -116,12 +177,19 @@ The tools understand natural language, so you can also try:
 │  MCP App (Node.js + TypeScript)                                      │
 │  - MCP server with stdio transport                                   │
 │  - Tools: show_burnout_wheel, reshape_day, get_stress_score         │
+│  - GitHub token auth via `gh auth token`                            │
 │  - Works in VS Code, Claude Desktop, Cursor, etc.                   │
 └──────────────────────┬──────────────────────────────────────────────┘
-                       │ HTTP
+                       │ HTTP + Bearer Token
                        ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │  Java Backend (Spring Boot + LangChain4j)                            │
+│  Deployed on Azure Container Apps with Managed Identity             │
+│  ┌─────────────────────────────────────────────────────────────────┐│
+│  │  SecurityConfig (GitHub Token Validation)                       ││
+│  │  - Validates Bearer tokens against GitHub API                   ││
+│  │  - Caches valid tokens for 5 minutes                            ││
+│  └─────────────────────────────────────────────────────────────────┘│
 │  ┌─────────────────────────────────────────────────────────────────┐│
 │  │  BurnoutSupervisorService (LLM-Driven Orchestrator)             ││
 │  │  - Analyzes developer stress signals                            ││
@@ -136,10 +204,7 @@ The tools understand natural language, so you can also try:
 │  │  - markAsDeepWork() - Flag for focused time                     ││
 │  │  - ... 9 tools total                                            ││
 │  └─────────────────────────────────────────────────────────────────┘│
-│  - Issue sync cache                                                  │
-│  - Chaos metrics (deterministic scoring)                             │
-│  - 3-3-3 compliance analysis                                         │
-│  - Azure OpenAI integration                                          │
+│  - Azure OpenAI integration (managed identity, no API keys)         │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -221,20 +286,26 @@ The AI generates personalized wellness recommendations:
 burnout-app/
 ├── backend/                    # Java Spring Boot backend
 │   ├── src/main/java/         # LangChain4j agents, services
+│   ├── Dockerfile             # Container image for Azure
 │   └── pom.xml
 ├── mcp-app/                   # MCP App (Node.js)
 │   ├── src/
 │   │   ├── index.ts           # MCP server with tools
-│   │   ├── backend-client.ts  # Backend API integration
+│   │   ├── backend-client.ts  # Backend API integration (with auth)
 │   │   ├── demo-data.ts       # Fallback demo data
 │   │   └── ui/                # SVG wheel visualization
 │   ├── package.json
 │   └── tsconfig.json
+├── infra/                     # Azure infrastructure (Bicep)
+│   ├── main.bicep             # Main deployment template
+│   └── modules/               # Container Apps, OpenAI, ACR, Identity
 ├── scripts/                   # Utility scripts
 │   ├── seed-issues.sh         # Create demo issues
 │   └── setup-labels.sh        # Setup GitHub labels
 ├── .vscode/
 │   └── mcp.json               # MCP server configuration
+├── azure.yaml                 # Azure Developer CLI config
+├── .env                       # Environment variables (gitignored)
 └── README.md
 ```
 
@@ -257,13 +328,20 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o
       "type": "stdio",
       "command": "node",
       "args": ["${workspaceFolder}/mcp-app/dist/index.js"],
-      "env": {
-        "BACKEND_URL": "http://localhost:8080",
-        "GITHUB_TOKEN": ""
-      }
+      "envFile": "${workspaceFolder}/.env"
     }
   }
 }
+```
+
+### Environment File (`.env`)
+
+```env
+# For Azure deployment
+BACKEND_URL=https://your-backend.nicepebble-xxxxx.eastus.azurecontainerapps.io
+
+# For local development
+BACKEND_URL=http://localhost:8080
 ```
 
 ## Troubleshooting
@@ -271,10 +349,22 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o
 | Issue | Solution |
 |-------|----------|
 | **MCP tools disabled** | Reload VS Code (Ctrl+Shift+P → "Developer: Reload Window") |
-| **Sync fails with auth error** | Run `gh auth login` and ensure `repo` scope is granted |
-| **Backend returns 400** | Make sure backend is running: `java -jar target/burnout-backend-0.0.1-SNAPSHOT.jar` |
-| **GITHUB_TOKEN conflicts** | The mcp.json sets `GITHUB_TOKEN: ""` to use keyring auth instead |
-| **Issues not showing** | Run sync_issues first, then show_burnout_wheel |
+| **401 Unauthorized** | Ensure `gh auth login` is complete with `repo` scope |
+| **Backend returns 400** | Make sure backend is running (local) or `azd up` completed (Azure) |
+| **Issues not showing** | Run `sync_issues` first, then `show_burnout_wheel` |
+| **MCP not picking up .env changes** | Restart the MCP server in VS Code MCP panel |
+| **Azure deployment fails** | Run `azd auth login` and ensure you have an active subscription |
+
+## Security
+
+The Azure deployment uses **GitHub token authentication**:
+
+1. MCP app retrieves your token via `gh auth token`
+2. Token is passed as `Authorization: Bearer <token>` header
+3. Backend validates token against GitHub API (`/user` endpoint)
+4. Valid tokens are cached for 5 minutes
+
+This ensures only authenticated GitHub users can access the API - no shared API keys needed.
 
 ## License
 
