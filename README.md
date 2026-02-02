@@ -10,7 +10,7 @@ This project helps developers prevent burnout by intelligently managing their Gi
 
 ## ✨ Features
 
-- **🤖 LangChain4j Supervisor Pattern** - Uses `langchain4j-agentic` with 5 sub-agents orchestrated by Azure OpenAI (gpt-4o)
+- **🤖 LangChain4j Supervisor Pattern** - Uses `langchain4j-agentic` with 5 sub-agents orchestrated by Azure OpenAI (gpt-5-mini)
 - **📊 3-3-3 Day Structure** - Automatically classifies issues into Deep Work, Quick Wins, and Maintenance
 - **🛡️ Protective AI** - Detects stress signals and provides personalized wellness recommendations
 - **📈 Chaos Scoring** - Measures workload chaos (context switching, mystery meat issues, after-hours work)
@@ -58,7 +58,7 @@ azd up
 
 This provisions:
 - Azure Container Apps (backend with 2 CPU, 4GB RAM)
-- Azure OpenAI (gpt-4o with 50K TPM)
+- Azure OpenAI (gpt-5-mini with GlobalStandard deployment in Sweden Central)
 - Azure Container Registry
 - User-assigned managed identity for secure Azure OpenAI access
 
@@ -75,7 +75,7 @@ npm run build
 Create a `.env` file in the project root with your backend URL (shown after `azd up`):
 
 ```env
-BACKEND_URL=https://your-backend.nicepebble-xxxxx.eastus.azurecontainerapps.io
+BACKEND_URL=https://your-backend.wonderfulstone-xxxxx.swedencentral.azurecontainerapps.io
 ```
 
 The `.vscode/mcp.json` is already configured to read from this file.
@@ -101,7 +101,7 @@ Create a `.env` file in the project root:
 ```env
 AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
 AZURE_OPENAI_API_KEY=your-api-key
-AZURE_OPENAI_DEPLOYMENT=gpt-4o
+AZURE_OPENAI_DEPLOYMENT=gpt-5-mini
 BACKEND_URL=http://localhost:8080
 ```
 
@@ -348,13 +348,13 @@ burnout-app/
 
 ```env
 # For Azure deployment (just the backend URL - OpenAI uses managed identity)
-BACKEND_URL=https://your-backend.nicepebble-xxxxx.eastus.azurecontainerapps.io
+BACKEND_URL=https://your-backend.wonderfulstone-xxxxx.swedencentral.azurecontainerapps.io
 
 # For local development (requires Azure OpenAI credentials)
 BACKEND_URL=http://localhost:8080
 AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
 AZURE_OPENAI_API_KEY=your-api-key
-AZURE_OPENAI_DEPLOYMENT=gpt-4o
+AZURE_OPENAI_DEPLOYMENT=gpt-5-mini
 ```
 
 ## Troubleshooting
