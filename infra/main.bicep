@@ -1,17 +1,17 @@
 @description('Location for all resources')
-param location string = 'eastus'
+param location string = 'swedencentral'
 
 @description('Environment name used as prefix for resource names')
 param environmentName string = 'burnout'
 
 @description('Azure OpenAI model deployment name')
-param openAiDeployment string = 'gpt-4o'
+param openAiDeployment string = 'gpt-5-mini'
 
 @description('Azure OpenAI model name')
-param openAiModelName string = 'gpt-4o'
+param openAiModelName string = 'gpt-5-mini'
 
 @description('Azure OpenAI model version')
-param openAiModelVersion string = '2024-08-06'
+param openAiModelVersion string = '2025-08-07'
 
 @description('Azure OpenAI capacity in thousands of tokens per minute')
 param openAiCapacityK int = 50
