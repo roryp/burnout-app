@@ -136,8 +136,12 @@ async function executeMutations(repo: string, actions: GitHubAction[]): Promise<
       }
       
       if (action.type === 'Comment' && action.body) {
-        await execAsync(
-          `gh issue comment ${action.issueNumber} --repo ${repo} --body "${action.body.replace(/"/g, '\\"')}"`,
+        const { execFile: execFileCb } = await import('child_process');
+        const { promisify: promisifyExec } = await import('util');
+        const execFileAsync = promisifyExec(execFileCb);
+        await execFileAsync(
+          'gh',
+          ['issue', 'comment', String(action.issueNumber), '--repo', repo, '--body', action.body],
           { env }
         );
         console.error(`[Mutations] Added comment to #${action.issueNumber}`);

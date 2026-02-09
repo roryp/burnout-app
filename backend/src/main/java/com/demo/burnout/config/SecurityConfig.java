@@ -23,12 +23,16 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -45,6 +49,8 @@ public class SecurityConfig {
     // Cache validated tokens for 5 minutes to avoid hitting GitHub API on every request
     private final Map<String, CachedAuth> tokenCache = new ConcurrentHashMap<>();
     private static final Duration CACHE_DURATION = Duration.ofMinutes(5);
+    private static final int MAX_CACHE_SIZE = 1000;
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     record CachedAuth(String username, long expiresAt) {
         boolean isExpired() {
@@ -75,10 +81,16 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("*"));
+        configuration.setAllowedOriginPatterns(List.of(
+            "https://*.azurecontainerapps.io",
+            "https://*.vscode-cdn.net",
+            "vscode-webview://*",
+            "http://localhost:*"
+        ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(List.of("*"));
+        configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept"));
         configuration.setExposedHeaders(List.of("Authorization"));
+        configuration.setAllowCredentials(true);
         
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
@@ -157,6 +169,9 @@ public class SecurityConfig {
                         
                         log.info("Authenticated GitHub user: {}", username);
                         
+                        // Evict expired entries to prevent memory leaks
+                        evictExpiredTokens();
+
                         // Cache the validated token
                         tokenCache.put(token, new CachedAuth(username, 
                             System.currentTimeMillis() + CACHE_DURATION.toMillis()));
@@ -179,20 +194,36 @@ public class SecurityConfig {
                     log.error("Error validating GitHub token", e);
                     response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
                     response.setContentType("application/json");
-                    response.getWriter().write("{\"error\":\"Token validation failed: " + e.getMessage() + "\"}");
+                    response.getWriter().write("{\"error\":\"Token validation failed\"}");
                 }
             }
 
             private String extractJsonField(String json, String field) {
-                // Simple extraction - for production use a proper JSON library
-                String pattern = "\"" + field + "\":\"";
-                int start = json.indexOf(pattern);
-                if (start == -1) return "unknown";
-                start += pattern.length();
-                int end = json.indexOf("\"", start);
-                if (end == -1) return "unknown";
-                return json.substring(start, end);
+                try {
+                    JsonNode node = objectMapper.readTree(json);
+                    JsonNode value = node.get(field);
+                    return value != null ? value.asText("unknown") : "unknown";
+                } catch (Exception e) {
+                    log.warn("Failed to parse JSON response from GitHub API");
+                    return "unknown";
+                }
             }
         };
+    }
+
+    /**
+     * Remove expired entries from the token cache to prevent memory leaks.
+     */
+    private void evictExpiredTokens() {
+        Iterator<Map.Entry<String, CachedAuth>> it = tokenCache.entrySet().iterator();
+        while (it.hasNext()) {
+            if (it.next().getValue().isExpired()) {
+                it.remove();
+            }
+        }
+        if (tokenCache.size() > MAX_CACHE_SIZE) {
+            log.warn("Token cache exceeded max size ({}), clearing all entries", MAX_CACHE_SIZE);
+            tokenCache.clear();
+        }
     }
 }

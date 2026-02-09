@@ -6,9 +6,9 @@ spring:
     name: burnout-backend
 
 # Security - validates GitHub tokens against GitHub API
-# Set to true in production, false for local development
+# Defaults to true (secure). Set SECURITY_ENABLED=false for local development only.
 security:
-  enabled: ${SECURITY_ENABLED:false}
+  enabled: ${SECURITY_ENABLED:true}
 
 management:
   endpoints:

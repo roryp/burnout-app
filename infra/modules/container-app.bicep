@@ -75,6 +75,10 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
               name: 'AZURE_IDENTITY_CLIENT_ID'
               value: identityClientId
             }
+            {
+              name: 'SECURITY_ENABLED'
+              value: 'true'
+            }
           ]
           probes: [
             {

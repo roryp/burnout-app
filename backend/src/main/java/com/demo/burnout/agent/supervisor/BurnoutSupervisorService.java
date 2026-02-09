@@ -130,6 +130,7 @@ public class BurnoutSupervisorService {
                 .chatModel(plannerModel)
                 .subAgents(deferAgent, delegateAgent, classifyAgent, scopeAgent, wellnessAgent)
                 .responseStrategy(SupervisorResponseStrategy.SUMMARY)
+                .maxAgentsInvocations(3)
                 .build();
 
             log.info("Invoking Supervisor to orchestrate burnout prevention agents");
