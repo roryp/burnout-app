@@ -272,10 +272,13 @@ SupervisorAgent supervisor = AgenticServices.supervisorBuilder()
     .chatModel(plannerModel)
     .subAgents(deferAgent, delegateAgent, classifyAgent, scopeAgent, wellnessAgent)
     .responseStrategy(SupervisorResponseStrategy.SUMMARY)
+    .maxAgentsInvocations(3)
     .build();
 ```
 
 The Supervisor LLM decides which sub-agents to invoke based on stress analysis, creating intelligent multi-agent workload management.
+
+**Performance tuning:** LLM calls use 30s timeouts, 2 retries, `temperature(0.3)`, and `maxCompletionTokens` limits to keep responses fast and deterministic.
 
 ## AI-Powered Features
 
@@ -376,6 +379,14 @@ The Azure deployment uses **GitHub token authentication**:
 2. Token is passed as `Authorization: Bearer <token>` header
 3. Backend validates token against GitHub API (`/user` endpoint)
 4. Valid tokens are cached for 5 minutes
+
+**Hardening measures:**
+- Security enabled by default (`security.enabled: true`)
+- CORS restricted to Azure Container Apps, VS Code, and localhost origins
+- Token cache capped at 1,000 entries with automatic expiry eviction
+- JSON responses parsed with Jackson `ObjectMapper` (not string matching)
+- Internal error details never leaked to clients
+- Shell injection protection in MCP app (`execFile` with array args)
 
 This ensures only authenticated GitHub users can access the API - no shared API keys needed.
 
