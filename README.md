@@ -231,9 +231,11 @@ The tools understand natural language, so you can also try:
 
 A standalone flamegraph web page is served at `/flamegraph.html` for live demos outside VS Code. It requires **no authentication** and only reads data from repos already synced via the MCP `sync_issues` tool.
 
+**Live demo:** [https://aka.ms/burnout-app](https://aka.ms/burnout-app)
+
 **Demo workflow:**
 1. Sync issues via MCP in VS Code: use the `sync_issues` tool
-2. Share the URL with the audience: `https://your-backend.azurecontainerapps.io/flamegraph.html?repo=owner/repo`
+2. Share the URL with the audience: [https://aka.ms/burnout-app](https://aka.ms/burnout-app)
 3. The audience opens the URL and sees the interactive flamegraph — no auth needed
 
 The demo endpoints are read-only and never mutate GitHub issues or labels.
