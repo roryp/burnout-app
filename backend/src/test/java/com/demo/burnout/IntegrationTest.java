@@ -20,7 +20,14 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+    properties = {
+        "security.enabled=false",
+        "azure.openai.endpoint=https://dummy.openai.azure.com",
+        "azure.openai.api-key=dummy-key"
+    }
+)
 class IntegrationTest {
 
     @LocalServerPort

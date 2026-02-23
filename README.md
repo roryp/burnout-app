@@ -219,11 +219,24 @@ The tools understand natural language, so you can also try:
 
 ## API Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/issues/sync` | Sync issues from MCP app |
-| GET | `/api/stress?repo=...&userId=...` | Get stress analysis |
-| POST | `/api/reshape` | Run full reshape workflow |
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/api/issues/sync` | Yes | Sync issues from MCP app |
+| GET | `/api/stress?repo=...&userId=...` | Yes | Get stress analysis |
+| POST | `/api/reshape` | Yes | Run full reshape workflow |
+| GET | `/demo/api/flamegraph?repo=...&userId=...` | No | Read-only flamegraph data for pre-synced repos |
+| GET | `/demo/api/repos` | No | List repos currently synced in memory |
+
+## Demo Web App
+
+A standalone flamegraph web page is served at `/flamegraph.html` for live demos outside VS Code. It requires **no authentication** and only reads data from repos already synced via the MCP `sync_issues` tool.
+
+**Demo workflow:**
+1. Sync issues via MCP in VS Code: use the `sync_issues` tool
+2. Share the URL with the audience: `https://your-backend.azurecontainerapps.io/flamegraph.html?repo=owner/repo`
+3. The audience opens the URL and sees the interactive flamegraph — no auth needed
+
+The demo endpoints are read-only and never mutate GitHub issues or labels.
 
 ## The 3-3-3 Day Structure
 
@@ -307,6 +320,11 @@ The AI generates personalized wellness recommendations:
 burnout-app/
 ├── backend/                    # Java Spring Boot backend
 │   ├── src/main/java/         # LangChain4j Supervisor + sub-agents
+│   │   └── controller/
+│   │       └── DemoFlamegraphController.java  # Read-only demo endpoints
+│   ├── src/main/resources/
+│   │   └── static/
+│   │       └── flamegraph.html # Standalone flamegraph web app
 │   ├── Dockerfile             # Container image for Azure
 │   └── pom.xml
 ├── mcp-app/                   # MCP App (Node.js)

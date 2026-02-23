@@ -32,5 +32,9 @@ public class IssueCache {
         return versions.getOrDefault(repo, new AtomicLong(0)).get();
     }
 
+    public List<String> getSyncedRepos() {
+        return List.copyOf(cache.keySet());
+    }
+
     record CachedIssues(List<Issue> issues, Instant fetchedAt) {}
 }
