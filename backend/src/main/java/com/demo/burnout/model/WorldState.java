@@ -284,6 +284,7 @@ public record WorldState(
     }
 
     private static boolean isAssignedTo(Issue issue, String userId) {
+        if (userId == null || userId.isEmpty()) return true; // Include all issues when no user specified
         return issue.assignees() != null && 
                issue.assignees().stream().anyMatch(a -> a.login().equalsIgnoreCase(userId));
     }

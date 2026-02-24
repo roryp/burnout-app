@@ -373,15 +373,17 @@
         <input type="text" id="repo-input" placeholder="owner/repo" autocomplete="off" spellcheck="false" />
         <input type="text" id="user-input" placeholder="GitHub username (optional)" autocomplete="off" spellcheck="false" />
         <button class="btn" id="go-btn" onclick="loadFlamegraph()">View Flamegraph</button>
+        <button class="btn" id="sync-btn" onclick="syncFromGitHub()" style="background: linear-gradient(135deg, #00f260, #0575e6);">Sync from GitHub</button>
       </div>
 
       <div id="synced-repos" class="synced-repos"></div>
       <div id="error" class="error-msg" style="display:none;"></div>
 
       <div class="info-note">
-        <strong>How it works:</strong> An MCP tool syncs your GitHub issues to
-        this server first. This page then renders a read-only flamegraph from
-        that cached data &mdash; no GitHub token required.
+        <strong>How it works:</strong> Enter a public GitHub repo and click
+        <em>Sync from GitHub</em> to fetch issues, then <em>View Flamegraph</em>
+        to see your workload visualization. Sync is rate-limited to once per repo
+        every 5 minutes.
       </div>
     </div>
   </div>
@@ -451,18 +453,69 @@
       return await resp.json();
     }
 
+    async function syncFromGitHub() {
+      const repo = document.getElementById('repo-input').value.trim();
+      const errEl = document.getElementById('error');
+      const syncBtn = document.getElementById('sync-btn');
+
+      if (!repo) {
+        errEl.textContent = 'Please enter a repo (e.g. owner/repo)';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      errEl.style.display = 'none';
+      syncBtn.disabled = true;
+      syncBtn.textContent = 'Syncing...';
+
+      try {
+        const resp = await fetch(apiBase() + '/sync?repo=' + encodeURIComponent(repo), { method: 'POST' });
+
+        if (resp.status === 429) {
+          const data = await resp.json();
+          errEl.textContent = data.message || 'Rate limited. Try again in a few minutes.';
+          errEl.style.display = 'block';
+          return;
+        }
+        if (!resp.ok) {
+          const data = await resp.json().catch(() => ({}));
+          throw new Error(data.message || 'Sync failed (' + resp.status + ')');
+        }
+
+        const data = await resp.json();
+        errEl.style.display = 'none';
+
+        // Refresh synced repos list
+        const repos = await fetchSyncedRepos();
+        updateSyncedRepos(repos);
+
+        // Auto-load the flamegraph after sync
+        loadFlamegraph();
+      } catch (e) {
+        errEl.textContent = 'Sync failed: ' + e.message;
+        errEl.style.display = 'block';
+      } finally {
+        syncBtn.disabled = false;
+        syncBtn.textContent = 'Sync from GitHub';
+      }
+    }
+
     // --- Init ---
-    async function init() {
-      // Pre-populate synced repos
-      const repos = await fetchSyncedRepos();
+    function updateSyncedRepos(repos) {
       const el = document.getElementById('synced-repos');
       if (repos.length > 0) {
         el.innerHTML = 'Synced repos: ' + repos.map(r =>
           `<button onclick="pickRepo('${r}')">${r}</button>`
         ).join(', ');
       } else {
-        el.textContent = 'No repos synced yet. Use the MCP tool to sync issues first.';
+        el.textContent = 'No repos synced yet. Enter a public repo above and click "Sync from GitHub".';
       }
+    }
+
+    async function init() {
+      // Pre-populate synced repos
+      const repos = await fetchSyncedRepos();
+      updateSyncedRepos(repos);
 
       // Check URL params
       const url = new URL(window.location);
@@ -508,7 +561,9 @@
         const data = await fetchFlamegraph(repo, userId);
 
         if (data.status === 'not_synced') {
-          errEl.textContent = `Repo "${repo}" hasn't been synced yet. Use the MCP tool to sync issues first.`;
+          errEl.innerHTML = `Repo "<strong>${escapeHtml(repo)}</strong>" hasn't been synced yet. ` +
+            `<button class="btn" style="font-size:0.85rem; padding:8px 16px; margin-left:8px; background:linear-gradient(135deg,#00f260,#0575e6);" ` +
+            `onclick="document.getElementById('repo-input').value='${escapeHtml(repo)}'; syncFromGitHub();">Sync now</button>`;
           errEl.style.display = 'block';
           return;
         }

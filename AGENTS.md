@@ -148,19 +148,22 @@ The system has two main components:
 | POST | `/api/reshape` | Yes | Run full reshape workflow |
 | GET | `/demo/api/flamegraph?repo=...&userId=...` | No | Read-only flamegraph data for pre-synced repos |
 | GET | `/demo/api/repos` | No | List repos currently synced in memory |
+| POST | `/demo/api/sync?repo=owner/repo` | No | Sync issues from GitHub public API (rate-limited: 1 per repo per 5 min) |
 
 ### Demo web app
 
-A standalone flamegraph web page is served at `/flamegraph.html` for live demos outside VS Code. It requires **no authentication** and only reads data from repos already synced via the MCP `sync_issues` tool.
+A standalone flamegraph web page is served at `/flamegraph.html` for live demos outside VS Code. It has a **"Sync from GitHub"** button that fetches public repo issues directly — no MCP tool or GitHub token required.
 
 **Live demo:** https://aka.ms/burnout-app
 
 **Demo workflow:**
-1. Sync issues via MCP in VS Code: use the `sync_issues` tool
-2. Share the URL with the audience: `https://aka.ms/burnout-app`
-3. The audience opens the URL and sees the interactive flamegraph — no auth needed
+1. Share the URL with the audience: `https://aka.ms/burnout-app`
+2. Enter a public repo (e.g. `roryp/burnout-app`) and click **Sync from GitHub**
+3. The flamegraph renders automatically after sync
 
-The demo endpoints are read-only and never mutate GitHub issues or labels.
+Alternatively, sync issues via MCP in VS Code first, then share the URL — the audience will see pre-synced repos as clickable buttons.
+
+The demo endpoints never mutate GitHub issues or labels. Sync is rate-limited to 1 request per repo per 5 minutes to avoid exhausting GitHub's unauthenticated API limit (60 req/hour per IP).
 
 The `POST /demo/api/seed` endpoint accepts `{"repo": "owner/repo", "issues": [...]}` and populates the `IssueCache` for testing without GitHub auth. Use this to test the flamegraph locally or on Azure without needing the full MCP sync flow.
 

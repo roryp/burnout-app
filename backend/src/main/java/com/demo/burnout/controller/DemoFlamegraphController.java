@@ -2,13 +2,27 @@ package com.demo.burnout.controller;
 
 import com.demo.burnout.model.*;
 import com.demo.burnout.service.*;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -20,28 +34,41 @@ import java.util.stream.Stream;
  * 
  * Security: No mutations are performed. Only pre-synced, read-only 
  * issue data is returned. No GitHub tokens are required or accepted.
+ * The /demo/api/sync endpoint fetches public GitHub issues (unauthenticated)
+ * and is rate-limited to 1 sync per repo per 5 minutes.
  */
 @RestController
 @RequestMapping("/demo/api")
 @CrossOrigin(origins = "*")
 public class DemoFlamegraphController {
 
+    private static final Logger log = LoggerFactory.getLogger(DemoFlamegraphController.class);
+    private static final Duration SYNC_COOLDOWN = Duration.ofMinutes(5);
+
     private final IssueCache issueCache;
     private final ChaosMetricsService chaosMetricsService;
     private final ComplianceService complianceService;
     private final IssueClassifierService classifier;
     private final Clock clock;
+    private final ObjectMapper objectMapper;
+    private final HttpClient httpClient;
+    private final Map<String, Instant> lastSyncTimes = new ConcurrentHashMap<>();
 
     public DemoFlamegraphController(IssueCache issueCache,
                                     ChaosMetricsService chaosMetricsService,
                                     ComplianceService complianceService,
                                     IssueClassifierService classifier,
-                                    Clock clock) {
+                                    Clock clock,
+                                    ObjectMapper objectMapper) {
         this.issueCache = issueCache;
         this.chaosMetricsService = chaosMetricsService;
         this.complianceService = complianceService;
         this.classifier = classifier;
         this.clock = clock;
+        this.objectMapper = objectMapper;
+        this.httpClient = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .build();
     }
 
     /**
@@ -60,6 +87,125 @@ public class DemoFlamegraphController {
     }
 
     public record SeedRequest(String repo, List<Issue> issues) {}
+
+    /**
+     * Sync issues directly from GitHub's public REST API. No authentication
+     * required (works for public repos only). Rate-limited to 1 sync per
+     * repo per 5 minutes to avoid exhausting GitHub's unauthenticated
+     * rate limit (60 req/hour per IP).
+     */
+    @PostMapping("/sync")
+    public ResponseEntity<Map<String, Object>> syncFromGitHub(@RequestParam String repo) {
+        // Validate repo format
+        if (!repo.matches("^[\\w.-]+/[\\w.-]+$")) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid repo format. Use owner/repo"));
+        }
+
+        // Rate limiting: 1 sync per repo per 5 minutes
+        Instant lastSync = lastSyncTimes.get(repo);
+        if (lastSync != null) {
+            Duration elapsed = Duration.between(lastSync, Instant.now());
+            if (elapsed.compareTo(SYNC_COOLDOWN) < 0) {
+                long remainingSecs = SYNC_COOLDOWN.minus(elapsed).toSeconds();
+                return ResponseEntity.status(429).body(Map.of(
+                    "error", "rate_limited",
+                    "message", "Sync for " + repo + " is rate-limited. Try again in " + remainingSecs + "s",
+                    "retryAfterSeconds", remainingSecs
+                ));
+            }
+        }
+
+        try {
+            List<Issue> issues = fetchGitHubIssues(repo);
+            issueCache.put(repo, issues, Instant.now());
+            lastSyncTimes.put(repo, Instant.now());
+
+            log.info("Demo sync: fetched {} issues from GitHub for {}", issues.size(), repo);
+
+            return ResponseEntity.ok(Map.of(
+                "status", "synced",
+                "repo", repo,
+                "issueCount", issues.size()
+            ));
+        } catch (ResponseStatusException e) {
+            return ResponseEntity.status(e.getStatusCode()).body(Map.of(
+                "error", e.getReason() != null ? e.getReason() : "Unknown error"
+            ));
+        } catch (Exception e) {
+            log.error("Failed to sync from GitHub for repo {}", repo, e);
+            return ResponseEntity.status(502).body(Map.of(
+                "error", "Failed to fetch issues from GitHub: " + e.getMessage()
+            ));
+        }
+    }
+
+    private List<Issue> fetchGitHubIssues(String repo) throws Exception {
+        // Fetch up to 100 open issues from GitHub's public REST API (no auth)
+        String url = "https://api.github.com/repos/" + repo + "/issues?state=open&per_page=100";
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(URI.create(url))
+            .header("Accept", "application/vnd.github+json")
+            .header("User-Agent", "burnout-app-demo")
+            .timeout(Duration.ofSeconds(15))
+            .GET()
+            .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        if (response.statusCode() == 404) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                "Repository not found: " + repo + ". Make sure it's a public repo.");
+        }
+        if (response.statusCode() == 403) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                "GitHub API rate limit exceeded. Try again later.");
+        }
+        if (response.statusCode() != 200) {
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
+                "GitHub API returned " + response.statusCode());
+        }
+
+        // Parse GitHub response into Issue records
+        GitHubIssue[] ghIssues = objectMapper.readValue(response.body(), GitHubIssue[].class);
+        return java.util.Arrays.stream(ghIssues)
+            .filter(i -> i.pullRequest == null)  // Exclude PRs (GitHub includes them in /issues)
+            .map(GitHubIssue::toIssue)
+            .toList();
+    }
+
+    /** Maps GitHub REST API issue fields to our Issue model. */
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record GitHubIssue(
+        int number,
+        String title,
+        String body,
+        List<GitHubLabel> labels,
+        List<GitHubAssignee> assignees,
+        @JsonProperty("created_at") Instant createdAt,
+        @JsonProperty("updated_at") Instant updatedAt,
+        String state,
+        GitHubMilestone milestone,
+        @JsonProperty("pull_request") Object pullRequest
+    ) {
+        Issue toIssue() {
+            return new Issue(
+                number, title, body,
+                labels == null ? List.of() : labels.stream().map(l -> new Issue.Label(l.name())).toList(),
+                assignees == null ? List.of() : assignees.stream().map(a -> new Issue.Assignee(a.login())).toList(),
+                createdAt, updatedAt, state,
+                milestone == null ? null : new Issue.Milestone(milestone.title(), milestone.dueOn())
+            );
+        }
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record GitHubLabel(String name) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record GitHubAssignee(String login) {}
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record GitHubMilestone(String title, @JsonProperty("due_on") Instant dueOn) {}
 
     @GetMapping("/flamegraph")
     public FlamegraphResponse flamegraph(@RequestParam String repo,
