@@ -130,7 +130,7 @@ public class AgentConfiguration {
     }
 
     /**
-     * Explainer AI Service - explains GOAP plans in human-friendly terms.
+     * Explainer AI Service - explains action plans in human-friendly terms.
      */
     @Bean
     public ExplainerAiService explainerAiService(ChatModel chatModel) {

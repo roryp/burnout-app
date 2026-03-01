@@ -6,6 +6,8 @@ This document provides an exhaustive reference for every burnout analysis idea, 
 
 ## Table of Contents
 
+- [A Developer's Journey: From Burnout to Balance](#a-developers-journey-from-burnout-to-balance)
+
 1. [Theoretical Foundations](#1-theoretical-foundations)
 2. [The 3-3-3 Day Structure](#2-the-3-3-3-day-structure)
 3. [Issue Classification System](#3-issue-classification-system)
@@ -16,12 +18,119 @@ This document provides an exhaustive reference for every burnout analysis idea, 
 8. [Protective Intervention System](#8-protective-intervention-system)
 9. [Friday Deploy Confidence](#9-friday-deploy-confidence)
 10. [Calendar Fragmentation Analysis](#10-calendar-fragmentation-analysis)
-11. [GOAP Action Planning](#11-goap-action-planning)
-12. [AI Agent Architecture](#12-ai-agent-architecture)
-13. [Flamegraph Visualization Psychology](#13-flamegraph-visualization-psychology)
-14. [Priority Weighting & Day Plan Construction](#14-priority-weighting--day-plan-construction)
-15. [Graceful Degradation Philosophy](#15-graceful-degradation-philosophy)
-16. [Complete Constants Reference](#16-complete-constants-reference)
+11. [AI Agent Architecture](#11-ai-agent-architecture)
+12. [Flamegraph Visualization Psychology](#12-flamegraph-visualization-psychology)
+13. [Priority Weighting & Day Plan Construction](#13-priority-weighting--day-plan-construction)
+14. [Graceful Degradation Philosophy](#14-graceful-degradation-philosophy)
+15. [Complete Constants Reference](#15-complete-constants-reference)
+
+---
+
+## A Developer's Journey: From Burnout to Balance
+
+Before diving into the technical details, here's the story of how the system works — told through the experience of a developer named Alex.
+
+---
+
+### Scene 1: The Breaking Point
+
+Alex stares at their screen. 12 open issues, 3 critical bugs, Slack notifications piling up, and it's already 7 PM. There's no plan, no priorities — just an avalanche of work that feels impossible to manage. This is where most developers hit the wall.
+
+<img src="images/scene1-overwhelmed-developer.png" alt="Overwhelmed developer at desk with chaotic notifications and 12 unorganized issues" width="800"/>
+
+*This illustration shows the starting point: a developer overwhelmed by unstructured work, unclear priorities, and boundary erosion — the classic conditions that lead to burnout.*
+
+**What's happening psychologically:** Alex is experiencing all three dimensions of the Maslach Burnout Inventory — emotional exhaustion (working late), depersonalization (issues blur together), and reduced accomplishment (nothing feels "done"). The cognitive load from 12 context switches has depleted working memory.
+
+---
+
+### Scene 2: The 3-3-3 Structure
+
+The system's first intervention: impose structure. Based on Cognitive Load Theory, the 3-3-3 rule limits the day to **1 deep work item, 3 quick wins, and 3 maintenance tasks** — matching the brain's capacity for different types of attention.
+
+<img src="images/scene2-333-day-structure.png" alt="3-3-3 Day Structure showing 1 deep work, 3 quick wins, 3 maintenance tasks with stress reduction" width="800"/>
+
+*This diagram shows the 3-3-3 day structure: one cognitively demanding deep work item (blue), three quick momentum-builders (green), and three routine maintenance tasks (amber). The stress gauge on the right shows the impact of imposing structure.*
+
+**Why it works:** By capping active work to 7 items (1+3+3), the system stays within Miller's 7±2 limit for working memory. Deep work gets a protected 90-minute block. Quick wins provide dopamine hits. Maintenance is routine and low-stress.
+
+---
+
+### Scene 3: Classifying the Chaos
+
+Before the AI even runs, deterministic services classify every GitHub issue into one of four categories based on its labels. This is pure pattern matching — no LLM required.
+
+<img src="images/scene3-issue-classification.png" alt="Issue classification system sorting GitHub issues into Deep Work, Quick Win, Maintenance, and Deferred buckets" width="800"/>
+
+*This diagram shows the classification engine sorting 12 chaotic issues into 4 structured buckets based on GitHub labels like priority:critical, good-first-issue, tech-debt, and documentation.*
+
+**The key insight:** Classification is deterministic, not AI-driven. Labels like `priority:critical` always map to DEEP_WORK. Labels like `good-first-issue` always map to QUICK_WIN. This ensures the system is predictable and auditable — the AI only explains and enhances, never decides.
+
+---
+
+### Scene 4: Measuring the Stress
+
+The system builds a **WorldState** from 18 discrete variables extracted from GitHub issue fields, then calculates a stress score (0–100) by summing weighted components.
+
+<img src="images/scene4-stress-score.png" alt="Stress score calculation showing 6 weighted components feeding into a 0-100 thermometer gauge" width="800"/>
+
+*This diagram shows how the stress score is computed: workload volume, chaos level, context switching frequency, issue clarity, sustained high-chaos days, and after-hours activity each contribute weighted points to a total capped at 100.*
+
+**Alex's score: 72/100 (CRITICAL).** The breakdown reveals the pain: 12 assigned issues contribute 20 points of workload stress, HIGH chaos adds 20 more, 8 context switches add 9, 4 mystery-meat issues add 8, and after-hours work adds 15. The system now has a precise, explainable number for what Alex feels intuitively.
+
+---
+
+### Scene 5: The Supervisor Agent Steps In
+
+With the WorldState calculated, the LangChain4j **Supervisor Pattern** takes over. A planner LLM receives the full context and autonomously coordinates 5 specialized sub-agents to rebalance the workload.
+
+<img src="images/scene5-supervisor-pattern.png" alt="Supervisor Agent architecture with 5 sub-agents: Defer, Delegate, Classify, Scope, and Wellness" width="800"/>
+
+*This diagram shows the Supervisor pattern: the planner model receives the WorldState and goals, then decides which sub-agents to invoke. Each agent has access to specific mutation tools that add/remove labels and comments on GitHub issues.*
+
+**What the Supervisor decides for Alex:**
+1. **DeferAgent** — defers 3 non-critical issues to next sprint (reduces active set from 12 to 9)
+2. **ClassifyAgent** — reclassifies 2 excess quick wins as maintenance to achieve 3-3-3
+3. **ScopeAgent** — flags 4 mystery-meat issues as `needs-scope`
+4. **WellnessAgent** — suggests a break (stress ≥ 70 threshold)
+
+The Supervisor builds a **mutation plan** of 8 GitHub actions — but doesn't execute them yet.
+
+---
+
+### Scene 6: The Flamegraph — Seeing Stress
+
+The flamegraph transforms abstract numbers into a visceral visualization. Each issue becomes a colored bar — red (danger), amber (caution), or green (calm). The primal association of fire = danger creates an immediate emotional response that raw numbers can't match.
+
+<img src="images/scene6-flamegraph.png" alt="Flamegraph visualization showing stacked colored bars representing per-issue stress levels" width="800"/>
+
+*This diagram shows the flamegraph: each bar is a GitHub issue, colored by stress level. Width represents relative impact, height shows category depth. The summary panel shows Alex's overall score and compliance status.*
+
+**The psychology:** Fire metaphors work because they trigger the brain's threat detection system. A dashboard that says "Stress: 72%" is abstract. A screen full of red flames is visceral. The flamegraph makes the case for change without needing a word of explanation.
+
+---
+
+### Scene 7: Reshaping the Day
+
+The `reshape_day` tool applies the mutation plan to Alex's GitHub issues. Labels are added, comments posted, issues deferred. The before-and-after tells the story: chaos becomes structure.
+
+<img src="images/scene7-reshaping-the-day.png" alt="Before and after comparison showing chaotic workload transformed into structured 3-3-3 plan by the Supervisor Agent" width="800"/>
+
+*This diagram shows the reshape transformation: 12 chaotic issues (stress 72) on the left pass through the Supervisor Agent's 5 actions and emerge as a structured 3-3-3 plan (stress 16) on the right.*
+
+**The math:** 8 mutations × 7 stress points each = 56-point reduction. Alex's score drops from 72 (CRITICAL) to 16 (LOW). The system returns both scores so the developer can see the projected improvement before committing.
+
+---
+
+### Scene 8: The Balanced Developer
+
+After reshaping, Alex's world looks different. One focused deep work item. Three satisfying quick wins. Three predictable maintenance tasks. Everything else is deferred or delegated. The flamegraph is mostly green. It's 5:30 PM and the laptop is closing on time.
+
+<img src="images/scene8-balanced-developer.png" alt="Calm developer at desk with organized flamegraph showing mostly green bars and a stress score of 28" width="800"/>
+
+*This illustration shows the end state: a developer in control, with a structured plan, healthy stress levels, and clear boundaries — the psychological opposite of Scene 1.*
+
+**What changed:** The same 12 issues still exist. The same deadlines haven't moved. But the cognitive load is managed, priorities are explicit, and the developer knows exactly what to do next. That's the difference between burnout and balance — not less work, but structured work.
 
 ---
 
@@ -609,75 +718,111 @@ If the calendar doesn't have a 90-minute contiguous free block, the system flags
 
 ---
 
-## 11. GOAP Action Planning
+## 11. AI Agent Architecture
 
-The system adapts Goal-Oriented Action Planning (GOAP) from game AI to workload management. Originally developed for NPC behavior in games (Orkin, 2003), GOAP works by backward-chaining from a goal state to find the optimal sequence of actions.
+The system uses LangChain4j's **Supervisor Pattern** (`langchain4j-agentic`) — a hierarchical multi-agent system where a planner LLM coordinates specialized sub-agents. The key design principle is: **deterministic services calculate all metrics first; AI agents only explain and act — they never make decisions.**
 
-### The Architecture
+### End-to-End Flow
+
+The Supervisor pattern is invoked via two API endpoints (`/api/reshape` and `/api/stress`). The flow is:
 
 ```
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│  WorldState  │────►│  GOAP        │────►│  Mutation    │
-│  (18 vars)   │     │  Planner     │     │  Plan        │
-│              │     │              │     │              │
-│  Current     │     │  Finds path  │     │  GitHub      │
-│  metrics     │     │  from state  │     │  Actions     │
-│              │     │  to goal     │     │  (labels,    │
-│              │     │              │     │   comments)  │
-└──────────────┘     └──────────────┘     └──────────────┘
+  1. Issues synced         2. Deterministic metrics        3. WorldState built
+  ┌──────────────┐        ┌──────────────────────┐        ┌──────────────────┐
+  │ GitHub → MCP │───────▶│ ChaosMetricsService  │───────▶│ WorldState.from( │
+  │ → IssueCache │        │ ComplianceService    │        │   issues, chaos, │
+  │              │        │ IssueClassifierService│        │   compliance)    │
+  └──────────────┘        └──────────────────────┘        └────────┬─────────┘
+                                                                   │
+  6. Response returned     5. Mutations accumulated        4. Supervisor invoked
+  ┌──────────────────┐    ┌──────────────────────┐        ┌────────▼─────────┐
+  │ ReshapeResponse{ │◀───│ BurnoutMutationTool  │◀───────│ preventBurnout(  │
+  │   explanation,   │    │ .getMutationPlan()   │        │   state, issues, │
+  │   mutationPlan,  │    │                      │        │   userId, repo,  │
+  │   stressScores } │    └──────────────────────┘        │   chaos)         │
+  └──────────────────┘                                    └──────────────────┘
 ```
 
-### WorldState: 18 Discrete Variables
+**Step by step:**
+1. **Sync** — Issues fetched from GitHub via the MCP `sync_issues` tool and cached in `IssueCache` (in-memory `ConcurrentHashMap`)
+2. **Calculate** — Three deterministic services run independently: `ChaosMetricsService` (chaos score 0–10), `ComplianceService` (compliance report), `IssueClassifierService` (DEEP_WORK / QUICK_WIN / MAINTENANCE / DEFERRED)
+3. **Build WorldState** — `WorldState.from(issues, userId, chaos, compliance, clock)` produces 18 discrete variables (see table below) from the raw issue data and metric outputs
+4. **Invoke Supervisor** — `BurnoutSupervisorService.preventBurnout()` builds 5 sub-agents with the `BurnoutMutationTool`, then the Supervisor (plannerModel) autonomously decides which sub-agents to call based on the WorldState
+5. **Accumulate Mutations** — Each sub-agent invokes `@Tool` methods on `BurnoutMutationTool`, which appends label/comment mutations to a `pendingActions` list. After the Supervisor completes, `getMutationPlan()` returns the full `GitHubMutationPlan`
+6. **Return Response** — The response includes: supervisor explanation, mutation plan, current stress score, estimated post-action stress, chaos metrics, compliance report, protective intervention, and day structure
 
-The world state captures a complete snapshot of a developer's workload situation:
+### WorldState — 18 Discrete Variables
 
-| Variable | Type | Cap | Description |
-|----------|------|-----|-------------|
-| `deepWorkCount` | int | 5 | Active deep work items |
-| `quickWinCount` | int | 5 | Active quick win items |
-| `maintenanceCount` | int | 5 | Active maintenance items |
-| `deferredCount` | int | 10 | Deferred / backlog items |
-| `delegatedCount` | int | — | Items marked for delegation |
-| `urgentUnassigned` | int | 10 | Urgent items with no owner |
-| `contradictoryLabels` | int | 5 | Issues with conflicting labels (bug+enhancement) |
-| `issuesTouchedToday` | int | 10 | Issues updated within 8h |
-| `issuesUpdatedAfterHours` | int | 5 | Issues updated before 9am/after 6pm |
-| `staleIssueCount` | int | 10 | Issues untouched for 14+ days |
-| `mysteryMeatCount` | int | 10 | Issues with blank body |
-| `unclearQuickWins` | int | 5 | Quick-win label + blank body |
-| `totalAssigned` | int | 15 | Total open issues assigned |
-| `chaosBucket` | enum | — | LOW / MEDIUM / HIGH / CRITICAL |
-| `complianceScore` | int | — | Rounded to nearest 5 |
-| `is333Compliant` | bool | — | Meets 3-3-3 structure |
-| `calendarBlocked` | bool | — | No 90-min free block |
-| `consecutiveHighChaosDays` | int | — | Days with chaosScore ≥ 5 |
+The `WorldState` record captures all measurable burnout indicators from GitHub issue fields. Values are capped to prevent outliers from dominating the stress calculation.
 
-### GitHub Mutation Actions
+| # | Variable | Type | Cap | Source | Purpose |
+|---|----------|------|-----|--------|---------|
+| 1 | `deepWorkCount` | int | 5 | Issues with `priority:critical`, `architecture`, or `deep-work` labels | How many cognitively demanding tasks are assigned |
+| 2 | `quickWinCount` | int | 5 | Issues with `good-first-issue`, `quick-win`, or `size:S` labels | Small tasks that provide momentum |
+| 3 | `maintenanceCount` | int | 5 | Issues with `dependencies`, `documentation`, `maintenance`, or `tech-debt` labels | Routine upkeep work |
+| 4 | `deferredCount` | int | 10 | Issues with `deferred`, `next-sprint`, or `backlog` labels | Work parked for later |
+| 5 | `delegatedCount` | int | — | (Reserved for future use) | Work distributed to others |
+| 6 | `urgentUnassigned` | int | 10 | Issues with `urgent`/`priority:critical` labels but no assignee | Unowned fires — stress amplifier |
+| 7 | `contradictoryLabels` | int | 5 | Issues tagged both `bug` and `enhancement` | Label hygiene — signals process chaos |
+| 8 | `issuesTouchedToday` | int | 10 | Issues updated in last 8 hours (proxy for context switches) | More switches = less deep work |
+| 9 | `issuesUpdatedAfterHours` | int | 5 | Issues updated before 9 AM or after 6 PM | After-hours work = boundary erosion |
+| 10 | `staleIssueCount` | int | 10 | Issues not updated in 14+ days | Neglected work creates background guilt |
+| 11 | `mysteryMeatCount` | int | 10 | Issues with null or blank body | Ambiguous work = cognitive tax |
+| 12 | `unclearQuickWins` | int | 5 | Quick-win labeled issues with no description | Misleading labels — promise simplicity, deliver anxiety |
+| 13 | `totalAssigned` | int | 15 | All issues assigned to the user | Raw workload volume |
+| 14 | `chaosBucket` | enum | — | `LOW` (≤2) / `MEDIUM` (≤5) / `HIGH` (≤8) / `CRITICAL` (>8) | Discretized chaos score |
+| 15 | `complianceScore` | int | 100 | Rounded to nearest 5 from `ComplianceReport` | How well the workload follows 3-3-3 |
+| 16 | `is333Compliant` | bool | — | `deepWork ≤ 1 AND quickWins ≤ 3 AND maintenance ≤ 3` | Binary compliance check |
+| 17 | `calendarBlocked` | bool | — | Whether a 90-min contiguous block exists | Can the dev actually do deep work? |
+| 18 | `consecutiveHighChaosDays` | int | — | Days in a row with chaos > 5 | Sustained stress amplifier |
 
-The GOAP planner outputs a sealed interface of three action types:
+### Dual Model Architecture
 
-| Action | Purpose | Example |
-|--------|---------|---------|
-| `AddLabels(issueNumber, labels)` | Classify, defer, flag | Add `deferred`, `next-sprint` |
-| `RemoveLabels(issueNumber, labels)` | Declassify, unblock | Remove `priority:critical` |
-| `Comment(issueNumber, body)` | Communicate, suggest | "🛡️ Deferred to protect your focus" |
+The Supervisor pattern uses **two separate LLM models**:
 
-### Stress Reduction Estimation
+| Model | Config Key | Role | Why Separate? |
+|-------|-----------|------|---------------|
+| **plannerModel** | `@Qualifier("plannerModel")` | The Supervisor — decides which sub-agents to invoke and in what order | Needs strong reasoning and planning capability |
+| **chatModel** | Default `ChatModel` | The sub-agents — execute specific tools and explain their actions | Needs tool-calling accuracy and concise responses |
 
-After the supervisor generates a plan, the system estimates the resulting stress reduction:
+Both default to the same Azure OpenAI deployment (`gpt-4o`) but can be configured independently. The planner sees the full WorldState and goals; sub-agents see only the specific issue context and their available tools.
 
-```java
-int reduction = actionCount * 7;   // ~7 stress points per action
-estimatedStress = max(0, currentStress - reduction);
+### Supervisor Request Prompt
+
+The Supervisor receives a structured prompt containing the WorldState metrics and explicit goals:
+
+```
+Analyze and rebalance this developer's workload to reduce stress.
+
+Current State:
+- Stress Score: 72/100 (CRITICAL)
+- Total Assigned: 12 issues
+- Deep Work: 3 (need exactly 1)
+- Quick Wins: 5 (max 3)
+- Maintenance: 4 (max 3)
+- 3-3-3 Compliant: false
+- Chaos Score: 6.5/10
+- After Hours Activity: true
+- Mystery Meat Issues: 4
+
+Available Issues:
+- #1: Fix auth module [priority:critical, deep-work]
+- #2: Update README [documentation]
+- ...
+
+Goals:
+1. Reduce stress score below 50
+2. Achieve 3-3-3 compliance (1 deep work, 3 quick wins, 3 maintenance)
+3. Protect the developer's focus time
+4. Flag unclear issues for scope clarification
+5. Recommend wellness actions if stress is high
 ```
 
-This heuristic is intentionally conservative — it's better to underestimate relief than to overpromise.
-
----
-
-## 12. AI Agent Architecture
-
-The system uses LangChain4j's **Supervisor Pattern** (`langchain4j-agentic`) — a hierarchical multi-agent system where a planner LLM coordinates specialized sub-agents.
+The Supervisor autonomously plans which sub-agents to invoke. For the example above, it might:
+1. Call **DeferAgent** to defer 2 of the 3 deep-work items
+2. Call **ClassifyAgent** to reclassify excess quick wins as maintenance
+3. Call **ScopeAgent** to flag the 4 mystery-meat issues
+4. Call **WellnessAgent** to suggest a break (stress ≥ 70)
 
 ### Agent Hierarchy
 
@@ -709,7 +854,7 @@ The system uses LangChain4j's **Supervisor Pattern** (`langchain4j-agentic`) —
 
 ### 5 Sub-Agents
 
-Each sub-agent is an autonomous LLM-powered agent with access to specific tools:
+Each sub-agent is an autonomous LLM-powered agent with access to specific tools. Sub-agents are built using `AgenticServices.agentBuilder()` with the `chatModel` and a shared `BurnoutMutationTool` instance:
 
 | Agent | Role | Tools | Psychology |
 |-------|------|-------|-----------|
@@ -720,6 +865,8 @@ Each sub-agent is an autonomous LLM-powered agent with access to specific tools:
 | **WellnessAgent** | Recommends self-care actions | `suggestBreak()`, `slowIntake()`, `blockCalendarTime()` | Direct burnout prevention — rest and boundaries |
 
 ### 9 Mutation Tools
+
+All tools live on a single `BurnoutMutationTool` instance shared across sub-agents. Each `@Tool` method appends `GitHubAction` objects to a `pendingActions` list. The Supervisor never mutates GitHub directly — it builds a **mutation plan** that the controller can apply or discard (dry run).
 
 | Tool | Labels Added | Labels Removed | Comment | Purpose |
 |------|-------------|----------------|---------|---------|
@@ -733,6 +880,26 @@ Each sub-agent is an autonomous LLM-powered agent with access to specific tools:
 | `slowIntake` | — | — | "⏸️ Reduce intake rate" | Prevent accumulation |
 | `blockCalendarTime` | — | — | "📅 Block 2-hour focus time" | Protect deep work |
 
+### Stress Reduction Estimation
+
+After the Supervisor completes, the system estimates the new stress score based on the number of mutations planned:
+
+```java
+int estimateReducedStress(WorldState state, GitHubMutationPlan plan) {
+    int currentStress = state.calculateStressScore();   // e.g. 72
+    int actionCount   = plan.actions().size();           // e.g. 8
+    int reduction     = actionCount * 7;                 // 8 × 7 = 56
+    return Math.max(0, currentStress - reduction);       // max(0, 72 - 56) = 16
+}
+```
+
+**Why `× 7`?** Each mutation (label change, comment, deferral) is estimated to reduce stress by 7 points. This is a rough heuristic — not a precise calculation. The constant balances:
+- **Too low** (e.g. ×3): Supervisor appears ineffective, undermining user trust
+- **Too high** (e.g. ×15): Overpromises stress relief, creating disillusionment
+- **×7**: Each action feels meaningfully impactful while remaining conservative
+
+The response returns both `initialStressScore` and `expectedStressScore`, so the flamegraph can show a before/after delta.
+
 ### Supervisor Configuration
 
 ```java
@@ -744,6 +911,26 @@ SupervisorAgent supervisor = AgenticServices.supervisorBuilder()
     .build();
 ```
 
+**Configuration details:**
+- `SupervisorResponseStrategy.SUMMARY` — the Supervisor produces a narrative summary of all sub-agent actions rather than returning raw tool outputs
+- `maxAgentsInvocations(10)` — with 5 sub-agents, this allows each agent to be called twice or a subset to be called more often for complex workloads
+- Sub-agents are built per-request with a fresh `BurnoutMutationTool`, ensuring mutation plans don't leak between requests
+
+### Graceful Degradation
+
+Every Supervisor invocation is wrapped in a try/catch. When the LLM is unavailable (dummy credentials, network failure, rate limiting), the system falls back to a deterministic response:
+
+```
+🔴 Critical stress detected. Current stress score: 72/100
+
+⚠️ Your workload exceeds the 3-3-3 structure. You have 3 deep work items
+(max 1), 5 quick wins (max 3), and 4 maintenance tasks (max 3).
+
+*LLM agents unavailable - using deterministic fallback*
+```
+
+The fallback uses the same `WorldState` calculated in Step 3 — no AI is required for the numbers. The user always gets their stress score, compliance status, and day structure even without the LLM. The AI only adds the *how* (mutation plan) and *why* (natural-language explanation).
+
 ### Three AI Personas
 
 | Service | Persona | Tone | Purpose |
@@ -754,7 +941,7 @@ SupervisorAgent supervisor = AgenticServices.supervisorBuilder()
 
 ---
 
-## 13. Flamegraph Visualization Psychology
+## 12. Flamegraph Visualization Psychology
 
 The flamegraph is not just a data visualization — it's a **stress communication tool** designed to make abstract workload concepts viscerally understandable.
 
@@ -827,7 +1014,7 @@ Adding a `critical` label would push it to **92%**. Reducing global stress below
 
 ---
 
-## 14. Priority Weighting & Day Plan Construction
+## 13. Priority Weighting & Day Plan Construction
 
 The day plan construction algorithm determines which issues to work on and in what order, balancing urgency, recency, and stability.
 
@@ -869,7 +1056,7 @@ default             → 2   // lowest priority (sorted last)
 
 ---
 
-## 15. Graceful Degradation Philosophy
+## 14. Graceful Degradation Philosophy
 
 A core design principle: **every AI feature must work without AI**. This isn't just engineering robustness — it's psychological safety for the user.
 
@@ -917,7 +1104,7 @@ For demonstrations without real GitHub data, the system supports synthetic time 
 
 ---
 
-## 16. Complete Constants Reference
+## 15. Complete Constants Reference
 
 Every magic number in the system, organized by subsystem:
 
@@ -1042,6 +1229,5 @@ Every magic number in the system, organized by subsystem:
 - McEwen, B. S. (1998). *Protective and damaging effects of stress mediators*. New England Journal of Medicine.
 - Easterbrook, J. A. (1959). *The effect of emotion on cue utilization*. Psychological Review.
 - Miller, G. A. (1956). *The magical number seven, plus or minus two*. Psychological Review.
-- Orkin, J. (2003). *Applying goal-oriented action planning to games*. AI Game Programming Wisdom 2.
 - Burkeman, O. (2021). *Four Thousand Weeks: Time management for mortals*.
 - Yerkes, R. M., & Dodson, J. D. (1908). *The relation of strength of stimulus to rapidity of habit-formation*. Journal of Comparative Neurology and Psychology.

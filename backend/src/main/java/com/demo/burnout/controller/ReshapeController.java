@@ -56,7 +56,7 @@ public class ReshapeController {
         
         DayStructure dayPlan = buildDayPlan(issues, req.userId());
         
-        // Use LLM-driven Supervisor pattern instead of deterministic GOAP
+        // Use LLM-driven Supervisor pattern for burnout prevention
         var supervisorResult = supervisorService.preventBurnout(
             state, issues, req.userId(), req.repo(), chaos);
         
@@ -69,7 +69,7 @@ public class ReshapeController {
         // Generate protective response if stress signals detected
         var protectiveResponse = agentOrchestrator.generateProtectiveResponse(state, 0);
         
-        // Convert mutation actions to GOAP-style summaries for backward compatibility
+        // Convert mutation actions to action summaries for backward compatibility
         List<GoapActionSummary> actionSummaries = mutationPlan.actions().stream()
             .map(a -> new GoapActionSummary(a.type() + " #" + a.issueNumber(), 
                 "Tool-generated action", 5))

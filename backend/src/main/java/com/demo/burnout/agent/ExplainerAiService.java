@@ -5,10 +5,10 @@ import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.V;
 
 /**
- * LangChain4j AI Service for explaining GOAP action plans in human-friendly terms.
+ * LangChain4j AI Service for explaining action plans in human-friendly terms.
  * 
  * This agent ONLY explains deterministic results - it does NOT make decisions.
- * All planning is done by GOAPPlanner; this agent provides natural language narration.
+ * All planning is done by the Supervisor agent; this agent provides natural language narration.
  */
 public interface ExplainerAiService {
 

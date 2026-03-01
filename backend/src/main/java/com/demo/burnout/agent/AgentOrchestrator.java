@@ -16,7 +16,7 @@ import java.util.Locale;
  * Agent Orchestrator - coordinates all AI agents for burnout prevention.
  * 
  * This service orchestrates the following pattern:
- * 1. Deterministic services calculate metrics and GOAP plans
+ * 1. Deterministic services calculate metrics and action plans
  * 2. AI agents provide human-friendly explanations and emotional support
  * 
  * The agents NEVER make decisions - they only explain and support.
