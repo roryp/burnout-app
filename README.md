@@ -172,6 +172,8 @@ The resulting percentage is capped at 100% and color-coded: ðŸŸ¢ Low (<35%), ðŸŸ
 
 **Example: #26 Refactor authentication module (Deep Work, global stress = 40)**
 
+<img src="docs/flamegraph-stress-percentages.png" alt="Flamegraph showing stress percentages per issue" width="800">
+
 | Component | Value | Explanation |
 |-----------|-------|-------------|
 | Base Stress | 60 | Deep Work category |
