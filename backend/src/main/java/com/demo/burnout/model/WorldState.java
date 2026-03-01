@@ -9,8 +9,8 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * GOAP World State - all measurable burnout indicators from GitHub issue fields.
- * Keep state DISCRETE (ints, booleans, coarse buckets) for greedy planner.
+ * World State - all measurable burnout indicators from GitHub issue fields.
+ * Keep state DISCRETE (ints, booleans, coarse buckets) for the Supervisor agent.
  */
 public record WorldState(
     int deepWorkCount,

@@ -110,7 +110,7 @@ After `azd up`, the in-memory `IssueCache` is empty. To test the deployed flameg
 - **Backend**: Java 21, Spring Boot 3, LangChain4j. Use `@Agent` annotations for sub-agent interfaces. Use `@Tool` annotations for mutation methods.
 - **MCP App**: TypeScript strict mode, ES modules (`"type": "module"` in package.json). Dependencies: `@modelcontextprotocol/sdk`, `zod`, `dotenv`.
 - **Configuration**: Use Spring `@Configuration` and `@Bean` annotations. Azure OpenAI config is in `AgentConfiguration.java`.
-- **Key design principle**: Deterministic services calculate all metrics and GOAP plans first. AI agents **only explain and support** — they never make decisions.
+- **Key design principle**: Deterministic services calculate all metrics first. AI agents **only explain and support** — they never make decisions.
 - **Graceful degradation**: Every agent must have a fallback path when the LLM is unavailable. If LLM fails, return deterministic responses.
 
 ---
@@ -120,13 +120,13 @@ After `azd up`, the in-memory `IssueCache` is empty. To test the deployed flameg
 The system has two main components:
 
 1. **MCP App** (Node.js) — Exposes 4 tools to VS Code Copilot Chat via stdio transport. Calls the backend over HTTP with a GitHub Bearer token.
-2. **Java Backend** (Spring Boot + LangChain4j) — Runs the AI agent orchestration, stress analysis, and GOAP planning.
+2. **Java Backend** (Spring Boot + LangChain4j) — Runs the AI agent orchestration and stress analysis.
 
 ### Agent hierarchy
 
 - **AgentOrchestrator** — Central coordinator that dispatches to:
   - **BurnoutSupervisorService** — Supervisor pattern with 5 sub-agents (DeferAgent, DelegateAgent, ClassifyAgent, ScopeAgent, WellnessAgent)
-  - **ExplainerAiService** — Explains GOAP action plans in human-friendly language
+  - **ExplainerAiService** — Explains action plans in human-friendly language
   - **ProtectiveAiService** — Detects emotional signals and provides protective interventions
   - **FridayDeployAiService** — Assesses Friday deploy readiness
 

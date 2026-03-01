@@ -46,3 +46,4 @@ build/
 demo-issues.json
 real-issues.json
 .playwright-mcp/
+IMAGE_GENERATION_GUIDE.md
