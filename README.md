@@ -194,6 +194,7 @@ The tools understand natural language, so you can also try:
 │  │  BurnoutSupervisorService (Supervisor Pattern Orchestrator)     ││
 │  │  - Uses langchain4j-agentic AgenticServices.supervisorBuilder() ││
 │  │  - Coordinates 5 sub-agents for workload rebalancing            ││
+│  │  - maxAgentsInvocations(10) allows full sub-agent coverage      ││
 │  │  - Generates human-readable explanations                        ││
 │  └─────────────────────────────────────────────────────────────────┘│
 │  ┌─────────────────────────────────────────────────────────────────┐│
