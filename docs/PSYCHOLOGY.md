@@ -102,11 +102,19 @@ The Supervisor builds a **mutation plan** of 8 GitHub actions — but doesn't ex
 
 The flamegraph transforms abstract numbers into a visceral visualization. Each issue becomes a colored bar — red (danger), amber (caution), or green (calm). The primal association of fire = danger creates an immediate emotional response that raw numbers can't match.
 
-<img src="images/scene6-flamegraph.png" alt="Flamegraph visualization showing stacked colored bars representing per-issue stress levels" width="800"/>
+Here's the landing page where a developer enters their GitHub repo:
 
-*This diagram shows the flamegraph: each bar is a GitHub issue, colored by stress level. Width represents relative impact, height shows category depth. The summary panel shows Alex's overall score and compliance status.*
+<img src="images/flamegraph-landing.png" alt="Burnout Flamegraph landing page with repo input and Sync from GitHub button" width="800"/>
 
-**The psychology:** Fire metaphors work because they trigger the brain's threat detection system. A dashboard that says "Stress: 72%" is abstract. A screen full of red flames is visceral. The flamegraph makes the case for change without needing a word of explanation.
+*The flamegraph landing page: enter a public repo, click Sync from GitHub, and the system fetches all open issues for analysis.*
+
+And here's what Alex sees — 12 issues with **no labels**, all dumped into a single "Deferred" pile. Deep Work: 0. Quick Wins: 0. Maintenance: 0. No structure at all:
+
+<img src="images/flamegraph-before.png" alt="Flamegraph showing 12 unclassified issues all in Deferred with stress score 25" width="800"/>
+
+*The BEFORE state: all 12 issues land in Deferred because none have classification labels. Stress score: 25/100. The empty Deep Work, Quick Wins, and Maintenance sections visually scream "no plan."*
+
+**The psychology:** Fire metaphors work because they trigger the brain's threat detection system. A dashboard that says "Stress: 25" is abstract. A screen showing zero structured work and everything deferred is visceral. The flamegraph makes the case for change without needing a word of explanation.
 
 ---
 
@@ -114,23 +122,30 @@ The flamegraph transforms abstract numbers into a visceral visualization. Each i
 
 The `reshape_day` tool applies the mutation plan to Alex's GitHub issues. Labels are added, comments posted, issues deferred. The before-and-after tells the story: chaos becomes structure.
 
-<img src="images/scene7-reshaping-the-day.png" alt="Before and after comparison showing chaotic workload transformed into structured 3-3-3 plan by the Supervisor Agent" width="800"/>
+<img src="images/flamegraph-after.png" alt="Flamegraph after reshaping showing 1 Deep Work, 3 Quick Wins, 3 Maintenance, 5 Deferred with stress score 20" width="800"/>
 
-*This diagram shows the reshape transformation: 12 chaotic issues (stress 72) on the left pass through the Supervisor Agent's 5 actions and emerge as a structured 3-3-3 plan (stress 16) on the right.*
+*The AFTER state: the same 12 issues, now structured into a 3-3-3 plan. 1 Deep Work (Refactor auth module at 86%), 3 Quick Wins (CSS fix, lodash update, README typo), 3 Maintenance (API docs, Spring Boot upgrade, CORS headers), and 5 Deferred. Stress score: 20/100.*
 
-**The math:** 8 mutations × 7 stress points each = 56-point reduction. Alex's score drops from 72 (CRITICAL) to 16 (LOW). The system returns both scores so the developer can see the projected improvement before committing.
+**What the Supervisor did:** The agent classified each issue and applied labels — `deep-work` for the auth refactor, `quick-win` for small fixes, `maintenance` for routine tasks, and `deferred` for everything that can wait. The flamegraph now shows a clear visual hierarchy: green at the top (deep work), warm colors for quick wins and maintenance, and cool purple for deferred items.
+
+**The contrast:** Compare this screenshot to the BEFORE image above. Same 12 issues, same deadlines — but now the developer knows exactly what to work on first, and the flamegraph visually confirms the plan is balanced.
 
 ---
 
 ### Scene 8: The Balanced Developer
 
-After reshaping, Alex's world looks different. One focused deep work item. Three satisfying quick wins. Three predictable maintenance tasks. Everything else is deferred or delegated. The flamegraph is mostly green. It's 5:30 PM and the laptop is closing on time.
-
-<img src="images/scene8-balanced-developer.png" alt="Calm developer at desk with organized flamegraph showing mostly green bars and a stress score of 28" width="800"/>
-
-*This illustration shows the end state: a developer in control, with a structured plan, healthy stress levels, and clear boundaries — the psychological opposite of Scene 1.*
+After reshaping, Alex's world looks different. One focused deep work item. Three satisfying quick wins. Three predictable maintenance tasks. Everything else is deferred. The day has structure.
 
 **What changed:** The same 12 issues still exist. The same deadlines haven't moved. But the cognitive load is managed, priorities are explicit, and the developer knows exactly what to do next. That's the difference between burnout and balance — not less work, but structured work.
+
+| Metric | Before (No Labels) | After (Reshaped) |
+|--------|-------------------|------------------|
+| Deep Work | 0 | 1 |
+| Quick Wins | 0 | 3 |
+| Maintenance | 0 | 3 |
+| Deferred | 12 (all) | 5 (intentional) |
+| Stress Score | 25/100 | 20/100 |
+| 3-3-3 Compliant | No | Yes |
 
 ---
 
