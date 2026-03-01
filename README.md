@@ -150,6 +150,38 @@ Displays an interactive flamegraph visualization showing:
 
 **Hover** over any issue bar to see its stress percentage. **Click** to open the issue directly on GitHub.
 
+Each issue bar displays a **stress percentage** calculated per-issue using this formula:
+
+```
+stress% = min(100, baseStress + (complexity × 3) + (globalStress × 0.3) + labelBonus)
+```
+
+| Category | Base Stress | Why |
+|----------|------------|-----|
+| 🎯 Deep Work | 60 | High cognitive load — requires sustained focus blocks |
+| 🔧 Maintenance | 30 | Moderate routine effort |
+| ⚡ Quick Wins | 20 | Low effort, fast to complete |
+| 📦 Deferred | 10 | Parked — minimal mental overhead |
+
+Additional modifiers:
+- **Global stress** — the repo-wide stress score contributes 30% of its value (e.g., global 40 → +12)
+- **Label bonuses** — `urgent`/`critical`/`blocker` adds +20, `bug` adds +10
+- **Complexity** — optional per-issue field, adds `complexity × 3`
+
+The resulting percentage is capped at 100% and color-coded: 🟢 Low (<35%), 🟡 Moderate (35–64%), 🔴 High (≥65%).
+
+**Example: #26 Refactor authentication module (Deep Work, global stress = 40)**
+
+| Component | Value | Explanation |
+|-----------|-------|-------------|
+| Base Stress | 60 | Deep Work category |
+| + Complexity × 3 | +0 | No complexity field set |
+| + Global Stress × 0.3 | +12 | 40 × 0.3 = 12 |
+| + Label bonuses | +0 | `deep-work` is not a bonus label |
+| **= Total** | **72%** 🔴 | `min(100, 60 + 0 + 12 + 0)` = 72% High |
+
+Adding a `critical` label would push it to 92%. Reducing global stress below 17 would drop it into 🟡 Moderate.
+
 #### Step 3: Get AI-Powered Insights
 ```
 What's my stress score for owner/repo?
