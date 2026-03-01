@@ -48,9 +48,9 @@ Alex stares at their screen. 12 open issues, 3 critical bugs, Slack notification
 
 The system's first intervention: impose structure. Based on Cognitive Load Theory, the 3-3-3 rule limits the day to **1 deep work item, 3 quick wins, and 3 maintenance tasks** — matching the brain's capacity for different types of attention.
 
-<img src="images/scene2-333-day-structure.png" alt="3-3-3 Day Structure showing 1 deep work, 3 quick wins, 3 maintenance tasks with stress reduction" width="800"/>
+<img src="images/scene2-333-day-structure.png" alt="3-3-3 Day Structure showing 1 deep work, 3 quick wins, 3 maintenance tasks with compliance rules" width="800"/>
 
-*This diagram shows the 3-3-3 day structure: one cognitively demanding deep work item (blue), three quick momentum-builders (green), and three routine maintenance tasks (amber). The stress gauge on the right shows the impact of imposing structure.*
+*The 3-3-3 day structure: one cognitively demanding deep work item (blue), three quick momentum-builders (green), and three routine maintenance tasks (amber). The compliance rules panel shows the exact limits — max 7 active issues per day, with overflow routed to the Deferred bucket.*
 
 **Why it works:** By capping active work to 7 items (1+3+3), the system stays within Miller's 7±2 limit for working memory. Deep work gets a protected 90-minute block. Quick wins provide dopamine hits. Maintenance is routine and low-stress.
 
@@ -60,9 +60,9 @@ The system's first intervention: impose structure. Based on Cognitive Load Theor
 
 Before the AI even runs, deterministic services classify every GitHub issue into one of four categories based on its labels. This is pure pattern matching — no LLM required.
 
-<img src="images/scene3-issue-classification.png" alt="Issue classification system sorting GitHub issues into Deep Work, Quick Win, Maintenance, and Deferred buckets" width="800"/>
+<img src="images/scene3-issue-classification.png" alt="Issue Classification Pipeline showing priority-ordered cascade from labels to four buckets" width="800"/>
 
-*This diagram shows the classification engine sorting 12 chaotic issues into 4 structured buckets based on GitHub labels like priority:critical, good-first-issue, tech-debt, and documentation.*
+*The classification pipeline: GitHub labels enter from the left, and a priority-ordered cascade sorts each issue into the first matching bucket — Deep Work → Quick Win → Maintenance → Deferred. Each bucket lists the exact labels and criteria from `IssueClassifierService.classify()`.*
 
 **The key insight:** Classification is deterministic, not AI-driven. Labels like `priority:critical` always map to DEEP_WORK. Labels like `good-first-issue` always map to QUICK_WIN. This ensures the system is predictable and auditable — the AI only explains and enhances, never decides.
 
@@ -72,9 +72,9 @@ Before the AI even runs, deterministic services classify every GitHub issue into
 
 The system builds a **WorldState** from 18 discrete variables extracted from GitHub issue fields, then calculates a stress score (0–100) by summing weighted components.
 
-<img src="images/scene4-stress-score.png" alt="Stress score calculation showing 6 weighted components feeding into a 0-100 thermometer gauge" width="800"/>
+<img src="images/scene4-stress-score.png" alt="Stress score calculation showing 8 graduated components with formulas and caps feeding into a 0-100 thermometer" width="800"/>
 
-*This diagram shows how the stress score is computed: workload volume, chaos level, context switching frequency, issue clarity, sustained high-chaos days, and after-hours activity each contribute weighted points to a total capped at 100.*
+*The stress score formula from `WorldState.calculateStressScore()`: 8 graduated factors — workload, deep work imbalance, no-deep-work penalty, chaos bucket, context switching, clarity tax, sustained stress, and after-hours activity — each with a specific formula and cap, summed to a total capped at 100.*
 
 **Alex's score: 72/100 (CRITICAL).** The breakdown reveals the pain: 12 assigned issues contribute 20 points of workload stress, HIGH chaos adds 20 more, 8 context switches add 9, 4 mystery-meat issues add 8, and after-hours work adds 15. The system now has a precise, explainable number for what Alex feels intuitively.
 
@@ -84,9 +84,9 @@ The system builds a **WorldState** from 18 discrete variables extracted from Git
 
 With the WorldState calculated, the LangChain4j **Supervisor Pattern** takes over. A planner LLM receives the full context and autonomously coordinates 5 specialized sub-agents to rebalance the workload.
 
-<img src="images/scene5-supervisor-pattern.png" alt="Supervisor Agent architecture with 5 sub-agents: Defer, Delegate, Classify, Scope, and Wellness" width="800"/>
+<img src="images/scene5-supervisor-pattern.png" alt="LangChain4j Supervisor Agent architecture showing planner model, WorldState input, 5 sub-agents with descriptions and tool methods, and mutation plan output" width="800"/>
 
-*This diagram shows the Supervisor pattern: the planner model receives the WorldState and goals, then decides which sub-agents to invoke. Each agent has access to specific mutation tools that add/remove labels and comments on GitHub issues.*
+*The LangChain4j Supervisor pattern: the planner model (gpt-4o, SUMMARY strategy, max 10 invocations) receives 18 WorldState variables and coordinates 5 sub-agents — each with a specific role description and `@Tool` methods from `BurnoutMutationTool`. **Defer** protects by deferring non-critical issues; **Delegate** balances team workload; **Classify** organizes into 3-3-3 structure (1 deep work, max 3 quick wins, max 3 maintenance); **Scope** flags mystery-meat issues lacking clear "done" criteria; **Wellness** recommends stress reduction based on score and after-hours signals. The output is a mutation plan of label additions, removals, and comments.*
 
 **What the Supervisor decides for Alex:**
 1. **DeferAgent** — defers 3 non-critical issues to next sprint (reduces active set from 12 to 9)
