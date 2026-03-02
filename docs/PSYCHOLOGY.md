@@ -1,29 +1,38 @@
 # The Psychology & Science Behind Burnout-as-a-Service
 
-Technical reference for every psychological model, algorithm, and constant in the system. Each section maps research-backed concepts to their implementation.
+> **Not less work — structured work.** Every algorithm in this system traces back to published research in cognitive psychology, occupational health, and emotional theory. This document walks through all 15 components: the science behind them, the formulas that implement them, and the constants that tune them.
 
 ---
 
-## Table of Contents
+## How to Read This Document
 
-- [Algorithm Pipeline Overview](#algorithm-pipeline-overview)
-- [A Developer's Journey: From Burnout to Balance](#a-developers-journey-from-burnout-to-balance)
+**Want the big picture?** Start with the [Algorithm Pipeline](#algorithm-pipeline-overview) and the [Developer Journey](#a-developers-journey-from-burnout-to-balance) — they tell the full story visually.
 
-1. [Theoretical Foundations](#1-theoretical-foundations)
-2. [The 3-3-3 Day Structure](#2-the-3-3-3-day-structure)
-3. [Issue Classification System](#3-issue-classification-system)
-4. [Stress Score Algorithm](#4-stress-score-algorithm)
-5. [Chaos Metrics](#5-chaos-metrics)
-6. [Compliance Violation Detection](#6-compliance-violation-detection)
-7. [Emotional Signal Detection (Plutchik Model)](#7-emotional-signal-detection-plutchik-model)
-8. [Protective Intervention System](#8-protective-intervention-system)
-9. [Friday Deploy Confidence](#9-friday-deploy-confidence)
-10. [Calendar Fragmentation](#10-calendar-fragmentation)
-11. [AI Agent Architecture](#11-ai-agent-architecture)
-12. [Flamegraph Visualization Psychology](#12-flamegraph-visualization-psychology)
-13. [Priority Weighting & Day Plan](#13-priority-weighting--day-plan)
-14. [Graceful Degradation](#14-graceful-degradation)
-15. [Complete Constants Reference](#15-complete-constants-reference)
+**Want to understand the scoring?** Jump to sections [4 (Stress)](#4-stress-score), [5 (Chaos)](#5-chaos-metrics), and [6 (Compliance)](#6-compliance-violations).
+
+**Interested in the human side?** Sections [7 (Emotions)](#7-emotional-detection) and [8 (Protection)](#8-protective-intervention) cover how the system reads developer mood and intervenes.
+
+**Looking up a specific number?** Section [15 (Constants)](#15-constants-reference) has every threshold, cap, and weight in one place.
+
+### The 15 Sections
+
+| | Section | One-line summary |
+|---|---------|-----------------|
+| 1 | [Theoretical Foundations](#1-theoretical-foundations) | 6 research frameworks behind every design decision |
+| 2 | [The 3-3-3 Day](#2-the-3-3-3-day) | Cap the day at 7 items: 1 deep + 3 quick + 3 maintenance |
+| 3 | [Issue Classification](#3-issue-classification) | Sort issues into 4 buckets by label — no AI needed |
+| 4 | [Stress Score](#4-stress-score) | Single 0–100 number capturing developer health |
+| 5 | [Chaos Metrics](#5-chaos-metrics) | 5 signals measuring team/process disorder (0–10) |
+| 6 | [Compliance Violations](#6-compliance-violations) | 8 violations checking if the 3-3-3 structure holds |
+| 7 | [Emotional Detection](#7-emotional-detection) | 4 Plutchik emotions inferred from GitHub behavior |
+| 8 | [Protective Intervention](#8-protective-intervention) | Circuit breaker — safety net when thresholds are crossed |
+| 9 | [Friday Deploy](#9-friday-deploy) | Is it safe to ship today? (counters optimism bias) |
+| 10 | [Calendar Fragmentation](#10-calendar-fragmentation) | No 90-min block? Deep work gets deferred automatically |
+| 11 | [AI Agent Architecture](#11-ai-agent-architecture) | 5 sub-agents, 9 tools, 3 personas — the Supervisor Pattern |
+| 12 | [Flamegraph Psychology](#12-flamegraph-psychology) | Why fire metaphors work + per-issue stress formula |
+| 13 | [Priority & Day Plan](#13-priority--day-plan) | How the system picks *which* issues you work on today |
+| 14 | [Graceful Degradation](#14-graceful-degradation) | 4 fallback levels — works fully without AI |
+| 15 | [Constants Reference](#15-constants-reference) | Every magic number in one lookup table |
 
 ---
 
@@ -33,7 +42,14 @@ The system flows through 6 stages — from raw GitHub issues to actionable mutat
 
 <img src="images/algorithm-pipeline.png" alt="Widescreen infographic showing the 6-stage algorithm pipeline: Ingestion, Classification, Metrics and Compliance, WorldState, AI Agents, and Output — with formulas, thresholds, and connections between all components" width="100%"/>
 
-*The complete algorithm pipeline: (1) Issues are ingested from GitHub into a ConcurrentHashMap cache as typed Java records. (2) The classifier assigns each issue to one of 4 buckets (DEEP_WORK → QUICK_WIN → MAINTENANCE → DEFERRED) using priority-ordered first-match rules + label-based hour estimation. (3) Chaos score (0–10, five binary ≥ criteria × 2 pts) and compliance score (100 → 0, eight violation types at three severity levels) are calculated deterministically. (4) All metrics feed into WorldState's 18 capped variables, which produce the stress score (0–100, eight graduated components). (5) The LangChain4j Supervisor Pattern (gpt-5.2, SUMMARY strategy, max 10 invocations) coordinates 5 sub-agents with 9 @Tool methods, plus 3 support agents for explanation, emotional support, and deploy readiness. (6) Outputs include the mutation plan (applied to GitHub via MCP), a rebalanced 1+3+3 day structure, Friday deploy score (uses strictly-greater thresholds), and protective messages.*
+**The six stages:**
+
+1. **Ingestion** — GitHub issues are pulled into an in-memory cache as typed Java records.
+2. **Classification** — Each issue is sorted into one of 4 buckets (Deep Work → Quick Win → Maintenance → Deferred) using a priority-ordered, first-match label cascade.
+3. **Metrics & Compliance** — Chaos score (0–10) and compliance score (100 → 0) are calculated deterministically. No AI involved.
+4. **WorldState** — 18 capped variables feed into the stress score (0–100), computed from 8 graduated components.
+5. **AI Agents** — The LangChain4j Supervisor (gpt-5.2, SUMMARY strategy, max 10 invocations) coordinates 5 sub-agents with 9 `@Tool` methods, plus 3 support agents for explanation, emotional care, and deploy readiness.
+6. **Output** — A mutation plan applied to GitHub via MCP: label changes, comments, a rebalanced 1+3+3 day, and protective messages when needed.
 
 ---
 
@@ -47,7 +63,7 @@ Alex stares at their screen. 12 open issues, 3 critical bugs, Slack piling up, a
 
 <img src="images/scene1-overwhelmed-developer.png" alt="Overwhelmed developer at desk with chaotic notifications and 12 unorganized issues" width="800"/>
 
-*Starting point: a developer overwhelmed by unstructured work — all three Maslach Burnout Inventory dimensions in play (emotional exhaustion, depersonalization, reduced accomplishment).*
+*Starting point: a developer overwhelmed by unstructured work — all three Maslach Burnout Inventory [[1]](#ref-1) dimensions in play (emotional exhaustion, depersonalization, reduced accomplishment).*
 
 ### Scene 2: The 3-3-3 Structure
 
@@ -120,35 +136,33 @@ Same issues, same deadlines — but structured. That's the difference between bu
 
 ## 1. Theoretical Foundations
 
+This system isn't built on intuition — it's grounded in six published research frameworks. Each one maps directly to a specific algorithm or design decision in the codebase.
+
 | Framework | Key Concept | How We Use It |
 |-----------|-------------|---------------|
-| **Maslach Burnout Inventory** | 3 dimensions: exhaustion, depersonalization, reduced accomplishment | After-hours → exhaustion; mystery meat → depersonalization; no deep work → reduced accomplishment |
-| **Cognitive Load Theory** (Sweller, 1988) | Working memory is limited; extraneous load must be minimized | 3-3-3 cap at 7 items; classification removes ambiguity load |
-| **Yerkes-Dodson Law** (1908) | Performance peaks at moderate stress, drops at extremes | Stress score targets 30–50 (MODERATE) as optimal zone |
-| **Deep Work** (Newport, 2016) | Sustained focused work requires 90+ min uninterrupted blocks | Calendar fragmentation check; exactly 1 deep work item per day |
+| **Maslach Burnout Inventory** [[1]](#ref-1) | 3 dimensions: exhaustion, depersonalization, reduced accomplishment | After-hours → exhaustion; mystery meat → depersonalization; no deep work → reduced accomplishment |
+| **Cognitive Load Theory** [[2]](#ref-2) | Working memory is limited; extraneous load must be minimized | 3-3-3 cap at 7 items; classification removes ambiguity load |
+| **Yerkes-Dodson Law** [[11]](#ref-11) | Performance peaks at moderate stress, drops at extremes | Stress score targets 30–50 (MODERATE) as optimal zone |
+| **Deep Work** [[4]](#ref-4) | Sustained focused work requires 90+ min uninterrupted blocks | Calendar fragmentation check; exactly 1 deep work item per day |
 | **Pomodoro / Time Boxing** | Short focused intervals with breaks maintain energy | Quick wins as natural break-points between deep work sessions |
-| **Plutchik's Wheel** (2001) | 8 primary emotions with behavioral signatures | 4 emotions detected from GitHub signals (frustration, exhaustion, overwhelm, anxiety) |
+| **Plutchik's Wheel** [[5]](#ref-5) | 8 primary emotions with behavioral signatures | 4 emotions detected from GitHub signals (frustration, exhaustion, overwhelm, anxiety) |
 
----
+## 2. The 3-3-3 Day
 
-## 2. The 3-3-3 Day Structure
-
-The system enforces a daily structure that matches cognitive capacity:
+Instead of an unbounded task list, the system caps each day at exactly **7 items** across three attention types. This comes from Miller's Law [[10]](#ref-10) (working memory holds 7 ± 2 items) and flow-state research [[3]](#ref-3) (deep work needs singular focus). Everything beyond 7 is automatically deferred — not lost, just scheduled for later.
 
 | Slot | Count | Purpose | Psychology |
 |------|-------|---------|-----------|
-| Deep Work | 1 | Cognitively demanding task | Flow state requires singular focus (Csikszentmihalyi) |
+| Deep Work | 1 | Cognitively demanding task | Flow state requires singular focus [[3]](#ref-3) |
 | Quick Wins | 3 | Small, completable tasks | Dopamine from completion; momentum builders |
 | Maintenance | 3 | Routine upkeep | Low cognitive overhead; batch-processable |
-| **Total** | **7** | | **Miller's Law: 7 ± 2 working memory limit** |
+| **Total** | **7** | | **Miller's Law [[10]](#ref-10): 7 ± 2 working memory limit** |
 
 Overflow beyond 7 active items → automatically deferred. Deep work gets a protected 90-minute block.
 
----
+## 3. Issue Classification
 
-## 3. Issue Classification System
-
-A priority-ordered first-match cascade. Each issue lands in the **first** matching bucket:
+Before the system can structure a day, it needs to understand what kind of work each issue represents. The classifier examines GitHub labels and assigns every issue to one of four buckets — deterministic, priority-ordered, no LLM involved. Each issue lands in the **first** matching bucket:
 
 | Priority | Bucket | Label Triggers |
 |----------|--------|---------------|
@@ -161,44 +175,38 @@ A priority-ordered first-match cascade. Each issue lands in the **first** matchi
 
 **Clear scope detection** looks for: checkboxes (`- [ ]`), "acceptance criteria", "expected"/"actual", numbered steps, or "definition of done".
 
----
+## 4. Stress Score
 
-## 4. Stress Score Algorithm
-
-Score 0–100, calculated from 6 dimensions (8 graduated components):
+The system's central metric — a single number (0–100) that captures how much pressure a developer is under right now, grounded in Yerkes-Dodson's [[11]](#ref-11) inverted-U model (too little stress = disengaged, too much = breakdown). It drives protective interventions, the supervisor agent's priorities, and the flamegraph visualization. Calculated from 6 dimensions:
 
 | Dimension | Max | Formula |
 |-----------|-----|---------|
 | **Workload** | 40 | `min(20, (assigned − 7) × 4)` if > 7 issues, + `(deepWork − 1) × 10` if > 1, + `5` if deepWork = 0 |
 | **Chaos** | 30 | `chaosBucket.ordinal() × 10` (LOW=0, MEDIUM=10, HIGH=20, CRITICAL=30) |
-| **Context Switching** | 15 | `min(15, (touchedToday − 5) × 3)` if > 5 |
+| **Context Switching** [[6]](#ref-6) | 15 | `min(15, (touchedToday − 5) × 3)` if > 5 |
 | **Clarity** | 15 | `min(10, mysteryMeat × 2)` + `min(5, unclearQuickWins)` |
-| **Sustained** | 15 | `min(15, consecutiveHighDays × 5)` |
+| **Sustained** [[8]](#ref-8) | 15 | `min(15, consecutiveHighDays × 5)` |
 | **After-Hours** | 10 | `min(10, afterHoursIssues × 5)` |
 
 **Stress levels:** ≥ 70 CRITICAL, ≥ 50 HIGH, ≥ 30 MODERATE, < 30 LOW.
 
----
-
 ## 5. Chaos Metrics
 
-Chaos score (0–10) measures environmental disorder. Five binary signals, each worth 2 points:
+While the stress score measures the individual, the chaos score (0–10) measures the *environment* — problems with the team's process. Five binary signals, each worth 2 points, each revealing a different kind of dysfunction:
 
 | Signal | Trigger | What It Reveals |
 |--------|---------|-----------------|
 | Mystery meat | ≥ 3 issues with blank body or no assignees | Team not investing in issue quality |
 | Unresolved urgent | ≥ 3 urgent items > 24h old | Broken priority system |
-| Issues touched today | ≥ 6 updated in 60 min | Reactive firefighting |
-| After-hours | Any update outside 8am–6pm or weekend | Boundary erosion |
-| Label explosion | ≥ 12 distinct labels | Taxonomy chaos → cognitive overhead |
+| Issues touched today | ≥ 6 updated in 60 min | Reactive firefighting [[6]](#ref-6) |
+| After-hours | Any update outside 8am–6pm or weekend | Boundary erosion [[7]](#ref-7) |
+| Label explosion | ≥ 12 distinct labels | Taxonomy chaos → cognitive overhead [[2]](#ref-2) |
 
 **Chaos buckets:** ≤ 2 LOW, ≤ 5 MEDIUM, ≤ 8 HIGH, > 8 CRITICAL.
 
----
+## 6. Compliance Violations
 
-## 6. Compliance Violation Detection
-
-8 violation types, organized by severity. Score starts at 100, deductions per violation:
+Is the 3-3-3 structure actually being followed? The compliance score starts at 100 and drops for each violation — from critical issues like multiple deep-work items down to informational warnings like a growing backlog. Think of it as the system's self-audit:
 
 | Violation | Severity | Trigger | Deduction |
 |-----------|----------|---------|-----------|
@@ -213,31 +221,27 @@ Chaos score (0–10) measures environmental disorder. Five binary signals, each 
 
 CRITICAL = actively causes burnout. WARNING = accelerates burnout trajectory. INFO = predicts future burnout.
 
----
+## 7. Emotional Detection
 
-## 7. Emotional Signal Detection (Plutchik Model)
-
-4 of Plutchik's 8 primary emotions, detected from behavioral signals — no self-reporting required:
+Developers don't fill out mood surveys — but their GitHub activity tells a story. The system detects four emotions from observable signals: context-switch frequency, after-hours commits, stale urgent issues, and workload size. Based on Plutchik's Wheel [[5]](#ref-5), each emotion maps to one of the primary families. Under stress, attention narrows [[9]](#ref-9) — so the system keeps responses brief and actionable:
 
 | Emotion | Observable Signals | Thresholds |
 |---------|-------------------|-----------|
 | **Frustration** (Anger family) | Context switches, blocked items | touchedToday > 5, any `blocked` label |
-| **Exhaustion** (Sadness family) | After-hours activity, sustained chaos | afterHoursIssues > 0, consecutiveHighDays ≥ 2 |
+| **Exhaustion** (Sadness family) | After-hours activity, sustained chaos | afterHoursIssues > 0, consecutiveHighDays ≥ 2 [[1]](#ref-1) [[7]](#ref-7) |
 | **Overwhelm** (Surprise family) | Too many critical items, no priorities | deepWork > 1, totalAssigned > 10 |
 | **Anxiety** (Fear family) | Stale urgent items, mystery meat | unresolvedUrgent > 0, mysteryMeat > 0 |
 
-**AI response principles:** Validate without patronizing. Concrete suggestions only. Brevity (stressed people have reduced reading comprehension). No guilt or shame. One actionable item.
+**AI response principles:** Validate without patronizing. Concrete suggestions only. Brevity — Easterbrook [[9]](#ref-9) showed stressed people have narrowed attention, so short messages land better. No guilt or shame. One actionable item.
 
----
+## 8. Protective Intervention
 
-## 8. Protective Intervention System
-
-Circuit breaker that activates when signals cross safety thresholds. **Any one** triggers protection:
+The system's safety net, informed by McEwen's [[8]](#ref-8) research on allostatic load — sustained stress causes cumulative physiological damage, so early intervention matters. When **any single** signal crosses a critical threshold, a protective intervention activates. If the LLM is unavailable, pre-written fallbacks ensure protection never silently fails.
 
 | Trigger | Threshold |
 |---------|-----------|
 | Sustained stress | consecutiveHighDays ≥ 2 |
-| Boundary erosion | hasAfterHoursActivity() |
+| Boundary erosion [[7]](#ref-7) | hasAfterHoursActivity() |
 | Acute overload | stressScore ≥ 70 |
 | Cognitive capacity | totalAssigned > 10 |
 
@@ -251,11 +255,9 @@ Circuit breaker that activates when signals cross safety thresholds. **Any one**
 | Heavy workload | "Your workload is heavy today. Sustainable pace > heroic effort." |
 | No trigger | "You're doing well! Keep up the balanced approach. 💪" |
 
----
+## 9. Friday Deploy
 
-## 9. Friday Deploy Confidence
-
-Score 0–100, based on the empirical observation that Friday deploys carry higher risk due to reduced recovery time.
+Should you deploy on Friday? This score (0–100) answers that objectively. It deducts points for chaos, non-compliance, unassigned urgents, after-hours signals, and poor issue quality. The real value: it counters **optimism bias** ("it'll be fine") and **completion bias** ("just ship it before the weekend").
 
 | Condition | Deduction |
 |-----------|-----------|
@@ -268,23 +270,15 @@ Score 0–100, based on the empirical observation that Friday deploys carry high
 
 **Readiness:** ≥ 80 READY 🟢, 50–79 CAUTION 🟡, < 50 NOT_READY 🔴.
 
-Addresses **optimism bias** (underestimating risk when tired) and **completion bias** (urge to "just finish it" before the weekend).
-
----
-
 ## 10. Calendar Fragmentation
 
-Measures how fragmented a developer's day is. Key threshold:
+Deep work requires sustained focus [[4]](#ref-4) — but a day full of meetings makes that impossible. Context-switching has a 23-minute recovery cost [[6]](#ref-6), so the system checks for a contiguous **90-minute** block (23 min ramp-up + 60 min flow + 7 min buffer). No block? Deep work gets automatically deferred rather than setting the developer up for a frustrating, interrupted attempt.
 
-**Deep work feasibility:** `largestFreeBlock ≥ 90 minutes` (23 min ramp-up + 60 min flow + 7 min buffer).
-
-If no 90-minute contiguous block exists → `calendarBlocked = true` in WorldState → deep work item deferred.
-
----
+`largestFreeBlock ≥ 90 min` → deep work feasible. Otherwise → `calendarBlocked = true` → deep work deferred.
 
 ## 11. AI Agent Architecture
 
-LangChain4j **Supervisor Pattern** — deterministic services calculate all metrics first; AI agents only explain and act.
+Deterministic services calculate all metrics first. AI agents only explain, recommend, and act — they never make the initial measurements. This is the LangChain4j **Supervisor Pattern** in action.
 
 ### Flow
 
@@ -322,11 +316,9 @@ LangChain4j **Supervisor Pattern** — deterministic services calculate all metr
 
 Both default to the Azure OpenAI deployment (`gpt-4o` configurable). Stress reduction estimate: each mutation reduces stress by **7 points** (heuristic).
 
----
+## 12. Flamegraph Psychology
 
-## 12. Flamegraph Visualization Psychology
-
-The flamegraph is a **stress communication tool** — fire metaphors trigger the brain's threat detection system.
+The flamegraph isn't just a chart — it's designed to exploit how the brain processes threats. Fire metaphors activate threat detection. Height conveys cognitive weight. Color maps to the universal traffic-light instinct.
 
 | Design Element | Psychology |
 |---------------|-----------|
@@ -350,9 +342,9 @@ The flamegraph is a **stress communication tool** — fire metaphors trigger the
 
 **Color thresholds:** < 35% green 🟢, 35–64% amber 🟡, ≥ 65% red 🔴.
 
----
+## 13. Priority & Day Plan
 
-## 13. Priority Weighting & Day Plan
+Once issues are classified, they still need ranking. A multi-level sort key decides *which* issues fill today's 3-3-3 slots; the rest overflow to Deferred.
 
 ### Sort Key (multi-level)
 
@@ -367,11 +359,9 @@ Each bucket fills its quota from the sorted list; overflow → Deferred:
 - **Quick Wins:** top 3 → today, remaining → deferred
 - **Maintenance:** top 3 → today, remaining → deferred
 
----
-
 ## 14. Graceful Degradation
 
-Core principle: **every AI feature must work without AI**.
+A burnout tool that crashes when you're stressed would *increase* burnout. So every AI feature works without AI — all metrics (stress, chaos, compliance, classification) are fully deterministic. The AI layers add explanation and mutation planning, but the system is complete without them.
 
 | Level | State | Behavior |
 |-------|-------|----------|
@@ -391,112 +381,70 @@ Core principle: **every AI feature must work without AI**.
 
 **Golden Rule:** If *any* `demo:*` label exists, real timestamps are never consulted.
 
----
+## 15. Constants Reference
 
-## 15. Complete Constants Reference
+If you're reading the code and wondering "why that number?", this section explains every threshold in plain language.
 
-### Time & Scheduling
+### How long does deep work need?
 
-| Constant | Value | Source |
-|----------|-------|--------|
-| Deep work minimum block | 90 min | CalendarService |
-| After-hours (Chaos) | 8am / 6pm | ChaosMetricsService |
-| After-hours (WorldState) | 9am / 6pm | WorldState |
-| Chaos "recent" window | 60 min | ChaosMetricsService |
-| Urgent unresolved threshold | 24h | ChaosMetricsService |
-| Stale issue age | 14 days | ComplianceService, WorldState |
-| Demo rate limit | 5 min per repo | DemoFlamegraphController |
-| GitHub fetch limit | 100 issues | DemoFlamegraphController |
+The system won't schedule deep work unless your calendar has a free block of at least **90 minutes** — that's 23 minutes to ramp up (based on Mark's context-switching research), a full hour of flow, and a 7-minute buffer. Anything shorter and you'd just be getting started when the next meeting hits.
 
-### 3-3-3 Limits
+### What counts as "after hours"?
 
-| Constant | Value |
-|----------|-------|
-| MAX_DEEP_WORK | 1 |
-| MAX_QUICK_WINS | 3 |
-| MAX_MAINTENANCE | 3 |
-| MAX_ACTIVE | 7 |
+The chaos detector flags activity outside **8am–6pm** (or weekends). The world state uses a slightly narrower window — **9am–6pm** — so a 8:30am commit won't trigger protective interventions but will still register as an early-morning chaos signal.
 
-### Stress Scoring
+### When is something "stale" or "urgent"?
 
-| Component | Threshold | Penalty | Cap |
-|-----------|-----------|---------|-----|
-| Over-assignment | > 7 issues | 4 pts/issue | 20 |
-| Extra deep-work | > 1 item | 10 pts/item | — |
-| No deep-work | 0 items | 5 pts | — |
-| Workload total | — | — | 40 |
-| Context-switch | > 5 issues | 3 pts/issue | 15 |
-| Mystery meat | per issue | 2 pts | 10 |
-| Unclear quick-win | per issue | 1 pt | 5 |
-| Sustained stress | per day | 5 pts | 15 |
-| After-hours | per issue | 5 pts | 10 |
+An issue becomes stale after **14 days** without updates — that's when deferred backlog warnings kick in. An urgent item triggers a chaos signal if it sits unresolved for more than **24 hours**. Issues updated in the last **60 minutes** count as "touched today" for context-switching detection.
 
-### Stress Levels
+### The 3-3-3 shape
 
-| Level | Backend (WorldState) | Frontend (flamegraph) |
-|-------|---------------------|----------------------|
-| LOW | < 30 | < 35 |
-| MODERATE | 30–49 | 35–64 |
-| HIGH | 50–69 | ≥ 65 |
-| CRITICAL | ≥ 70 | — |
+One deep-work item, three quick wins, three maintenance tasks — that's the daily target. No more than seven active issues total. These aren't arbitrary: one deep-work item protects focus, three of each lighter category gives variety without overwhelm, and the seven-item cap aligns with Miller's cognitive limit.
 
-### Chaos Scoring
+### How stress adds up
 
-| Signal trigger | Value | Bucket thresholds |
-|---------------|-------|-------------------|
-| Each signal weight | 2 pts | LOW ≤ 2 |
-| Score cap | 10 | MEDIUM ≤ 5 |
-| Mystery meat trigger | ≥ 3 | HIGH ≤ 8 |
-| Unresolved urgent | ≥ 3 | CRITICAL > 8 |
-| Touched today | ≥ 6 | |
-| Label explosion | ≥ 12 | |
+Each of the six stress dimensions has a cap so no single problem can blow up the score on its own. **Workload** dominates (capped at 40) — it ramps up fast once you exceed seven assigned issues and penalizes both too many deep-work items and having none at all. **Chaos** can contribute up to 30 points, mapping directly from the environment score. **Context-switching** and **clarity** each cap at 15 — the system notices when you're juggling too many issues or when issues lack clear descriptions. **Sustained stress** adds up over consecutive bad days (capped at 15), and **after-hours activity** caps at 10.
 
-### Friday Deploy
+Below 30 is LOW (you're fine). 30–49 is MODERATE (watch it). 50–69 is HIGH (take action). 70 or above is CRITICAL (the system intervenes). The flamegraph uses slightly softer thresholds for its color coding — green below 35%, amber up to 65%, red above that.
 
-| Condition | Deduction | Readiness |
-|-----------|-----------|-----------|
-| chaos > 5 | −20 | ≥ 80: READY 🟢 |
-| chaos > 8 | −20 | 50–79: CAUTION 🟡 |
-| !isCompliant | −15 | < 50: NOT_READY 🔴 |
-| urgentUnassigned > 0 | −15 | |
-| afterHoursSignal | −10 | |
-| mysteryMeat > 3 | −10 | |
+### How chaos adds up
 
-### Agent System
+Five binary signals, each worth two points, capping at 10. The system asks: are there too many empty issues? Are urgent items being ignored? Is the team context-switching like crazy? Is anyone working after hours? Has the label taxonomy exploded? Two or fewer points is LOW. Five or fewer is MEDIUM. Eight or fewer is HIGH. Above that is CRITICAL.
 
-| Constant | Value |
-|----------|-------|
-| Supervisor max invocations | 10 |
-| Stress reduction per action | 7 pts |
-| Protection: consecutive days | ≥ 2 |
-| Protection: stress score | ≥ 70 |
-| Protection: total assigned | > 10 |
+### Friday deploy scoring
 
-### Flamegraph (Frontend)
+Starts at a perfect 100 and loses points for every red flag: high chaos costs you the most (up to 40 points if severe), non-compliance and unassigned urgent items each take a significant chunk, and after-hours signals or poorly-written issues chip away at the rest. Above 80 you're good to ship 🟢. Between 50 and 80 proceed with caution 🟡. Below 50, wait until Monday 🔴.
 
-| Constant | Value |
-|----------|-------|
-| Deep Work base stress | 60 |
-| Quick Wins base stress | 20 |
-| Maintenance base stress | 30 |
-| Deferred base stress | 10 |
-| Complexity multiplier | 3 per point |
-| Global stress leak | 30% (× 0.3) |
-| Urgency bonus | +20 |
-| Bug bonus | +10 |
+### Agent guardrails
+
+The supervisor gets a maximum of **10 invocations** per reshape — enough to reorganize a messy day without running forever. Each action the agents take (defer, delegate, classify) is estimated to reduce stress by about **7 points**, a heuristic that keeps the system from over-intervening. Protective interventions trigger after **two consecutive high-stress days**, when stress hits **70**, or when someone has more than **10 assigned issues**.
+
+### Flamegraph heat
+
+The visualization assigns a base "heat" to each category — deep work runs hottest because it demands the most cognitive investment, followed by maintenance, quick wins, and deferred items at the coolest. Complexity multiplies on top, and high global stress bleeds into every issue (at 30%), making even small tasks look hotter when the environment is chaotic. Urgent or critical labels add a significant heat bonus; bugs add a smaller one.
 
 ---
 
 ## References
 
-- Maslach, C., & Leiter, M. P. (2016). *Understanding the burnout experience*. World Psychiatry.
-- Sweller, J. (1988). *Cognitive load during problem solving*. Cognitive Science.
-- Csikszentmihalyi, M. (1990). *Flow: The psychology of optimal experience*.
-- Newport, C. (2016). *Deep Work: Rules for focused success in a distracted world*.
-- Plutchik, R. (2001). *The nature of emotions*. American Scientist.
-- Mark, G., Gudith, D., & Klocke, U. (2008). *The cost of interrupted work*. CHI Conference.
-- Sonnentag, S. (2012). *Psychological detachment from work during leisure time*. Current Directions in Psychological Science.
-- McEwen, B. S. (1998). *Protective and damaging effects of stress mediators*. NEJM.
-- Easterbrook, J. A. (1959). *The effect of emotion on cue utilization*. Psychological Review.
-- Miller, G. A. (1956). *The magical number seven, plus or minus two*. Psychological Review.
-- Yerkes, R. M., & Dodson, J. D. (1908). *The relation of strength of stimulus to rapidity of habit-formation*.
+<a id="ref-1"></a>**[1]** Maslach, C., & Leiter, M. P. (2016). *Understanding the burnout experience*. World Psychiatry.
+
+<a id="ref-2"></a>**[2]** Sweller, J. (1988). *Cognitive load during problem solving*. Cognitive Science.
+
+<a id="ref-3"></a>**[3]** Csikszentmihalyi, M. (1990). *Flow: The psychology of optimal experience*.
+
+<a id="ref-4"></a>**[4]** Newport, C. (2016). *Deep Work: Rules for focused success in a distracted world*.
+
+<a id="ref-5"></a>**[5]** Plutchik, R. (2001). *The nature of emotions*. American Scientist.
+
+<a id="ref-6"></a>**[6]** Mark, G., Gudith, D., & Klocke, U. (2008). *The cost of interrupted work: More speed and stress*. CHI Conference.
+
+<a id="ref-7"></a>**[7]** Sonnentag, S. (2012). *Psychological detachment from work during leisure time*. Current Directions in Psychological Science.
+
+<a id="ref-8"></a>**[8]** McEwen, B. S. (1998). *Protective and damaging effects of stress mediators*. NEJM.
+
+<a id="ref-9"></a>**[9]** Easterbrook, J. A. (1959). *The effect of emotion on cue utilization and the organization of behavior*. Psychological Review.
+
+<a id="ref-10"></a>**[10]** Miller, G. A. (1956). *The magical number seven, plus or minus two*. Psychological Review.
+
+<a id="ref-11"></a>**[11]** Yerkes, R. M., & Dodson, J. D. (1908). *The relation of strength of stimulus to rapidity of habit-formation*.
