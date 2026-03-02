@@ -6,7 +6,7 @@
 
 ## How to Read This Document
 
-**Want the big picture?** Start with the [Algorithm Pipeline](#algorithm-pipeline-overview) and the [Developer Journey](#a-developers-journey-from-burnout-to-balance) — they tell the full story visually.
+**Want the big picture?** Start with the [System Sequence Diagram](#system-sequence-diagram), [Algorithm Pipeline](#algorithm-pipeline-overview), and [Developer Journey](#a-developers-journey-from-burnout-to-balance) — they tell the full story visually.
 
 **Want to understand the scoring?** Jump to sections [4 (Stress)](#4-stress-score), [5 (Chaos)](#5-chaos-metrics), and [6 (Compliance)](#6-compliance-violations).
 
@@ -95,7 +95,7 @@ The system builds a **WorldState** from 18 discrete variables, then calculates a
 
 <img src="images/scene4-stress-score.png" alt="Stress score calculation showing 8 graduated components with formulas and caps" width="800"/>
 
-*8 graduated factors — workload, deep work imbalance, chaos bucket, context switching, clarity tax, sustained stress, after-hours — each with specific formulas and caps, summed to a total capped at 100.*
+*8 graduated factors — excess workload, deep work imbalance, chaos environment, context switching, mystery meat, unclear scope, sustained stress, after-hours — each with specific formulas and caps, summed to a total capped at 100.*
 
 ### Scene 5: The Supervisor Agent Steps In
 
