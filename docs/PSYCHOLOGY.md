@@ -36,6 +36,14 @@
 
 ---
 
+## System Sequence Diagram
+
+Four phases — sync, analyze, reshape, protect — across six components. Deterministic services do all the measuring; AI only explains and acts.
+
+<img src="images/sequence-diagram.png" alt="Sequence diagram showing 4 phases: Sync (GitHub → MCP → Backend → IssueCache), Analyze (classify + metrics → WorldState → stress score), Reshape (WorldState → Supervisor → 5 sub-agents → mutation plan), Protect & Output (protective check → flamegraph + interventions → GitHub)" width="100%"/>
+
+---
+
 ## Algorithm Pipeline Overview
 
 The system flows through 6 stages — from raw GitHub issues to actionable mutations. Every algorithm is deterministic except the AI agents, which always have a fallback path.
@@ -162,7 +170,7 @@ Overflow beyond 7 active items → automatically deferred. Deep work gets a prot
 
 ## 3. Issue Classification
 
-Before the system can structure a day, it needs to understand what kind of work each issue represents. The classifier examines GitHub labels and assigns every issue to one of four buckets — deterministic, priority-ordered, no LLM involved. Each issue lands in the **first** matching bucket:
+Before the system can structure a day, it needs to understand what kind of work each issue represents. [IssueClassifierService.java](../backend/src/main/java/com/demo/burnout/service/IssueClassifierService.java) examines GitHub labels and assigns every issue to one of four [Classification](../backend/src/main/java/com/demo/burnout/model/Classification.java) buckets — deterministic, priority-ordered, no LLM involved. Each issue lands in the **first** matching bucket:
 
 | Priority | Bucket | Label Triggers |
 |----------|--------|---------------|
@@ -177,7 +185,7 @@ Before the system can structure a day, it needs to understand what kind of work 
 
 ## 4. Stress Score
 
-The system's central metric — a single number (0–100) that captures how much pressure a developer is under right now, grounded in Yerkes-Dodson's [[11]](#ref-11) inverted-U model (too little stress = disengaged, too much = breakdown). It drives protective interventions, the supervisor agent's priorities, and the flamegraph visualization. Calculated from 6 dimensions:
+The system's central metric — a single number (0–100) that captures how much pressure a developer is under right now, grounded in Yerkes-Dodson's [[11]](#ref-11) inverted-U model (too little stress = disengaged, too much = breakdown). [WorldState.java](../backend/src/main/java/com/demo/burnout/model/WorldState.java) holds the 18 capped variables and runs `calculateStressScore()` to produce it; [StressLevel.java](../backend/src/main/java/com/demo/burnout/model/StressLevel.java) defines the thresholds that drive protective interventions, the supervisor agent's priorities, and the flamegraph visualization. Calculated from 6 dimensions:
 
 | Dimension | Max | Formula |
 |-----------|-----|---------|
@@ -192,7 +200,7 @@ The system's central metric — a single number (0–100) that captures how much
 
 ## 5. Chaos Metrics
 
-While the stress score measures the individual, the chaos score (0–10) measures the *environment* — problems with the team's process. Five binary signals, each worth 2 points, each revealing a different kind of dysfunction:
+While the stress score measures the individual, the chaos score (0–10) measures the *environment* — problems with the team's process. [ChaosMetricsService.java](../backend/src/main/java/com/demo/burnout/service/ChaosMetricsService.java) evaluates five binary signals, each worth 2 points, and packs the result into a [ChaosMetrics](../backend/src/main/java/com/demo/burnout/model/ChaosMetrics.java) record (score, bucket, and individual signal flags). Each reveals a different kind of dysfunction:
 
 | Signal | Trigger | What It Reveals |
 |--------|---------|-----------------|
@@ -206,7 +214,7 @@ While the stress score measures the individual, the chaos score (0–10) measure
 
 ## 6. Compliance Violations
 
-Is the 3-3-3 structure actually being followed? The compliance score starts at 100 and drops for each violation — from critical issues like multiple deep-work items down to informational warnings like a growing backlog. Think of it as the system's self-audit:
+Is the 3-3-3 structure actually being followed? [ComplianceService.java](../backend/src/main/java/com/demo/burnout/service/ComplianceService.java) audits the day structure — the compliance score starts at 100 and drops for each [ViolationType](../backend/src/main/java/com/demo/burnout/model/ViolationType.java), from critical issues like multiple deep-work items down to informational warnings like a growing backlog:
 
 | Violation | Severity | Trigger | Deduction |
 |-----------|----------|---------|-----------|
@@ -223,7 +231,7 @@ CRITICAL = actively causes burnout. WARNING = accelerates burnout trajectory. IN
 
 ## 7. Emotional Detection
 
-Developers don't fill out mood surveys — but their GitHub activity tells a story. The system detects four emotions from observable signals: context-switch frequency, after-hours commits, stale urgent issues, and workload size. Based on Plutchik's Wheel [[5]](#ref-5), each emotion maps to one of the primary families. Under stress, attention narrows [[9]](#ref-9) — so the system keeps responses brief and actionable:
+Developers don't fill out mood surveys — but their GitHub activity tells a story. [AgentOrchestrator.java](../backend/src/main/java/com/demo/burnout/agent/AgentOrchestrator.java) detects four emotions from observable signals — context-switch frequency, after-hours commits, stale urgent issues, and workload size — mapping each to a Plutchik [[5]](#ref-5) primary family. Under stress, attention narrows [[9]](#ref-9), so the system keeps responses brief and actionable:
 
 | Emotion | Observable Signals | Thresholds |
 |---------|-------------------|-----------|
@@ -236,7 +244,7 @@ Developers don't fill out mood surveys — but their GitHub activity tells a sto
 
 ## 8. Protective Intervention
 
-The system's safety net, informed by McEwen's [[8]](#ref-8) research on allostatic load — sustained stress causes cumulative physiological damage, so early intervention matters. When **any single** signal crosses a critical threshold, a protective intervention activates. If the LLM is unavailable, pre-written fallbacks ensure protection never silently fails.
+The system's safety net, informed by McEwen's [[8]](#ref-8) research on allostatic load — sustained stress causes cumulative physiological damage, so early intervention matters. When **any single** signal crosses a critical threshold, [ProtectiveAiService.java](../backend/src/main/java/com/demo/burnout/agent/ProtectiveAiService.java) — a LangChain4j `@AiService` with a Plutchik-informed system prompt — generates an empathetic intervention. If the LLM is unavailable, pre-written fallbacks ensure protection never silently fails.
 
 | Trigger | Threshold |
 |---------|-----------|
@@ -257,7 +265,7 @@ The system's safety net, informed by McEwen's [[8]](#ref-8) research on allostat
 
 ## 9. Friday Deploy
 
-Should you deploy on Friday? This score (0–100) answers that objectively. It deducts points for chaos, non-compliance, unassigned urgents, after-hours signals, and poor issue quality. The real value: it counters **optimism bias** ("it'll be fine") and **completion bias** ("just ship it before the weekend").
+Should you deploy on Friday? [FridayDeployAiService.java](../backend/src/main/java/com/demo/burnout/agent/FridayDeployAiService.java) answers with a readiness score (0–100), deducting points for chaos, non-compliance, unassigned urgents, after-hours signals, and poor issue quality, then generating an AI explanation of the risk. The real value: it counters **optimism bias** (“it’ll be fine”) and **completion bias** (“just ship it before the weekend”).
 
 | Condition | Deduction |
 |-----------|-----------|
@@ -272,22 +280,22 @@ Should you deploy on Friday? This score (0–100) answers that objectively. It d
 
 ## 10. Calendar Fragmentation
 
-Deep work requires sustained focus [[4]](#ref-4) — but a day full of meetings makes that impossible. Context-switching has a 23-minute recovery cost [[6]](#ref-6), so the system checks for a contiguous **90-minute** block (23 min ramp-up + 60 min flow + 7 min buffer). No block? Deep work gets automatically deferred rather than setting the developer up for a frustrating, interrupted attempt.
+Deep work requires sustained focus [[4]](#ref-4) — but a day full of meetings makes that impossible. Context-switching has a 23-minute recovery cost [[6]](#ref-6), so [CalendarService.java](../backend/src/main/java/com/demo/burnout/service/CalendarService.java) scans the day for a contiguous **90-minute** block (23 min ramp-up + 60 min flow + 7 min buffer). No block? Deep work gets automatically deferred rather than setting the developer up for a frustrating, interrupted attempt.
 
 `largestFreeBlock ≥ 90 min` → deep work feasible. Otherwise → `calendarBlocked = true` → deep work deferred.
 
 ## 11. AI Agent Architecture
 
-Deterministic services calculate all metrics first. AI agents only explain, recommend, and act — they never make the initial measurements. This is the LangChain4j **Supervisor Pattern** in action.
+Deterministic services calculate all metrics first. AI agents only explain, recommend, and act — they never make the initial measurements. This is the LangChain4j **Supervisor Pattern** in action: [AgentOrchestrator.java](../backend/src/main/java/com/demo/burnout/agent/AgentOrchestrator.java) coordinates the full pipeline from metrics through supervisor to protective response, [BurnoutAgents.java](../backend/src/main/java/com/demo/burnout/agent/supervisor/BurnoutAgents.java) declares the five sub-agent `@Agent` interfaces (Defer, Delegate, Classify, Scope, Wellness), and [AgentConfiguration.java](../backend/src/main/java/com/demo/burnout/config/AgentConfiguration.java) wires the Spring beans for both LLM models and all agent instances.
 
 ### Flow
 
-1. **Sync** — GitHub issues → `IssueCache` (ConcurrentHashMap)
+1. **Sync** — GitHub issues → [`IssueCache`](../backend/src/main/java/com/demo/burnout/service/IssueCache.java) (ConcurrentHashMap)
 2. **Calculate** — `ChaosMetricsService`, `ComplianceService`, `IssueClassifierService` run independently
 3. **Build WorldState** — 18 capped variables from issue data + metrics
 4. **Invoke Supervisor** — planner model coordinates 5 sub-agents autonomously
-5. **Accumulate Mutations** — sub-agents invoke `@Tool` methods → `pendingActions` list
-6. **Return Response** — explanation, mutation plan, stress scores, protective messages
+5. **Accumulate Mutations** — sub-agents invoke `@Tool` methods → [`pendingActions`](../backend/src/main/java/com/demo/burnout/agent/supervisor/BurnoutMutationTool.java) list
+6. **Return Response** — explanation, [mutation plan](../backend/src/main/java/com/demo/burnout/goap/GitHubMutationPlan.java), stress scores, protective messages
 
 ### 5 Sub-Agents
 
@@ -303,7 +311,7 @@ Deterministic services calculate all metrics first. AI agents only explain, reco
 
 | Service | Persona | Purpose |
 |---------|---------|---------|
-| **ExplainerAiService** | Supportive productivity coach | Explain the *why* behind the plan |
+| [**ExplainerAiService**](../backend/src/main/java/com/demo/burnout/agent/ExplainerAiService.java) | Supportive productivity coach | Explain the *why* behind the plan |
 | **ProtectiveAiService** | Protective AI companion (Plutchik) | Emotional support and self-care |
 | **FridayDeployAiService** | Calm release engineer | Deploy risk assessment |
 
@@ -318,7 +326,7 @@ Both default to the Azure OpenAI deployment (`gpt-4o` configurable). Stress redu
 
 ## 12. Flamegraph Psychology
 
-The flamegraph isn't just a chart — it's designed to exploit how the brain processes threats. Fire metaphors activate threat detection. Height conveys cognitive weight. Color maps to the universal traffic-light instinct.
+The flamegraph isn't just a chart — it's designed to exploit how the brain processes threats. [flamegraph.html](../backend/src/main/resources/static/flamegraph.html) renders the interactive visualization as a standalone page, computing per-issue heat and applying green/amber/red color mapping. Fire metaphors activate threat detection. Height conveys cognitive weight. Color maps to the universal traffic-light instinct.
 
 | Design Element | Psychology |
 |---------------|-----------|
@@ -344,7 +352,7 @@ The flamegraph isn't just a chart — it's designed to exploit how the brain pro
 
 ## 13. Priority & Day Plan
 
-Once issues are classified, they still need ranking. A multi-level sort key decides *which* issues fill today's 3-3-3 slots; the rest overflow to Deferred.
+Once issues are classified, they still need ranking. [IssueClassifierService.java](../backend/src/main/java/com/demo/burnout/service/IssueClassifierService.java) applies a multi-level sort key to decide *which* issues fill today's 3-3-3 slots, packing the result into a [DayStructure](../backend/src/main/java/com/demo/burnout/model/DayStructure.java) record; the rest overflow to Deferred.
 
 ### Sort Key (multi-level)
 
@@ -361,7 +369,7 @@ Each bucket fills its quota from the sorted list; overflow → Deferred:
 
 ## 14. Graceful Degradation
 
-A burnout tool that crashes when you're stressed would *increase* burnout. So every AI feature works without AI — all metrics (stress, chaos, compliance, classification) are fully deterministic. The AI layers add explanation and mutation planning, but the system is complete without them.
+A burnout tool that crashes when you're stressed would *increase* burnout. So every AI feature works without AI — [AgentConfiguration.java](../backend/src/main/java/com/demo/burnout/config/AgentConfiguration.java) detects whether Azure OpenAI credentials are real or dummy and sets the `llmEnabled` flag, letting all metrics run fully deterministic. For live demos, [SyntheticTimeResolver.java](../backend/src/main/java/com/demo/burnout/util/SyntheticTimeResolver.java) lets the `demo:*` labels defined in [DemoLabels.java](../backend/src/main/java/com/demo/burnout/util/DemoLabels.java) override the real clock so demos work any day of the week. The AI layers add explanation and mutation planning, but the system is complete without them.
 
 | Level | State | Behavior |
 |-------|-------|----------|
@@ -387,41 +395,41 @@ If you're reading the code and wondering "why that number?", this section explai
 
 ### How long does deep work need?
 
-The system won't schedule deep work unless your calendar has a free block of at least **90 minutes** — that's 23 minutes to ramp up (based on Mark's context-switching research), a full hour of flow, and a 7-minute buffer. Anything shorter and you'd just be getting started when the next meeting hits.
+[CalendarService.java](../backend/src/main/java/com/demo/burnout/service/CalendarService.java) won't schedule deep work unless your calendar has a free block of at least **90 minutes** — that's 23 minutes to ramp up (based on Mark's context-switching research), a full hour of flow, and a 7-minute buffer. Anything shorter and you'd just be getting started when the next meeting hits.
 
 ### What counts as "after hours"?
 
-The chaos detector flags activity outside **8am–6pm** (or weekends). The world state uses a slightly narrower window — **9am–6pm** — so a 8:30am commit won't trigger protective interventions but will still register as an early-morning chaos signal.
+[ChaosMetricsService.java](../backend/src/main/java/com/demo/burnout/service/ChaosMetricsService.java) flags activity outside **8am–6pm** (or weekends) as a chaos signal. [WorldState.java](../backend/src/main/java/com/demo/burnout/model/WorldState.java) uses a slightly narrower window — **9am–6pm** — for protective interventions, so an 8:30am commit won't trigger an intervention but will still register as an early-morning chaos signal.
 
 ### When is something "stale" or "urgent"?
 
-An issue becomes stale after **14 days** without updates — that's when deferred backlog warnings kick in. An urgent item triggers a chaos signal if it sits unresolved for more than **24 hours**. Issues updated in the last **60 minutes** count as "touched today" for context-switching detection.
+An issue becomes stale after **14 days** without updates — that's when [ComplianceService.java](../backend/src/main/java/com/demo/burnout/service/ComplianceService.java) triggers the deferred-backlog-growing violation. [ChaosMetricsService.java](../backend/src/main/java/com/demo/burnout/service/ChaosMetricsService.java) flags urgent items unresolved past **24 hours** and counts anything updated in the last **60 minutes** as “touched today” for context-switching detection.
 
 ### The 3-3-3 shape
 
-One deep-work item, three quick wins, three maintenance tasks — that's the daily target. No more than seven active issues total. These aren't arbitrary: one deep-work item protects focus, three of each lighter category gives variety without overwhelm, and the seven-item cap aligns with Miller's cognitive limit.
+One deep-work item, three quick wins, three maintenance tasks — [IssueClassifierService.java](../backend/src/main/java/com/demo/burnout/service/IssueClassifierService.java) enforces this daily quota and overflows the rest to deferred. No more than seven active issues total. These aren't arbitrary: one deep-work item protects focus, three of each lighter category gives variety without overwhelm, and the seven-item cap aligns with Miller's cognitive limit.
 
 ### How stress adds up
 
-Each of the six stress dimensions has a cap so no single problem can blow up the score on its own. **Workload** dominates (capped at 40) — it ramps up fast once you exceed seven assigned issues and penalizes both too many deep-work items and having none at all. **Chaos** can contribute up to 30 points, mapping directly from the environment score. **Context-switching** and **clarity** each cap at 15 — the system notices when you're juggling too many issues or when issues lack clear descriptions. **Sustained stress** adds up over consecutive bad days (capped at 15), and **after-hours activity** caps at 10.
+Each of the six stress dimensions has a cap so no single problem can blow up the score on its own — [WorldState.java](../backend/src/main/java/com/demo/burnout/model/WorldState.java)'s `calculateStressScore()` sums them into a single 0–100 number. **Workload** dominates (capped at 40) — it ramps up fast once you exceed seven assigned issues and penalizes both too many deep-work items and having none at all. **Chaos** can contribute up to 30 points, mapping directly from the environment score. **Context-switching** and **clarity** each cap at 15 — the system notices when you're juggling too many issues or when issues lack clear descriptions. **Sustained stress** adds up over consecutive bad days (capped at 15), and **after-hours activity** caps at 10.
 
 Below 30 is LOW (you're fine). 30–49 is MODERATE (watch it). 50–69 is HIGH (take action). 70 or above is CRITICAL (the system intervenes). The flamegraph uses slightly softer thresholds for its color coding — green below 35%, amber up to 65%, red above that.
 
 ### How chaos adds up
 
-Five binary signals, each worth two points, capping at 10. The system asks: are there too many empty issues? Are urgent items being ignored? Is the team context-switching like crazy? Is anyone working after hours? Has the label taxonomy exploded? Two or fewer points is LOW. Five or fewer is MEDIUM. Eight or fewer is HIGH. Above that is CRITICAL.
+Five binary signals, each worth two points, capping at 10 — [ChaosMetricsService.java](../backend/src/main/java/com/demo/burnout/service/ChaosMetricsService.java) asks: are there too many empty issues? Are urgent items being ignored? Is the team context-switching like crazy? Is anyone working after hours? Has the label taxonomy exploded? Two or fewer points is LOW. Five or fewer is MEDIUM. Eight or fewer is HIGH. Above that is CRITICAL.
 
 ### Friday deploy scoring
 
-Starts at a perfect 100 and loses points for every red flag: high chaos costs you the most (up to 40 points if severe), non-compliance and unassigned urgent items each take a significant chunk, and after-hours signals or poorly-written issues chip away at the rest. Above 80 you're good to ship 🟢. Between 50 and 80 proceed with caution 🟡. Below 50, wait until Monday 🔴.
+[FridayDeployAiService.java](../backend/src/main/java/com/demo/burnout/agent/FridayDeployAiService.java) starts at a perfect 100 and loses points for every red flag: high chaos costs you the most (up to 40 points if severe), non-compliance and unassigned urgent items each take a significant chunk, and after-hours signals or poorly-written issues chip away at the rest. Above 80 you're good to ship 🟢. Between 50 and 80 proceed with caution 🟡. Below 50, wait until Monday 🔴.
 
 ### Agent guardrails
 
-The supervisor gets a maximum of **10 invocations** per reshape — enough to reorganize a messy day without running forever. Each action the agents take (defer, delegate, classify) is estimated to reduce stress by about **7 points**, a heuristic that keeps the system from over-intervening. Protective interventions trigger after **two consecutive high-stress days**, when stress hits **70**, or when someone has more than **10 assigned issues**.
+[BurnoutSupervisorService.java](../backend/src/main/java/com/demo/burnout/agent/supervisor/BurnoutSupervisorService.java) caps the supervisor at **10 invocations** per reshape — enough to reorganize a messy day without running forever. Each action the agents take (defer, delegate, classify) is estimated to reduce stress by about **7 points**, a heuristic that keeps the system from over-intervening. [AgentOrchestrator.java](../backend/src/main/java/com/demo/burnout/agent/AgentOrchestrator.java) triggers protective interventions after **two consecutive high-stress days**, when stress hits **70**, or when someone has more than **10 assigned issues**.
 
 ### Flamegraph heat
 
-The visualization assigns a base "heat" to each category — deep work runs hottest because it demands the most cognitive investment, followed by maintenance, quick wins, and deferred items at the coolest. Complexity multiplies on top, and high global stress bleeds into every issue (at 30%), making even small tasks look hotter when the environment is chaotic. Urgent or critical labels add a significant heat bonus; bugs add a smaller one.
+[flamegraph.html](../backend/src/main/resources/static/flamegraph.html) assigns a base “heat” to each category — deep work runs hottest because it demands the most cognitive investment, followed by maintenance, quick wins, and deferred items at the coolest. Complexity multiplies on top, and high global stress bleeds into every issue (at 30%), making even small tasks look hotter when the environment is chaotic. Urgent or critical labels add a significant heat bonus; bugs add a smaller one.
 
 ---
 
