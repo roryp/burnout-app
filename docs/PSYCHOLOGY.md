@@ -144,7 +144,9 @@ Same issues, same deadlines — but structured. That's the difference between bu
 
 ## 1. Theoretical Foundations
 
-This system isn't built on intuition — it's grounded in six published research frameworks. Each one maps directly to a specific algorithm or design decision in the codebase.
+This system is built on six published research frameworks. Each one maps directly to a specific algorithm or design decision in the codebase.
+
+<img src="images/theoretical-foundations.png" alt="Six theoretical foundations: Maslach Burnout Inventory, Cognitive Load Theory, Yerkes-Dodson Law, Deep Work, Pomodoro/Time Boxing, and Plutchik's Wheel of Emotions — each mapped to system algorithms" width="800"/>
 
 | Framework | Key Concept | How We Use It |
 |-----------|-------------|---------------|
