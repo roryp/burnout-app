@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { width: 1920px; height: 1080px; font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #e2e8f0; overflow: hidden; }
+
+.header { text-align: center; padding: 18px 0 10px; }
+.header h1 { font-size: 32px; font-weight: 700; color: #f8fafc; letter-spacing: 1px; }
+.header p { font-size: 14px; color: #94a3b8; margin-top: 4px; }
+
+.grid { display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 16px; padding: 0 24px 20px; height: calc(100% - 80px); }
+
+.card { background: rgba(30, 41, 59, 0.9); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; }
+.card-header { padding: 10px 16px; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; display: flex; align-items: center; gap: 10px; }
+.card-header .num { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; font-size: 14px; font-weight: 800; flex-shrink: 0; }
+.card-body { padding: 8px 16px 12px; font-size: 12.5px; line-height: 1.55; flex: 1; overflow: hidden; }
+
+/* Stage colors */
+.s1 .card-header { background: #1d4ed8; } .s1 .num { background: #3b82f6; color: #fff; }
+.s2 .card-header { background: #7c3aed; } .s2 .num { background: #a78bfa; color: #fff; }
+.s3 .card-header { background: #b45309; } .s3 .num { background: #f59e0b; color: #1e293b; }
+.s4 .card-header { background: #0f766e; } .s4 .num { background: #2dd4bf; color: #1e293b; }
+.s5 .card-header { background: #be123c; } .s5 .num { background: #fb7185; color: #1e293b; }
+.s6 .card-header { background: #4338ca; } .s6 .num { background: #818cf8; color: #fff; }
+
+.card-body h3 { font-size: 13px; color: #60a5fa; margin: 6px 0 3px; font-weight: 600; }
+.card-body h3:first-child { margin-top: 0; }
+.card-body .mono { font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 11.5px; background: rgba(15, 23, 42, 0.6); padding: 4px 8px; border-radius: 4px; margin: 3px 0; display: block; line-height: 1.5; color: #a5f3fc; }
+.card-body .kv { display: flex; gap: 6px; margin: 2px 0; }
+.card-body .kv .k { color: #94a3b8; min-width: 100px; flex-shrink: 0; }
+.card-body .kv .v { color: #e2e8f0; font-weight: 500; }
+.card-body ul { margin: 2px 0 2px 16px; }
+.card-body li { margin: 1px 0; }
+.tag { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 11px; font-weight: 600; margin: 1px 2px; }
+.tag-crit { background: #dc2626; color: #fff; }
+.tag-warn { background: #d97706; color: #fff; }
+.tag-info { background: #2563eb; color: #fff; }
+.tag-green { background: #16a34a; color: #fff; }
+.highlight { color: #fbbf24; font-weight: 600; }
+.dim { color: #64748b; }
+.arrow-row { display: flex; align-items: center; justify-content: center; gap: 0; height: 14px; margin: 0; }
+.arrow-row span { color: #475569; font-size: 24px; line-height: 1; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Burnout-as-a-Service &mdash; Algorithm Pipeline</h1>
+  <p>Deterministic services compute all metrics &bull; AI agents only explain &amp; act, never decide &bull; Every agent has a fallback path</p>
+</div>
+
+<div class="grid">
+
+  <!-- STAGE 1: INGESTION -->
+  <div class="card s1">
+    <div class="card-header"><div class="num">1</div>INGESTION</div>
+    <div class="card-body">
+      <h3>Issue Record (Java record)</h3>
+      <span class="mono">number, title, body, labels, assignees,<br/>createdAt, updatedAt, state, milestone</span>
+      <div style="font-size:11px; color:#94a3b8; margin-top:2px;">Nested: Label(name) &bull; Assignee(login) &bull; Milestone(title, dueOn)</div>
+
+      <h3>IssueCache</h3>
+      <div class="kv"><span class="k">Storage</span><span class="v">ConcurrentHashMap&lt;String, CachedIssues&gt;</span></div>
+      <div class="kv"><span class="k">Versioned</span><span class="v">ConcurrentHashMap&lt;String, AtomicLong&gt;</span></div>
+
+      <h3>Data Sources</h3>
+      <ul>
+        <li><strong>MCP sync</strong> &mdash; authenticated via GitHub token</li>
+        <li><strong>Public API</strong> &mdash; rate limit: 1 per repo per 5 min</li>
+        <li><strong>Seed endpoint</strong> &mdash; POST /demo/api/seed (no auth)</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- STAGE 2: CLASSIFICATION -->
+  <div class="card s2">
+    <div class="card-header"><div class="num">2</div>CLASSIFICATION</div>
+    <div class="card-body">
+      <h3>IssueClassifierService &mdash; 4 Buckets (first match wins)</h3>
+      <ul>
+        <li><span class="tag tag-crit">DEEP_WORK</span> priority:critical/high, architecture, security, hours&gt;2, epic/feature regex</li>
+        <li><span class="tag tag-warn">QUICK_WIN</span> good-first-issue, quick-win, trivial; hours&lt;0.5 + clear scope; enhancement + body&lt;500</li>
+        <li><span class="tag tag-info">MAINTENANCE</span> dependencies, documentation, triage, chore, refactor, tech-debt, ci, devops</li>
+        <li><span class="tag tag-green">DEFERRED</span> default fallback</li>
+      </ul>
+
+      <h3>Hour Estimation (label-based)</h3>
+      <span class="mono">size:s / small → 0.5h &nbsp;|&nbsp; size:m / medium → 2h<br/>size:l / large → 4h &nbsp;|&nbsp; size:xl → 8h<br/>Body heuristic: &lt;100ch→0.5 &nbsp; &lt;500ch→2 &nbsp; ≥500ch→4 &nbsp; default→2</span>
+
+      <h3>DayStructure Constants</h3>
+      <span class="mono">MAX_DEEP_WORK = 1 &nbsp;|&nbsp; MAX_QUICK_WINS = 3 &nbsp;|&nbsp; MAX_MAINTENANCE = 3<br/>MAX_ACTIVE = 1 + 3 + 3 = <span class="highlight">7</span></span>
+    </div>
+  </div>
+
+  <!-- STAGE 3: METRICS & COMPLIANCE -->
+  <div class="card s3">
+    <div class="card-header"><div class="num">3</div>METRICS &amp; COMPLIANCE</div>
+    <div class="card-body">
+      <h3>ChaosMetricsService &mdash; score 0&ndash;10 (5 &times; 2 pts)</h3>
+      <span class="mono">mysteryMeat <span class="highlight">≥ 3</span> → +2 &nbsp;|&nbsp; urgent <span class="highlight">≥ 3</span> → +2<br/>touched <span class="highlight">≥ 6</span> (60 min window) → +2<br/>afterHoursActivity → +2 &nbsp;|&nbsp; labels <span class="highlight">≥ 12</span> → +2</span>
+
+      <h3>ChaosBucket Thresholds</h3>
+      <span class="mono">≤ 2 LOW &nbsp;|&nbsp; ≤ 5 MEDIUM &nbsp;|&nbsp; ≤ 8 HIGH &nbsp;|&nbsp; &gt; 8 CRITICAL</span>
+
+      <h3>ComplianceService &mdash; score 100 → 0 (8 violations)</h3>
+      <div style="font-size:11.5px;">
+        <span class="tag tag-crit">CRITICAL −25</span> MULTIPLE_DEEP_WORK &bull; EXCESSIVE_CONTEXT_SWITCHING(&gt;5) &bull; TOTAL_OVERLOAD(&gt;7)<br/>
+        <span class="tag tag-warn">WARNING −10</span> QUICK_WIN_OVERLOAD(&gt;3) &bull; MAINTENANCE_OVERLOAD(&gt;3) &bull; UNCLEAR_QUICK_WINS<br/>
+        <span class="tag tag-info">INFO −5</span> NO_DEEP_WORK &bull; DEFERRED_BACKLOG_GROWING(&gt;5, 14d stale)
+      </div>
+
+      <h3>CalendarService (mock)</h3>
+      <span class="mono">3 meetings &bull; 45 min total &bull; 120 min free block &bull; 2 switches &bull; 0.65 frag<br/>Deep work possible if free block <span class="highlight">≥ 90 min</span> → true</span>
+    </div>
+  </div>
+
+  <!-- STAGE 4: WORLDSTATE -->
+  <div class="card s4">
+    <div class="card-header"><div class="num">4</div>WORLDSTATE &amp; STRESS</div>
+    <div class="card-body">
+      <h3>18 Capped Variables (key caps)</h3>
+      <span class="mono">totalAssigned ≤ 15 &bull; deepWork ≤ 5 &bull; quickWin ≤ 5 &bull; maintenance ≤ 5<br/>deferred ≤ 10 &bull; delegated = 0 &bull; urgentUnassigned ≤ 10<br/>contradictory ≤ 5 &bull; touchedToday ≤ 10 &bull; afterHours ≤ 5<br/>stale ≤ 10 &bull; mysteryMeat ≤ 10 &bull; unclearQuickWins ≤ 5</span>
+
+      <h3>Stress Score &mdash; 8 components, max 100</h3>
+      <span class="mono" style="font-size:11px; line-height:1.45;">
+1. Overload: assigned &gt; 7 → min(20, (n−7) × 4)<br/>
+2. Deep work: &gt; 1 → (n−1) × 10; == 0 &amp;&amp; total &gt; 0 → +5<br/>
+3. Chaos: bucket × 10 (LOW=0, MED=10, HIGH=20, CRIT=30)<br/>
+4. Context switch: touched &gt; 5 → min(15, (n−5) × 3)<br/>
+5. Mystery meat: min(10, n × 2)<br/>
+6. Unclear scope: min(5, n)<br/>
+7. Sustained pressure: min(15, consecutiveDays × 5)<br/>
+8. After-hours: min(10, n × 5)
+      </span>
+
+      <h3>Stress Levels</h3>
+      <span class="mono"><span class="tag tag-crit">≥ 70 CRITICAL</span> <span class="tag tag-warn">≥ 50 HIGH</span> <span class="tag tag-info">≥ 30 MODERATE</span> <span class="tag tag-green">&lt; 30 LOW</span></span>
+    </div>
+  </div>
+
+  <!-- STAGE 5: AI AGENTS -->
+  <div class="card s5">
+    <div class="card-header"><div class="num">5</div>AI AGENTS</div>
+    <div class="card-body">
+      <h3>LangChain4j Supervisor Pattern</h3>
+      <span class="mono">Azure OpenAI <span class="highlight">gpt-5.2</span> &bull; temp 0.3 &bull; maxTokens 1024 / 512 (planner)<br/>Strategy: SUMMARY &bull; maxAgentsInvocations: 10 &bull; timeout 30s &bull; retries 2</span>
+
+      <h3>5 Sub-Agents + 9 @Tool Methods</h3>
+      <div style="font-size:11.5px; line-height:1.55;">
+        <strong>DeferAgent</strong> → deferIssue (adds: deferred, next-sprint; removes: priority:critical)<br/>
+        <strong>DelegateAgent</strong> → delegateIssue (adds: delegated, needs-owner)<br/>
+        <strong>ClassifyAgent</strong> → markAsDeepWork, classifyAsQuickWin, classifyAsMaintenance<br/>
+        <strong>ScopeAgent</strong> → addScopeNeeded (adds: needs-scope, blocked)<br/>
+        <strong>WellnessAgent</strong> → suggestBreak, slowIntake, blockCalendarTime
+      </div>
+
+      <h3>Support Agents &amp; Protection</h3>
+      <span class="mono">ExplainerAiService &bull; ProtectiveAiService &bull; FridayDeployAiService<br/>Stress reduction estimate: actions × 7<br/>Protection trigger: highDays <span class="highlight">≥ 2</span> OR afterHours OR stress <span class="highlight">≥ 70</span> OR assigned <span class="highlight">&gt; 10</span></span>
+    </div>
+  </div>
+
+  <!-- STAGE 6: OUTPUT -->
+  <div class="card s6">
+    <div class="card-header"><div class="num">6</div>OUTPUT</div>
+    <div class="card-body">
+      <h3>GitHubMutationPlan</h3>
+      <div style="font-size:12px;">Labels applied to GitHub issues via MCP &mdash; deferred, delegated, quick-win, deep-work, maintenance, needs-scope, blocked, next-sprint, 3-3-3, focus, size:S, needs-owner</div>
+
+      <h3>Rebalanced Day (3-3-3 Structure)</h3>
+      <span class="mono">1 deep-work + 3 quick-wins + 3 maintenance = 7 active max<br/>Remaining issues → DEFERRED bucket</span>
+
+      <h3>Friday Deploy Score (100 → 0, uses &gt; not ≥)</h3>
+      <span class="mono">chaos <span class="highlight">&gt; 5</span> → −20 &nbsp;|&nbsp; chaos <span class="highlight">&gt; 8</span> → −20 (cumulative)<br/>unresolvedUrgent &gt; 0 → −15 &nbsp;|&nbsp; afterHours → −10<br/>mysteryMeat &gt; 3 → −10 &nbsp;|&nbsp; non-compliant → −15<br/>Max deduction: −90 &nbsp;|&nbsp; Min score: 10</span>
+
+      <h3>Additional Outputs</h3>
+      <ul>
+        <li><strong>Protective messages</strong> &mdash; triggered by protection formula</li>
+        <li><strong>Flamegraph</strong> &mdash; interactive visualization at /flamegraph.html</li>
+        <li><strong>Stress report</strong> &mdash; score, level, components breakdown</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>
