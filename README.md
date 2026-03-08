@@ -104,11 +104,29 @@ A zero-friction web page for study participants. No VS Code, no CLI, no auth —
 
 **URL:** `https://<your-app>.azurecontainerapps.io/checkin.html`
 
-1. Student enters their GitHub username and a **public** repo
-2. Clicks **"Check My Stress"**
-3. Sees their stress score + breakdown — snapshot is recorded automatically
+![Stress Check-In](docs/images/checkin-critical.png)
 
-Repeat daily/weekly as part of the study protocol. All snapshots appear on the Study Dashboard.
+1. Student enters their GitHub username and a **public** repo
+2. Optionally sets the **self-report slider** (0–100: "How stressed do you feel?") and **notes**
+3. Clicks **"Check My Stress"**
+4. Sees their computed stress score + breakdown — snapshot is recorded automatically
+
+The check-in compares **objective stress** (computed from GitHub signals) with **subjective stress** (self-reported), enabling researchers to study the gap between perceived and actual workload pressure.
+
+### Stress Breakdown
+
+Each check-in calculates six stress dimensions from GitHub issue signals:
+
+| Metric | What it measures | Max |
+|--------|-----------------|-----|
+| **Workload** | Too many assigned issues, multiple deep-work items | 40 |
+| **Chaos** | Label conflicts, missing assignees, scope creep | 30 |
+| **Context Switching** | Issues touched today > 5 (constant interrupts) | 15 |
+| **Clarity** | "Mystery meat" issues — no labels, no body | 10 |
+| **Sustained Load** | Consecutive high-chaos days | 15 |
+| **After Hours** | Issues updated outside 9am–6pm | 10 |
+
+Score is capped at 100. Levels: **LOW** (0–29), **MODERATE** (30–49), **HIGH** (50–69), **CRITICAL** (70+).
 
 ## Study Dashboard
 
@@ -126,7 +144,7 @@ Every call to `get_stress_score`, `reshape_day`, or the **check-in page** automa
 - **Stress trend chart** — per-participant line chart with HIGH/MED/LOW color zones
 - **Participant breakdown** — tiles per user showing count, avg score, and trend arrow
 - **Raw data table** — all snapshots with full stress breakdown columns
-- **CSV export** — one-click download for offline analysis
+- **CSV export** — one-click download for offline analysis (includes `selfReportedScore` and `selfReportedNote` columns)
 
 ### Setup
 
