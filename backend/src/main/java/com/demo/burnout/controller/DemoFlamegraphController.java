@@ -2,6 +2,7 @@ package com.demo.burnout.controller;
 
 import com.demo.burnout.model.*;
 import com.demo.burnout.service.*;
+import com.demo.burnout.service.StressSnapshotService;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -49,6 +50,7 @@ public class DemoFlamegraphController {
     private final ChaosMetricsService chaosMetricsService;
     private final ComplianceService complianceService;
     private final IssueClassifierService classifier;
+    private final StressSnapshotService snapshotService;
     private final Clock clock;
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
@@ -58,12 +60,14 @@ public class DemoFlamegraphController {
                                     ChaosMetricsService chaosMetricsService,
                                     ComplianceService complianceService,
                                     IssueClassifierService classifier,
+                                    StressSnapshotService snapshotService,
                                     Clock clock,
                                     ObjectMapper objectMapper) {
         this.issueCache = issueCache;
         this.chaosMetricsService = chaosMetricsService;
         this.complianceService = complianceService;
         this.classifier = classifier;
+        this.snapshotService = snapshotService;
         this.clock = clock;
         this.objectMapper = objectMapper;
         this.httpClient = HttpClient.newBuilder()
@@ -297,6 +301,95 @@ public class DemoFlamegraphController {
         if (state.mysteryMeatCount() > 3) score -= 10;
         return Math.max(0, score);
     }
+
+    /**
+     * Low-friction study check-in. Syncs a public repo's issues, calculates stress,
+     * records a snapshot, and returns the result. No auth required.
+     */
+    @PostMapping("/checkin")
+    public ResponseEntity<Map<String, Object>> checkin(@RequestBody CheckinRequest req) {
+        String repo = req.repo();
+        String userId = req.userId();
+
+        if (userId == null || userId.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "userId is required"));
+        }
+        if (repo == null || !repo.matches("^[\\w.-]+/[\\w.-]+$")) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Invalid repo format. Use owner/repo"));
+        }
+
+        // Sync issues from GitHub (reuses cache + rate limiting)
+        if (!issueCache.hasRepo(repo)) {
+            Instant lastSync = lastSyncTimes.get(repo);
+            if (lastSync != null) {
+                Duration elapsed = Duration.between(lastSync, Instant.now());
+                if (elapsed.compareTo(SYNC_COOLDOWN) < 0) {
+                    long remaining = SYNC_COOLDOWN.minus(elapsed).toSeconds();
+                    return ResponseEntity.status(429).body(Map.of(
+                        "error", "rate_limited",
+                        "message", "Try again in " + remaining + "s"
+                    ));
+                }
+            }
+            try {
+                List<Issue> issues = fetchGitHubIssues(repo);
+                issueCache.put(repo, issues, Instant.now());
+                lastSyncTimes.put(repo, Instant.now());
+            } catch (ResponseStatusException e) {
+                return ResponseEntity.status(e.getStatusCode()).body(Map.of(
+                    "error", e.getReason() != null ? e.getReason() : "Unknown error"
+                ));
+            } catch (Exception e) {
+                log.error("Check-in sync failed for {}", repo, e);
+                return ResponseEntity.status(502).body(Map.of(
+                    "error", "Failed to fetch issues from GitHub: " + e.getMessage()
+                ));
+            }
+        }
+
+        // Calculate stress
+        List<Issue> issues = issueCache.get(repo);
+        ChaosMetrics chaos = chaosMetricsService.calculate(issues, clock);
+        ComplianceReport compliance = complianceService.analyze(issues, userId);
+        WorldState state = WorldState.from(issues, userId, chaos, compliance, clock);
+        int stressScore = state.calculateStressScore();
+        StressLevel stressLevel = state.getStressLevel();
+
+        // Build breakdown
+        Map<String, Integer> breakdown = Map.of(
+            "workload", calculateWorkloadStress(state),
+            "chaos", state.chaosBucket().ordinalValue * 10,
+            "contextSwitching", Math.min(15, Math.max(0, state.issuesTouchedToday() - 5) * 3),
+            "clarity", Math.min(10, state.mysteryMeatCount() * 2),
+            "sustained", Math.min(15, state.consecutiveHighChaosDays() * 5),
+            "afterHours", Math.min(10, state.issuesUpdatedAfterHours() * 5)
+        );
+
+        // Record snapshot
+        try {
+            snapshotService.record(userId, repo, stressScore, stressLevel, "checkin", breakdown);
+        } catch (Exception e) {
+            log.warn("Failed to persist check-in snapshot: {}", e.getMessage());
+        }
+
+        return ResponseEntity.ok(Map.of(
+            "stressScore", stressScore,
+            "stressLevel", stressLevel.name(),
+            "breakdown", breakdown,
+            "totalIssues", issues.size(),
+            "is333Compliant", state.is333Compliant()
+        ));
+    }
+
+    private int calculateWorkloadStress(WorldState state) {
+        int stress = 0;
+        if (state.totalAssigned() > 7) stress += Math.min(20, (state.totalAssigned() - 7) * 4);
+        if (state.deepWorkCount() > 1) stress += (state.deepWorkCount() - 1) * 10;
+        if (state.deepWorkCount() == 0 && state.totalAssigned() > 0) stress += 5;
+        return Math.min(40, stress);
+    }
+
+    public record CheckinRequest(String userId, String repo) {}
 
     public record FlamegraphResponse(
         String status,

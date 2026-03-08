@@ -96,6 +96,19 @@ What's my stress score for owner/repo # Quick stress check (0-100)
 | GET | `/demo/api/repos` | No | List synced repos |
 | POST | `/demo/api/sync?repo=owner/repo` | No | Sync from GitHub public API (rate-limited) |
 | POST | `/demo/api/seed` | No | Seed test data |
+| POST | `/demo/api/checkin` | No | Student stress check-in (syncs + records snapshot) |
+
+## Student Check-In
+
+A zero-friction web page for study participants. No VS Code, no CLI, no auth — just a browser.
+
+**URL:** `https://<your-app>.azurecontainerapps.io/checkin.html`
+
+1. Student enters their GitHub username and a **public** repo
+2. Clicks **"Check My Stress"**
+3. Sees their stress score + breakdown — snapshot is recorded automatically
+
+Repeat daily/weekly as part of the study protocol. All snapshots appear on the Study Dashboard.
 
 ## Study Dashboard
 
@@ -107,7 +120,7 @@ A researcher-facing web page for tracking stress score trends over time, built f
 
 ### What it does
 
-Every call to `get_stress_score` or `reshape_day` automatically persists a stress snapshot to **Azure Database for PostgreSQL**. The study dashboard visualizes these accumulated snapshots with:
+Every call to `get_stress_score`, `reshape_day`, or the **check-in page** automatically persists a stress snapshot to **Azure Database for PostgreSQL**. The study dashboard visualizes these accumulated snapshots with:
 
 - **Summary cards** — total snapshots, unique participants, average stress, trend direction
 - **Stress trend chart** — per-participant line chart with HIGH/MED/LOW color zones
