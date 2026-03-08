@@ -365,9 +365,17 @@ public class DemoFlamegraphController {
             "afterHours", Math.min(10, state.issuesUpdatedAfterHours() * 5)
         );
 
+        // Self-reported fields (optional)
+        Integer selfScore = req.selfScore();
+        String note = req.note();
+        if (note != null && note.length() > 500) {
+            note = note.substring(0, 500);
+        }
+
         // Record snapshot
         try {
-            snapshotService.record(userId, repo, stressScore, stressLevel, "checkin", breakdown);
+            snapshotService.record(userId, repo, stressScore, stressLevel, "checkin", breakdown,
+                    selfScore, note);
         } catch (Exception e) {
             log.warn("Failed to persist check-in snapshot: {}", e.getMessage());
         }
@@ -389,7 +397,7 @@ public class DemoFlamegraphController {
         return Math.min(40, stress);
     }
 
-    public record CheckinRequest(String userId, String repo) {}
+    public record CheckinRequest(String userId, String repo, Integer selfScore, String note) {}
 
     public record FlamegraphResponse(
         String status,

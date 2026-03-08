@@ -186,6 +186,26 @@
     }
     .again-btn:hover { border-color: var(--accent); color: var(--text); }
 
+    /* Slider */
+    .slider-wrap { display: flex; align-items: center; gap: 12px; }
+    .slider-wrap input[type=range] {
+      flex: 1; -webkit-appearance: none; appearance: none;
+      height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; outline: none;
+    }
+    .slider-wrap input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%;
+      background: linear-gradient(135deg, #667eea, #764ba2); cursor: pointer;
+    }
+    .slider-val { min-width: 32px; text-align: center; font-weight: 700; font-size: 1.1rem; }
+    .field textarea {
+      width: 100%; background: rgba(255,255,255,0.06);
+      border: 1px solid var(--card-border); color: var(--text);
+      padding: 10px 14px; border-radius: 10px; font-size: 0.9rem;
+      outline: none; resize: vertical; min-height: 60px; font-family: inherit;
+    }
+    .field textarea:focus { border-color: var(--accent); }
+    .field textarea::placeholder { color: var(--text-muted); }
+
     .footer {
       text-align: center;
       margin-top: 32px;
@@ -214,6 +234,21 @@
     </div>
     <button class="btn" id="checkin-btn" onclick="doCheckin()">Check My Stress</button>
     <div class="error-msg" id="error"></div>
+
+    <hr style="border:none;border-top:1px solid var(--card-border);margin:20px 0 18px">
+    <div style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:12px;">Optional self-report</div>
+
+    <div class="field">
+      <label>How stressed do you feel? (0 = calm, 100 = overwhelmed)</label>
+      <div class="slider-wrap">
+        <input type="range" id="self-score" min="0" max="100" value="50" oninput="document.getElementById('slider-val').textContent=this.value" />
+        <span class="slider-val" id="slider-val">50</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>Notes (optional)</label>
+      <textarea id="self-note" placeholder="How are you feeling today?" maxlength="500"></textarea>
+    </div>
   </div>
 
   <!-- Result -->
@@ -268,7 +303,10 @@
       const res = await fetch(BASE + '/demo/api/checkin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, repo })
+        body: JSON.stringify({ userId, repo,
+          selfScore: parseInt(document.getElementById('self-score').value, 10),
+          note: document.getElementById('self-note').value.trim() || null
+        })
       });
 
       const data = await res.json();
