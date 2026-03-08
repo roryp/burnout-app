@@ -23,17 +23,20 @@ public class StressController {
     private final ChaosMetricsService chaosMetricsService;
     private final ComplianceService complianceService;
     private final BurnoutSupervisorService supervisorService;
+    private final StressSnapshotService snapshotService;
     private final Clock clock;
 
     public StressController(IssueCache issueCache, 
                            ChaosMetricsService chaosMetricsService,
                            ComplianceService complianceService,
                            BurnoutSupervisorService supervisorService,
+                           StressSnapshotService snapshotService,
                            Clock clock) {
         this.issueCache = issueCache;
         this.chaosMetricsService = chaosMetricsService;
         this.complianceService = complianceService;
         this.supervisorService = supervisorService;
+        this.snapshotService = snapshotService;
         this.clock = clock;
     }
 
@@ -65,17 +68,26 @@ public class StressController {
             estimatedStress = state.calculateStressScore(); // fallback to current score
         }
         
+        // Persist stress snapshot for longitudinal study tracking
+        Map<String, Integer> breakdown = Map.of(
+            "workload", calculateWorkloadStress(state),
+            "chaos", state.chaosBucket().ordinalValue * 10,
+            "contextSwitching", Math.min(15, Math.max(0, state.issuesTouchedToday() - 5) * 3),
+            "clarity", Math.min(10, state.mysteryMeatCount() * 2),
+            "sustained", Math.min(15, state.consecutiveHighChaosDays() * 5),
+            "afterHours", Math.min(10, state.issuesUpdatedAfterHours() * 5)
+        );
+        try {
+            snapshotService.record(userId, repo, state.calculateStressScore(),
+                    state.getStressLevel(), "stress", breakdown);
+        } catch (Exception e) {
+            log.warn("Failed to persist stress snapshot: {}", e.getMessage());
+        }
+
         return new StressResponse(
             state.calculateStressScore(),
             state.getStressLevel(),
-            Map.of(
-                "workload", calculateWorkloadStress(state),
-                "chaos", state.chaosBucket().ordinalValue * 10,
-                "contextSwitching", Math.min(15, Math.max(0, state.issuesTouchedToday() - 5) * 3),
-                "clarity", Math.min(10, state.mysteryMeatCount() * 2),
-                "sustained", Math.min(15, state.consecutiveHighChaosDays() * 5),
-                "afterHours", Math.min(10, state.issuesUpdatedAfterHours() * 5)
-            ),
+            breakdown,
             state.is333Compliant(),
             actionSummaries,
             state.calculateStressScore(),

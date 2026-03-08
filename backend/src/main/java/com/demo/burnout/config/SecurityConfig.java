@@ -70,7 +70,7 @@ public class SecurityConfig {
                 // Demo flamegraph (read-only, no auth - for live demos)
                 .requestMatchers("/demo/**").permitAll()
                 // Static resources (demo web app)
-                .requestMatchers("/flamegraph.html", "/favicon.ico").permitAll()
+                .requestMatchers("/flamegraph.html", "/study.html", "/favicon.ico").permitAll()
                 // OPTIONS requests for CORS preflight
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 // All API endpoints require authentication
@@ -116,7 +116,7 @@ public class SecurityConfig {
                 // Skip auth for health and demo endpoints
                 String path = request.getRequestURI();
                 if (path.startsWith("/actuator") || path.startsWith("/demo") 
-                    || path.equals("/flamegraph.html") || path.equals("/favicon.ico")) {
+                    || path.equals("/flamegraph.html") || path.equals("/study.html") || path.equals("/favicon.ico")) {
                     filterChain.doFilter(request, response);
                     return;
                 }

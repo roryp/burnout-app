@@ -25,6 +25,16 @@ param openAiEndpoint string
 @description('Azure OpenAI deployment name')
 param openAiDeployment string = 'gpt-4o'
 
+@description('Spring datasource JDBC URL')
+param springDatasourceUrl string = ''
+
+@description('Spring datasource username')
+param springDatasourceUsername string = ''
+
+@description('Spring datasource password')
+@secure()
+param springDatasourcePassword string = ''
+
 resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
   name: containerAppName
   location: location
@@ -50,6 +60,12 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
         {
           server: acrLoginServer
           identity: identityResourceId
+        }
+      ]
+      secrets: [
+        {
+          name: 'db-password'
+          value: springDatasourcePassword
         }
       ]
     }
@@ -78,6 +94,18 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
             {
               name: 'SECURITY_ENABLED'
               value: 'true'
+            }
+            {
+              name: 'SPRING_DATASOURCE_URL'
+              value: springDatasourceUrl
+            }
+            {
+              name: 'SPRING_DATASOURCE_USERNAME'
+              value: springDatasourceUsername
+            }
+            {
+              name: 'SPRING_DATASOURCE_PASSWORD'
+              secretRef: 'db-password'
             }
           ]
           probes: [

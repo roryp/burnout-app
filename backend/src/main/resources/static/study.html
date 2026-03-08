@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
+  <title>Burnout Study Dashboard</title>
+  <style>
+    :root {
+      --bg: #0d0d0d;
+      --bg-gradient: linear-gradient(135deg, #0d0d0d 0%, #1a1a2e 50%, #16213e 100%);
+      --text: #ffffff;
+      --text-muted: #94a3b8;
+      --card-bg: rgba(255,255,255,0.05);
+      --card-border: rgba(255,255,255,0.1);
+      --stress-low: #00f260;
+      --stress-moderate: #f7971e;
+      --stress-high: #ff5858;
+      --accent: #667eea;
+      --accent2: #764ba2;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-gradient);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+
+    h1 {
+      font-size: 2.4rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f857a6 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 1rem;
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    /* Controls */
+    .controls {
+      display: flex;
+      gap: 12px;
+      align-items: end;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 32px;
+    }
+
+    .field { display: flex; flex-direction: column; gap: 4px; }
+
+    .field label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .field input {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .field input:focus { border-color: var(--accent); }
+    .field input::placeholder { color: var(--text-muted); }
+
+    /* Fix date input color scheme for dark mode */
+    input[type="date"]::-webkit-calendar-picker-indicator {
+      filter: invert(1);
+    }
+
+    .btn {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(102,126,234,0.35);
+    }
+
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+    .btn.export-btn {
+      background: linear-gradient(135deg, #00f260, #0575e6);
+    }
+
+    .error-msg {
+      color: var(--stress-high);
+      font-size: 0.9rem;
+      text-align: center;
+      margin-bottom: 16px;
+    }
+
+    /* Summary cards */
+    .summary {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+    }
+
+    .metric {
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      padding: 16px 28px;
+      border-radius: 12px;
+      text-align: center;
+      min-width: 140px;
+      border: 1px solid var(--card-border);
+    }
+
+    .metric .value { font-size: 2rem; font-weight: 700; }
+    .metric .label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* Chart */
+    .chart-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      border-radius: 16px;
+      padding: 24px;
+      border: 1px solid var(--card-border);
+      margin-bottom: 32px;
+    }
+
+    .chart-card h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: var(--text);
+    }
+
+    .chart-container {
+      position: relative;
+      width: 100%;
+      height: 320px;
+    }
+
+    canvas { width: 100% !important; height: 100% !important; }
+
+    /* Participant breakdown */
+    .participants-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      border-radius: 16px;
+      padding: 24px;
+      border: 1px solid var(--card-border);
+      margin-bottom: 32px;
+    }
+
+    .participants-card h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: var(--text);
+    }
+
+    .participant-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px;
+    }
+
+    .participant-tile {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 14px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .participant-tile .name {
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    .participant-tile .stats {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .participant-tile .trend {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+    }
+
+    .trend-arrow { font-size: 1.1rem; }
+    .trend-arrow.down { color: var(--stress-low); }
+    .trend-arrow.up { color: var(--stress-high); }
+    .trend-arrow.flat { color: var(--stress-moderate); }
+
+    .mini-bar {
+      flex: 1;
+      height: 6px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .mini-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.3s;
+    }
+
+    /* Data table */
+    .table-card {
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      border-radius: 16px;
+      padding: 24px;
+      border: 1px solid var(--card-border);
+      margin-bottom: 32px;
+      overflow-x: auto;
+    }
+
+    .table-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .table-header h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+
+    th {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--card-border);
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-size: 0.7rem;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      white-space: nowrap;
+    }
+
+    tr:hover td { background: rgba(255,255,255,0.03); }
+
+    .level-badge {
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .level-badge.low {
+      background: rgba(0,242,96,0.15);
+      color: var(--stress-low);
+    }
+
+    .level-badge.moderate {
+      background: rgba(247,151,30,0.15);
+      color: var(--stress-moderate);
+    }
+
+    .level-badge.high {
+      background: rgba(255,88,88,0.15);
+      color: var(--stress-high);
+    }
+
+    .source-badge {
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      background: rgba(102,126,234,0.15);
+      color: var(--accent);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+
+    .empty-state .icon { font-size: 3rem; margin-bottom: 12px; }
+
+    .footer {
+      text-align: center;
+      margin-top: 48px;
+      padding-top: 24px;
+      border-top: 1px solid var(--card-border);
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+
+    .footer a { color: var(--accent); text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
+
+    .loading {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-muted);
+    }
+
+    .loading .spinner {
+      width: 48px; height: 48px;
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top-color: #667eea;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 16px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Burnout Study Dashboard</h1>
+    <p class="subtitle">Researcher view &mdash; stress score trends and participant data over time</p>
+
+    <div class="controls">
+      <div class="field">
+        <label>From</label>
+        <input type="date" id="from-date" />
+      </div>
+      <div class="field">
+        <label>To</label>
+        <input type="date" id="to-date" />
+      </div>
+      <div class="field">
+        <label>Participant (optional)</label>
+        <input type="text" id="user-filter" placeholder="GitHub username" />
+      </div>
+      <button class="btn" id="load-btn" onclick="loadData()">Load Data</button>
+      <button class="btn export-btn" id="export-btn" onclick="exportCsv()" disabled>Export CSV</button>
+    </div>
+
+    <div id="error" class="error-msg" style="display:none;"></div>
+
+    <!-- Summary metrics -->
+    <div class="summary" id="summary" style="display:none;">
+      <div class="metric">
+        <div class="value" id="total-snapshots" style="color: var(--accent);">-</div>
+        <div class="label">Snapshots</div>
+      </div>
+      <div class="metric">
+        <div class="value" id="unique-participants" style="color: var(--accent2);">-</div>
+        <div class="label">Participants</div>
+      </div>
+      <div class="metric">
+        <div class="value" id="avg-stress">-</div>
+        <div class="label">Avg Stress</div>
+      </div>
+      <div class="metric">
+        <div class="value" id="trend-indicator">-</div>
+        <div class="label">Trend</div>
+      </div>
+    </div>
+
+    <!-- Stress trend chart -->
+    <div class="chart-card" id="chart-section" style="display:none;">
+      <h2>Stress Score Over Time</h2>
+      <div class="chart-container">
+        <canvas id="trend-chart"></canvas>
+      </div>
+    </div>
+
+    <!-- Participant breakdown -->
+    <div class="participants-card" id="participants-section" style="display:none;">
+      <h2>Participant Breakdown</h2>
+      <div class="participant-grid" id="participant-grid"></div>
+    </div>
+
+    <!-- Data table -->
+    <div class="table-card" id="table-section" style="display:none;">
+      <div class="table-header">
+        <h2>Raw Snapshots</h2>
+        <span id="table-count" style="color: var(--text-muted); font-size: 0.85rem;"></span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Participant</th>
+            <th>Repo</th>
+            <th>Score</th>
+            <th>Level</th>
+            <th>Source</th>
+            <th>Workload</th>
+            <th>Chaos</th>
+            <th>Context</th>
+            <th>Clarity</th>
+            <th>Sustained</th>
+            <th>After-hrs</th>
+          </tr>
+        </thead>
+        <tbody id="table-body"></tbody>
+      </table>
+    </div>
+
+    <!-- Empty state -->
+    <div class="empty-state" id="empty-state">
+      <div class="icon">&#x1F4CA;</div>
+      <p>Select a date range and click <strong>Load Data</strong> to view accumulated stress snapshots.</p>
+      <p style="margin-top:8px; font-size:0.85rem;">
+        Snapshots are automatically recorded each time a participant uses the
+        <code style="background:var(--card-bg); padding:2px 6px; border-radius:4px;">get_stress_score</code> or
+        <code style="background:var(--card-bg); padding:2px 6px; border-radius:4px;">reshape_day</code> MCP tools.
+      </p>
+    </div>
+
+    <div class="footer">
+      Powered by <a href="https://github.com/roryp/burnout-app" target="_blank">Burnout-as-a-Service</a>
+      &mdash; <a href="/flamegraph.html">Flamegraph</a>
+    </div>
+  </div>
+
+  <!-- Minimal chart library - no external deps, pure canvas -->
+  <script>
+    let allData = [];
+    let chartInstance = null;
+
+    function apiBase() {
+      return window.location.origin + '/demo/api/study';
+    }
+
+    // --- Init ---
+    function init() {
+      // Default date range: last 30 days
+      const today = new Date();
+      const thirtyAgo = new Date(today);
+      thirtyAgo.setDate(today.getDate() - 30);
+
+      document.getElementById('to-date').value = formatDate(today);
+      document.getElementById('from-date').value = formatDate(thirtyAgo);
+
+      // Check URL params
+      const url = new URL(window.location);
+      if (url.searchParams.get('from')) document.getElementById('from-date').value = url.searchParams.get('from');
+      if (url.searchParams.get('to')) document.getElementById('to-date').value = url.searchParams.get('to');
+      if (url.searchParams.get('userId')) document.getElementById('user-filter').value = url.searchParams.get('userId');
+
+      // Auto-load if params present
+      if (url.searchParams.get('from')) loadData();
+
+      // Enter key support
+      document.getElementById('user-filter').addEventListener('keydown', e => {
+        if (e.key === 'Enter') loadData();
+      });
+    }
+
+    function formatDate(d) {
+      return d.toISOString().split('T')[0];
+    }
+
+    function escapeHtml(text) {
+      const d = document.createElement('div');
+      d.textContent = text || '';
+      return d.innerHTML;
+    }
+
+    // --- Load data ---
+    async function loadData() {
+      const from = document.getElementById('from-date').value;
+      const to = document.getElementById('to-date').value;
+      const userId = document.getElementById('user-filter').value.trim();
+      const errEl = document.getElementById('error');
+      const btn = document.getElementById('load-btn');
+
+      if (!from || !to) {
+        errEl.textContent = 'Please select both From and To dates.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      errEl.style.display = 'none';
+      btn.disabled = true;
+      btn.textContent = 'Loading...';
+
+      try {
+        const params = new URLSearchParams({ from, to });
+        if (userId) params.set('userId', userId);
+
+        // Update URL for sharing
+        const url = new URL(window.location);
+        url.searchParams.set('from', from);
+        url.searchParams.set('to', to);
+        if (userId) url.searchParams.set('userId', userId);
+        else url.searchParams.delete('userId');
+        window.history.replaceState({}, '', url);
+
+        const resp = await fetch(apiBase() + '/snapshots?' + params);
+        if (!resp.ok) throw new Error('Server returned ' + resp.status);
+        allData = await resp.json();
+
+        document.getElementById('export-btn').disabled = allData.length === 0;
+
+        if (allData.length === 0) {
+          showEmpty();
+        } else {
+          renderDashboard(allData);
+        }
+      } catch (e) {
+        errEl.textContent = 'Failed to load data: ' + e.message;
+        errEl.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Load Data';
+      }
+    }
+
+    function showEmpty() {
+      document.getElementById('summary').style.display = 'none';
+      document.getElementById('chart-section').style.display = 'none';
+      document.getElementById('participants-section').style.display = 'none';
+      document.getElementById('table-section').style.display = 'none';
+      const empty = document.getElementById('empty-state');
+      empty.style.display = 'block';
+      empty.querySelector('.icon').textContent = '\uD83D\uDCED';
+      empty.querySelector('p').innerHTML = '<strong>No snapshots found</strong> for the selected date range.';
+    }
+
+    // --- Export ---
+    function exportCsv() {
+      const from = document.getElementById('from-date').value;
+      const to = document.getElementById('to-date').value;
+      const userId = document.getElementById('user-filter').value.trim();
+      const params = new URLSearchParams({ from, to });
+      if (userId) params.set('userId', userId);
+      window.location.href = apiBase() + '/export?' + params;
+    }
+
+    // --- Render dashboard ---
+    function renderDashboard(data) {
+      document.getElementById('empty-state').style.display = 'none';
+      renderSummary(data);
+      renderChart(data);
+      renderParticipants(data);
+      renderTable(data);
+    }
+
+    // --- Summary metrics ---
+    function renderSummary(data) {
+      const el = document.getElementById('summary');
+      el.style.display = 'flex';
+
+      document.getElementById('total-snapshots').textContent = data.length;
+
+      const users = new Set(data.map(d => d.userId));
+      document.getElementById('unique-participants').textContent = users.size;
+
+      const avg = Math.round(data.reduce((sum, d) => sum + d.stressScore, 0) / data.length);
+      const avgEl = document.getElementById('avg-stress');
+      avgEl.textContent = avg + '/100';
+      avgEl.style.color = avg < 35 ? 'var(--stress-low)' : avg < 65 ? 'var(--stress-moderate)' : 'var(--stress-high)';
+
+      // Trend: compare first half avg to second half avg
+      const mid = Math.floor(data.length / 2);
+      const trendEl = document.getElementById('trend-indicator');
+      if (data.length < 2) {
+        trendEl.textContent = '-';
+        trendEl.style.color = 'var(--text-muted)';
+      } else {
+        const firstHalf = data.slice(0, mid);
+        const secondHalf = data.slice(mid);
+        const avgFirst = firstHalf.reduce((s, d) => s + d.stressScore, 0) / firstHalf.length;
+        const avgSecond = secondHalf.reduce((s, d) => s + d.stressScore, 0) / secondHalf.length;
+        const diff = avgSecond - avgFirst;
+        if (Math.abs(diff) < 3) {
+          trendEl.textContent = '\u2192 Flat';
+          trendEl.style.color = 'var(--stress-moderate)';
+        } else if (diff < 0) {
+          trendEl.textContent = '\u2193 ' + Math.abs(Math.round(diff)) + ' pts';
+          trendEl.style.color = 'var(--stress-low)';
+        } else {
+          trendEl.textContent = '\u2191 +' + Math.round(diff) + ' pts';
+          trendEl.style.color = 'var(--stress-high)';
+        }
+      }
+    }
+
+    // --- Chart (pure canvas, no library) ---
+    function renderChart(data) {
+      const section = document.getElementById('chart-section');
+      section.style.display = 'block';
+
+      const canvas = document.getElementById('trend-chart');
+      const ctx = canvas.getContext('2d');
+      const container = canvas.parentElement;
+
+      // High DPI support
+      const dpr = window.devicePixelRatio || 1;
+      const rect = container.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      canvas.style.width = rect.width + 'px';
+      canvas.style.height = rect.height + 'px';
+      ctx.scale(dpr, dpr);
+
+      const W = rect.width;
+      const H = rect.height;
+      const PAD = { top: 20, right: 20, bottom: 50, left: 50 };
+      const plotW = W - PAD.left - PAD.right;
+      const plotH = H - PAD.top - PAD.bottom;
+
+      ctx.clearRect(0, 0, W, H);
+
+      // Group by user for multi-line
+      const byUser = {};
+      data.forEach(d => {
+        if (!byUser[d.userId]) byUser[d.userId] = [];
+        byUser[d.userId].push(d);
+      });
+
+      const users = Object.keys(byUser);
+      const colors = ['#667eea', '#f857a6', '#00f260', '#ffd200', '#8e2de2', '#ff5858', '#0575e6'];
+
+      // Time range
+      const times = data.map(d => new Date(d.recordedAt).getTime());
+      const minT = Math.min(...times);
+      const maxT = Math.max(...times);
+      const rangeT = maxT - minT || 1;
+
+      // Y axis: 0-100
+      function xPos(t) { return PAD.left + ((t - minT) / rangeT) * plotW; }
+      function yPos(v) { return PAD.top + plotH - (v / 100) * plotH; }
+
+      // Grid lines
+      ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+      ctx.lineWidth = 1;
+      for (let v = 0; v <= 100; v += 20) {
+        ctx.beginPath();
+        ctx.moveTo(PAD.left, yPos(v));
+        ctx.lineTo(W - PAD.right, yPos(v));
+        ctx.stroke();
+      }
+
+      // Stress zone backgrounds
+      ctx.fillStyle = 'rgba(255,88,88,0.04)';
+      ctx.fillRect(PAD.left, yPos(100), plotW, yPos(65) - yPos(100));
+      ctx.fillStyle = 'rgba(247,151,30,0.04)';
+      ctx.fillRect(PAD.left, yPos(65), plotW, yPos(35) - yPos(65));
+      ctx.fillStyle = 'rgba(0,242,96,0.04)';
+      ctx.fillRect(PAD.left, yPos(35), plotW, yPos(0) - yPos(35));
+
+      // Zone labels
+      ctx.font = '11px -apple-system, sans-serif';
+      ctx.fillStyle = 'rgba(255,88,88,0.4)';
+      ctx.fillText('HIGH', W - PAD.right - 35, yPos(82));
+      ctx.fillStyle = 'rgba(247,151,30,0.4)';
+      ctx.fillText('MED', W - PAD.right - 30, yPos(50));
+      ctx.fillStyle = 'rgba(0,242,96,0.4)';
+      ctx.fillText('LOW', W - PAD.right - 30, yPos(18));
+
+      // Y axis labels
+      ctx.fillStyle = 'rgba(148,163,184,0.7)';
+      ctx.font = '11px -apple-system, sans-serif';
+      ctx.textAlign = 'right';
+      for (let v = 0; v <= 100; v += 20) {
+        ctx.fillText(v.toString(), PAD.left - 8, yPos(v) + 4);
+      }
+
+      // X axis labels
+      ctx.textAlign = 'center';
+      const dateLabels = generateDateLabels(minT, maxT, plotW);
+      dateLabels.forEach(dl => {
+        ctx.fillText(dl.label, xPos(dl.time), H - PAD.bottom + 20);
+      });
+
+      // Draw lines per user
+      users.forEach((user, idx) => {
+        const pts = byUser[user].sort((a, b) => new Date(a.recordedAt) - new Date(b.recordedAt));
+        const color = colors[idx % colors.length];
+
+        // Line
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2.5;
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        pts.forEach((p, i) => {
+          const x = xPos(new Date(p.recordedAt).getTime());
+          const y = yPos(p.stressScore);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+
+        // Points
+        pts.forEach(p => {
+          const x = xPos(new Date(p.recordedAt).getTime());
+          const y = yPos(p.stressScore);
+          ctx.fillStyle = color;
+          ctx.beginPath();
+          ctx.arc(x, y, 4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#0d0d0d';
+          ctx.beginPath();
+          ctx.arc(x, y, 2, 0, Math.PI * 2);
+          ctx.fill();
+        });
+      });
+
+      // Legend
+      if (users.length > 1) {
+        let legendX = PAD.left;
+        const legendY = H - 10;
+        ctx.font = '11px -apple-system, sans-serif';
+        users.forEach((user, idx) => {
+          const color = colors[idx % colors.length];
+          ctx.fillStyle = color;
+          ctx.fillRect(legendX, legendY - 8, 12, 3);
+          ctx.fillStyle = 'rgba(148,163,184,0.8)';
+          ctx.textAlign = 'left';
+          ctx.fillText(user, legendX + 16, legendY - 3);
+          legendX += ctx.measureText(user).width + 36;
+        });
+      }
+    }
+
+    function generateDateLabels(minT, maxT, plotW) {
+      const labels = [];
+      const range = maxT - minT;
+      const maxLabels = Math.floor(plotW / 80);
+
+      if (range < 1000) {
+        // All data at same instant
+        labels.push({ time: minT, label: formatDateTime(new Date(minT)) });
+        return labels;
+      }
+
+      const step = range / Math.min(maxLabels, 6);
+      for (let t = minT; t <= maxT; t += step) {
+        const d = new Date(t);
+        if (range < 86400000) { // less than 1 day
+          labels.push({ time: t, label: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
+        } else {
+          labels.push({ time: t, label: d.toLocaleDateString([], { month: 'short', day: 'numeric' }) });
+        }
+      }
+      return labels;
+    }
+
+    function formatDateTime(d) {
+      return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' +
+             d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    // --- Participant breakdown ---
+    function renderParticipants(data) {
+      const section = document.getElementById('participants-section');
+      const grid = document.getElementById('participant-grid');
+
+      const byUser = {};
+      data.forEach(d => {
+        if (!byUser[d.userId]) byUser[d.userId] = [];
+        byUser[d.userId].push(d);
+      });
+
+      const users = Object.keys(byUser);
+      if (users.length < 2) {
+        section.style.display = 'none';
+        return;
+      }
+
+      section.style.display = 'block';
+      grid.innerHTML = '';
+
+      users.forEach(user => {
+        const pts = byUser[user].sort((a, b) => new Date(a.recordedAt) - new Date(b.recordedAt));
+        const latest = pts[pts.length - 1].stressScore;
+        const first = pts[0].stressScore;
+        const avg = Math.round(pts.reduce((s, p) => s + p.stressScore, 0) / pts.length);
+        const diff = latest - first;
+
+        let arrow, arrowClass;
+        if (Math.abs(diff) < 3) { arrow = '\u2192'; arrowClass = 'flat'; }
+        else if (diff < 0) { arrow = '\u2193'; arrowClass = 'down'; }
+        else { arrow = '\u2191'; arrowClass = 'up'; }
+
+        const color = latest < 35 ? 'var(--stress-low)' : latest < 65 ? 'var(--stress-moderate)' : 'var(--stress-high)';
+
+        const tile = document.createElement('div');
+        tile.className = 'participant-tile';
+        tile.innerHTML = `
+          <div class="name">${escapeHtml(user)}</div>
+          <div class="stats">${pts.length} snapshots &middot; avg ${avg}/100</div>
+          <div class="trend">
+            <span class="trend-arrow ${arrowClass}">${arrow}</span>
+            <span>${first} &rarr; ${latest}</span>
+            <div class="mini-bar">
+              <div class="mini-bar-fill" style="width:${latest}%; background:${color};"></div>
+            </div>
+          </div>
+        `;
+        grid.appendChild(tile);
+      });
+    }
+
+    // --- Data table ---
+    function renderTable(data) {
+      const section = document.getElementById('table-section');
+      section.style.display = 'block';
+
+      document.getElementById('table-count').textContent = data.length + ' records';
+
+      const tbody = document.getElementById('table-body');
+      tbody.innerHTML = '';
+
+      // Show most recent first
+      const sorted = [...data].sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt));
+
+      sorted.forEach(d => {
+        const tr = document.createElement('tr');
+        const dt = new Date(d.recordedAt);
+        const levelClass = d.stressLevel.toLowerCase();
+
+        tr.innerHTML = `
+          <td>${dt.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+          <td>${escapeHtml(d.userId)}</td>
+          <td>${escapeHtml(d.repo)}</td>
+          <td><strong>${d.stressScore}</strong></td>
+          <td><span class="level-badge ${levelClass}">${d.stressLevel}</span></td>
+          <td><span class="source-badge">${escapeHtml(d.source)}</span></td>
+          <td>${d.workloadStress}</td>
+          <td>${d.chaosStress}</td>
+          <td>${d.contextSwitchingStress}</td>
+          <td>${d.clarityStress}</td>
+          <td>${d.sustainedStress}</td>
+          <td>${d.afterHoursStress}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>
