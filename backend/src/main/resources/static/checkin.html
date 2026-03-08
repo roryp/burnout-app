@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
+  <title>Burnout Study – Check In</title>
+  <style>
+    :root {
+      --bg: #0d0d0d;
+      --bg-gradient: linear-gradient(135deg, #0d0d0d 0%, #1a1a2e 50%, #16213e 100%);
+      --text: #ffffff;
+      --text-muted: #94a3b8;
+      --card-bg: rgba(255,255,255,0.05);
+      --card-border: rgba(255,255,255,0.1);
+      --stress-low: #00f260;
+      --stress-moderate: #f7971e;
+      --stress-high: #ff5858;
+      --accent: #667eea;
+      --accent2: #764ba2;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-gradient);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .container { max-width: 520px; width: 100%; padding: 24px; }
+    h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f857a6 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-align: center;
+      margin-bottom: 6px;
+    }
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 28px;
+    }
+    .field { margin-bottom: 18px; }
+    .field label {
+      display: block;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 6px;
+    }
+    .field input {
+      width: 100%;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .field input:focus { border-color: var(--accent); }
+    .field input::placeholder { color: var(--text-muted); }
+    .field .hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+    .btn {
+      width: 100%;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+      border: none;
+      padding: 14px;
+      border-radius: 10px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(102,126,234,0.35); }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+    .error-msg { color: var(--stress-high); font-size: 0.9rem; text-align: center; margin-top: 14px; display: none; }
+
+    /* Result */
+    .result { display: none; margin-top: 24px; }
+    .score-ring {
+      width: 160px; height: 160px;
+      margin: 0 auto 20px;
+      position: relative;
+    }
+    .score-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+    .score-ring circle {
+      fill: none;
+      stroke-width: 10;
+      cx: 80; cy: 80; r: 70;
+    }
+    .score-ring .bg { stroke: rgba(255,255,255,0.08); }
+    .score-ring .fg { stroke-linecap: round; transition: stroke-dashoffset 1s ease; }
+    .score-ring .score-text {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+    }
+    .score-ring .score-number { font-size: 2.8rem; font-weight: 800; }
+    .score-ring .score-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+    .level-badge {
+      display: inline-block;
+      padding: 4px 14px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      margin-bottom: 16px;
+    }
+    .level-badge.LOW { background: rgba(0,242,96,0.15); color: var(--stress-low); }
+    .level-badge.MODERATE { background: rgba(247,151,30,0.15); color: var(--stress-moderate); }
+    .level-badge.HIGH, .level-badge.CRITICAL { background: rgba(255,88,88,0.15); color: var(--stress-high); }
+
+    .breakdown { margin-top: 16px; }
+    .breakdown-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .breakdown-item .name {
+      width: 130px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-transform: capitalize;
+    }
+    .breakdown-item .bar-bg {
+      flex: 1;
+      height: 8px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .breakdown-item .bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.8s ease;
+    }
+    .breakdown-item .val {
+      width: 28px;
+      text-align: right;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .meta {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-top: 18px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .meta strong { color: var(--text); }
+
+    .again-btn {
+      margin-top: 20px;
+      width: 100%;
+      background: transparent;
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 10px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .again-btn:hover { border-color: var(--accent); color: var(--text); }
+
+    .footer {
+      text-align: center;
+      margin-top: 32px;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+    }
+    .footer a { color: var(--accent); text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Stress Check-In</h1>
+  <p class="subtitle">Enter your GitHub username and a public repo to measure your stress score</p>
+
+  <!-- Form -->
+  <div class="card" id="form-card">
+    <div class="field">
+      <label>GitHub Username</label>
+      <input type="text" id="userId" placeholder="e.g. octocat" autocomplete="username" />
+    </div>
+    <div class="field">
+      <label>Public Repository</label>
+      <input type="text" id="repo" placeholder="e.g. owner/repo" />
+      <div class="hint">Must be a public GitHub repository with open issues</div>
+    </div>
+    <button class="btn" id="checkin-btn" onclick="doCheckin()">Check My Stress</button>
+    <div class="error-msg" id="error"></div>
+  </div>
+
+  <!-- Result -->
+  <div class="card result" id="result-card">
+    <div style="text-align:center;">
+      <div class="score-ring">
+        <svg viewBox="0 0 160 160">
+          <circle class="bg" />
+          <circle class="fg" id="ring-fg" />
+        </svg>
+        <div class="score-text">
+          <div class="score-number" id="score-number">-</div>
+          <div class="score-label">Stress Score</div>
+        </div>
+      </div>
+      <span class="level-badge" id="level-badge"></span>
+    </div>
+
+    <div class="breakdown" id="breakdown"></div>
+
+    <div class="meta">
+      <span>Issues: <strong id="meta-issues">-</strong></span>
+      <span>3-3-3: <strong id="meta-333">-</strong></span>
+    </div>
+
+    <button class="again-btn" onclick="reset()">Check Again</button>
+  </div>
+
+  <div class="footer">
+    Part of the <a href="https://aka.ms/burnout-app">Burnout-as-a-Service</a> research study
+  </div>
+</div>
+
+<script>
+  const BASE = window.location.origin;
+
+  async function doCheckin() {
+    const userId = document.getElementById('userId').value.trim();
+    const repo = document.getElementById('repo').value.trim();
+    const errEl = document.getElementById('error');
+    const btn = document.getElementById('checkin-btn');
+
+    errEl.style.display = 'none';
+
+    if (!userId) { showError('Please enter your GitHub username'); return; }
+    if (!repo || !repo.includes('/')) { showError('Please enter a repo in owner/repo format'); return; }
+
+    btn.disabled = true;
+    btn.textContent = 'Checking…';
+
+    try {
+      const res = await fetch(BASE + '/demo/api/checkin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, repo })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        showError(data.error || data.message || 'Something went wrong');
+        btn.disabled = false;
+        btn.textContent = 'Check My Stress';
+        return;
+      }
+
+      showResult(data);
+    } catch (e) {
+      showError('Network error – is the server running?');
+      btn.disabled = false;
+      btn.textContent = 'Check My Stress';
+    }
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('error');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  function showResult(data) {
+    document.getElementById('form-card').style.display = 'none';
+    const result = document.getElementById('result-card');
+    result.style.display = 'block';
+
+    // Score ring
+    const score = data.stressScore;
+    const circumference = 2 * Math.PI * 70;
+    const fg = document.getElementById('ring-fg');
+    fg.style.stroke = scoreColor(score);
+    fg.setAttribute('stroke-dasharray', circumference);
+    fg.setAttribute('stroke-dashoffset', circumference);
+    requestAnimationFrame(() => {
+      fg.setAttribute('stroke-dashoffset', circumference - (score / 100) * circumference);
+    });
+    document.getElementById('score-number').textContent = score;
+    document.getElementById('score-number').style.color = scoreColor(score);
+
+    // Level badge
+    const badge = document.getElementById('level-badge');
+    badge.textContent = data.stressLevel;
+    badge.className = 'level-badge ' + data.stressLevel;
+
+    // Breakdown bars
+    const bd = document.getElementById('breakdown');
+    bd.innerHTML = '';
+    const labels = {
+      workload: 'Workload',
+      chaos: 'Chaos',
+      contextSwitching: 'Context Switching',
+      clarity: 'Clarity',
+      sustained: 'Sustained Load',
+      afterHours: 'After Hours'
+    };
+    const maxVals = { workload: 40, chaos: 30, contextSwitching: 15, clarity: 10, sustained: 15, afterHours: 10 };
+
+    for (const [key, label] of Object.entries(labels)) {
+      const val = data.breakdown[key] || 0;
+      const max = maxVals[key] || 20;
+      const pct = Math.min(100, (val / max) * 100);
+      const item = document.createElement('div');
+      item.className = 'breakdown-item';
+      item.innerHTML =
+        '<div class="name">' + label + '</div>' +
+        '<div class="bar-bg"><div class="bar-fill" style="width:0%;background:' + scoreColor(pct) + '"></div></div>' +
+        '<div class="val">' + val + '</div>';
+      bd.appendChild(item);
+      requestAnimationFrame(() => {
+        item.querySelector('.bar-fill').style.width = pct + '%';
+      });
+    }
+
+    // Meta
+    document.getElementById('meta-issues').textContent = data.totalIssues;
+    document.getElementById('meta-333').textContent = data.is333Compliant ? 'Compliant' : 'Non-compliant';
+  }
+
+  function scoreColor(score) {
+    if (score < 30) return '#00f260';
+    if (score < 50) return '#f7971e';
+    return '#ff5858';
+  }
+
+  function reset() {
+    document.getElementById('result-card').style.display = 'none';
+    document.getElementById('form-card').style.display = 'block';
+    document.getElementById('checkin-btn').disabled = false;
+    document.getElementById('checkin-btn').textContent = 'Check My Stress';
+    document.getElementById('error').style.display = 'none';
+  }
+
+  // Allow Enter key to submit
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && document.getElementById('form-card').style.display !== 'none') {
+      doCheckin();
+    }
+  });
+</script>
+</body>
+</html>
