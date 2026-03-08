@@ -38,7 +38,7 @@ Deterministic services compute all metrics (chaos score, compliance, stress). AI
 
 ```bash
 azd auth login
-azd up                    # Provisions Container Apps, Azure OpenAI, ACR, managed identity
+azd up                    # Provisions Container Apps, Azure OpenAI, ACR, PostgreSQL, managed identity
 cd mcp-app && npm install && npm run build
 ```
 
@@ -96,6 +96,42 @@ What's my stress score for owner/repo # Quick stress check (0-100)
 | GET | `/demo/api/repos` | No | List synced repos |
 | POST | `/demo/api/sync?repo=owner/repo` | No | Sync from GitHub public API (rate-limited) |
 | POST | `/demo/api/seed` | No | Seed test data |
+
+## Study Dashboard
+
+A researcher-facing web page for tracking stress score trends over time, built for a longitudinal burnout study.
+
+**Live:** `https://<your-app>.azurecontainerapps.io/study.html`
+
+![Study Dashboard](docs/images/study-dashboard.jpeg)
+
+### What it does
+
+Every call to `get_stress_score` or `reshape_day` automatically persists a stress snapshot to **Azure Database for PostgreSQL**. The study dashboard visualizes these accumulated snapshots with:
+
+- **Summary cards** — total snapshots, unique participants, average stress, trend direction
+- **Stress trend chart** — per-participant line chart with HIGH/MED/LOW color zones
+- **Participant breakdown** — tiles per user showing count, avg score, and trend arrow
+- **Raw data table** — all snapshots with full stress breakdown columns
+- **CSV export** — one-click download for offline analysis
+
+### Setup
+
+PostgreSQL is provisioned automatically by `azd up` (see `infra/modules/postgresql.bicep`). The backend auto-creates the `stress_snapshots` table via JPA on first startup.
+
+To seed dummy data for demos (4 users, 14 days, ~90 snapshots):
+
+```bash
+curl -X POST https://<your-app>/demo/api/study/seed
+```
+
+### Study API endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| GET | `/demo/api/study/snapshots?from=YYYY-MM-DD&to=YYYY-MM-DD` | No | JSON snapshots (optional `userId` filter) |
+| GET | `/demo/api/study/export?from=YYYY-MM-DD&to=YYYY-MM-DD` | No | CSV download (optional `userId` filter) |
+| POST | `/demo/api/study/seed` | No | Seed dummy data for demos |
 
 ## Security
 

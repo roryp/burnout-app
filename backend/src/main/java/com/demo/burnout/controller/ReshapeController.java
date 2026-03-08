@@ -5,6 +5,8 @@ import com.demo.burnout.agent.supervisor.BurnoutSupervisorService;
 import com.demo.burnout.goap.*;
 import com.demo.burnout.model.*;
 import com.demo.burnout.service.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Clock;
@@ -19,12 +21,15 @@ import java.util.stream.Stream;
 @CrossOrigin(origins = "*")
 public class ReshapeController {
     
+    private static final Logger log = LoggerFactory.getLogger(ReshapeController.class);
+
     private final IssueCache issueCache;
     private final ChaosMetricsService chaosMetricsService;
     private final ComplianceService complianceService;
     private final IssueClassifierService classifier;
     private final BurnoutSupervisorService supervisorService;
     private final AgentOrchestrator agentOrchestrator;
+    private final StressSnapshotService snapshotService;
     private final Clock clock;
 
     public ReshapeController(IssueCache issueCache, 
@@ -33,6 +38,7 @@ public class ReshapeController {
                             IssueClassifierService classifier,
                             BurnoutSupervisorService supervisorService,
                             AgentOrchestrator agentOrchestrator,
+                            StressSnapshotService snapshotService,
                             Clock clock) {
         this.issueCache = issueCache;
         this.chaosMetricsService = chaosMetricsService;
@@ -40,6 +46,7 @@ public class ReshapeController {
         this.classifier = classifier;
         this.supervisorService = supervisorService;
         this.agentOrchestrator = agentOrchestrator;
+        this.snapshotService = snapshotService;
         this.clock = clock;
     }
 
@@ -75,6 +82,14 @@ public class ReshapeController {
                 "Tool-generated action", 5))
             .toList();
         
+        // Persist stress snapshot for longitudinal study tracking
+        try {
+            snapshotService.record(req.userId(), req.repo(), state.calculateStressScore(),
+                    state.getStressLevel(), "reshape", Map.of());
+        } catch (Exception e) {
+            log.warn("Failed to persist stress snapshot: {}", e.getMessage());
+        }
+
         return new ReshapeResponse(
             "ok",
             dayPlan,

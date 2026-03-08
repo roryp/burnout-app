@@ -4,6 +4,14 @@ server:
 spring:
   application:
     name: burnout-backend
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:h2:mem:burnout;DB_CLOSE_DELAY=-1}
+    username: ${SPRING_DATASOURCE_USERNAME:sa}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
 
 # Security - validates GitHub tokens against GitHub API
 # Defaults to true (secure). Set SECURITY_ENABLED=false for local development only.

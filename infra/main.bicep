@@ -16,6 +16,10 @@ param openAiModelVersion string = '2025-08-07'
 @description('Azure OpenAI capacity in thousands of tokens per minute')
 param openAiCapacityK int = 50
 
+@description('PostgreSQL administrator password')
+@secure()
+param postgresAdminPassword string
+
 // Resource naming
 var identityName = '${environmentName}-identity'
 var openAiName = '${environmentName}-openai'
@@ -23,6 +27,7 @@ var acrName = replace('${environmentName}acr', '-', '')
 var containerAppsEnvName = '${environmentName}-cae'
 var logAnalyticsName = '${environmentName}-logs'
 var containerAppName = '${environmentName}-backend'
+var postgresServerName = '${environmentName}-postgres'
 
 // User-Assigned Managed Identity
 module identity 'modules/identity.bicep' = {
@@ -65,6 +70,16 @@ module acr 'modules/acr.bicep' = {
   }
 }
 
+// Azure Database for PostgreSQL Flexible Server
+module postgresql 'modules/postgresql.bicep' = {
+  name: 'postgresql-deployment'
+  params: {
+    location: location
+    serverName: postgresServerName
+    administratorPassword: postgresAdminPassword
+  }
+}
+
 // Container Apps Environment
 module containerAppsEnv 'modules/container-apps-env.bicep' = {
   name: 'container-apps-env-deployment'
@@ -88,9 +103,13 @@ module containerApp 'modules/container-app.bicep' = {
     identityClientId: identity.outputs.clientId
     openAiEndpoint: openAi.outputs.endpoint
     openAiDeployment: openAiDeployment
+    springDatasourceUrl: postgresql.outputs.jdbcUrl
+    springDatasourceUsername: 'burnoutadmin'
+    springDatasourcePassword: postgresAdminPassword
   }
   dependsOn: [
     openAiRbac  // Ensure RBAC is set before container app tries to use OpenAI
+    postgresql
   ]
 }
 
