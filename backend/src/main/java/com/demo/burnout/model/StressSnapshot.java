@@ -44,12 +44,28 @@ public class StressSnapshot {
     private int sustainedStress;
     private int afterHoursStress;
 
+    @Column(nullable = true)
+    private Integer selfReportedScore;
+
+    @Column(length = 500)
+    private String selfReportedNote;
+
     protected StressSnapshot() {}
 
     public StressSnapshot(String userId, String repo, Instant recordedAt,
                           int stressScore, StressLevel stressLevel, String source,
                           int workloadStress, int chaosStress, int contextSwitchingStress,
                           int clarityStress, int sustainedStress, int afterHoursStress) {
+        this(userId, repo, recordedAt, stressScore, stressLevel, source,
+             workloadStress, chaosStress, contextSwitchingStress,
+             clarityStress, sustainedStress, afterHoursStress, null, null);
+    }
+
+    public StressSnapshot(String userId, String repo, Instant recordedAt,
+                          int stressScore, StressLevel stressLevel, String source,
+                          int workloadStress, int chaosStress, int contextSwitchingStress,
+                          int clarityStress, int sustainedStress, int afterHoursStress,
+                          Integer selfReportedScore, String selfReportedNote) {
         this.userId = userId;
         this.repo = repo;
         this.recordedAt = recordedAt;
@@ -62,6 +78,8 @@ public class StressSnapshot {
         this.clarityStress = clarityStress;
         this.sustainedStress = sustainedStress;
         this.afterHoursStress = afterHoursStress;
+        this.selfReportedScore = selfReportedScore;
+        this.selfReportedNote = selfReportedNote;
     }
 
     public Long getId() { return id; }
@@ -77,4 +95,6 @@ public class StressSnapshot {
     public int getClarityStress() { return clarityStress; }
     public int getSustainedStress() { return sustainedStress; }
     public int getAfterHoursStress() { return afterHoursStress; }
+    public Integer getSelfReportedScore() { return selfReportedScore; }
+    public String getSelfReportedNote() { return selfReportedNote; }
 }

@@ -63,7 +63,8 @@ public class StudyExportController {
 
         StringBuilder csv = new StringBuilder();
         csv.append("id,userId,repo,recordedAt,stressScore,stressLevel,source,")
-           .append("workload,chaos,contextSwitching,clarity,sustained,afterHours\n");
+           .append("workload,chaos,contextSwitching,clarity,sustained,afterHours,")
+           .append("selfReportedScore,selfReportedNote\n");
 
         for (StressSnapshot s : data) {
             csv.append(s.getId()).append(',')
@@ -78,13 +79,23 @@ public class StudyExportController {
                .append(s.getContextSwitchingStress()).append(',')
                .append(s.getClarityStress()).append(',')
                .append(s.getSustainedStress()).append(',')
-               .append(s.getAfterHoursStress()).append('\n');
+               .append(s.getAfterHoursStress()).append(',')
+               .append(s.getSelfReportedScore() != null ? s.getSelfReportedScore() : "").append(',')
+               .append(escapeCsv(s.getSelfReportedNote())).append('\n');
         }
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=stress-snapshots.csv")
                 .contentType(MediaType.parseMediaType("text/csv"))
                 .body(csv.toString());
+    }
+
+    private String escapeCsv(String value) {
+        if (value == null) return "";
+        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
+        }
+        return value;
     }
 
     /**

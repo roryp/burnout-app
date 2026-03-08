@@ -26,6 +26,12 @@ public class StressSnapshotService {
 
     public void record(String userId, String repo, int stressScore, StressLevel stressLevel,
                        String source, Map<String, Integer> breakdown) {
+        record(userId, repo, stressScore, stressLevel, source, breakdown, null, null);
+    }
+
+    public void record(String userId, String repo, int stressScore, StressLevel stressLevel,
+                       String source, Map<String, Integer> breakdown,
+                       Integer selfReportedScore, String selfReportedNote) {
         StressSnapshot snapshot = new StressSnapshot(
             userId, repo, clock.instant(),
             stressScore, stressLevel, source,
@@ -34,7 +40,8 @@ public class StressSnapshotService {
             breakdown.getOrDefault("contextSwitching", 0),
             breakdown.getOrDefault("clarity", 0),
             breakdown.getOrDefault("sustained", 0),
-            breakdown.getOrDefault("afterHours", 0)
+            breakdown.getOrDefault("afterHours", 0),
+            selfReportedScore, selfReportedNote
         );
         repository.save(snapshot);
         log.debug("Recorded stress snapshot: user={}, repo={}, score={}, source={}",
