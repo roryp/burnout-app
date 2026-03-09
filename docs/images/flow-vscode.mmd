@@ -1,0 +1,20 @@
+sequenceDiagram
+    participant Dev as Developer
+    participant VS as VS Code Copilot
+    participant MCP as MCP App
+    participant BE as Java Backend
+    participant GH as GitHub API
+    
+    Dev->>VS: "sync my issues"
+    VS->>MCP: sync_issues(repo)
+    MCP->>GH: Fetch issues (gh CLI)
+    GH-->>MCP: Issues JSON
+    MCP->>BE: POST /api/issues/sync
+    BE-->>MCP: Cached ✓
+    
+    Dev->>VS: "show my burnout wheel"
+    VS->>MCP: show_burnout_wheel(repo)
+    MCP->>BE: GET /api/stress
+    BE->>BE: Classify → Metrics → WorldState
+    BE-->>MCP: Stress score + 3-3-3 plan
+    MCP-->>VS: Interactive flamegraph panel
