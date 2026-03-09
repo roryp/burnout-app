@@ -95,8 +95,34 @@ What's my stress score for owner/repo # Quick stress check (0-100)
 | GET | `/demo/api/flamegraph?repo=...` | No | Read-only flamegraph data |
 | GET | `/demo/api/repos` | No | List synced repos |
 | POST | `/demo/api/sync?repo=owner/repo` | No | Sync from GitHub public API (rate-limited) |
-| POST | `/demo/api/seed` | No | Seed test data |
+| POST | `/demo/api/seed` | No | Seed test data (**use camelCase fields** — see below) |
 | POST | `/demo/api/checkin` | No | Student stress check-in (syncs + records snapshot) |
+
+## Seeding Test Data
+
+The easiest way to seed everything for a demo is the one-command script:
+
+```bash
+# Local
+bash scripts/seed-demo.sh
+
+# Azure
+bash scripts/seed-demo.sh https://your-app.azurecontainerapps.io
+```
+
+```powershell
+# Windows (local)
+.\scripts\seed-demo.ps1
+
+# Windows (Azure)
+.\scripts\seed-demo.ps1 -BaseUrl https://your-app.azurecontainerapps.io
+```
+
+This seeds 16 issues, runs checkins for 3 users, and generates 14 days of study history.
+
+> **⚠️ Two critical rules when seeding manually:**
+> 1. **Use camelCase** field names (`createdAt`, `updatedAt`) — NOT snake_case. Snake_case fields silently deserialize as `null`, causing Context Switching, After Hours, and Sustained Load to show as 0.
+> 2. **Use recent timestamps** — metrics are calculated relative to the server's current time. Static/old dates produce zero values.
 
 ## Student Check-In
 
@@ -115,7 +141,7 @@ The check-in compares **objective stress** (computed from GitHub signals) with *
 
 ### Stress Breakdown
 
-Each check-in calculates six stress dimensions from GitHub issue signals:
+Each check-in calculates six stress dimensions from GitHub issue signals. **Hover over any metric** to see why that score was given.
 
 | Metric | What it measures | Max |
 |--------|-----------------|-----|
@@ -142,8 +168,8 @@ Every call to `get_stress_score`, `reshape_day`, or the **check-in page** automa
 
 - **Summary cards** — total snapshots, unique participants, average stress, trend direction
 - **Stress trend chart** — per-participant line chart with HIGH/MED/LOW color zones
-- **Participant breakdown** — tiles per user showing count, avg score, and trend arrow
-- **Raw data table** — all snapshots with full stress breakdown columns
+- **Participant breakdown** — tiles per user showing count, avg score, and trend arrow. **Click any participant** to open their stress check-in with full breakdown and hover tooltips.
+- **Raw data table** — all snapshots with full stress breakdown columns. **Hover over any metric** to see what it measures. **Click a username** to view their live stress check-in.
 - **CSV export** — one-click download for offline analysis (includes `selfReportedScore` and `selfReportedNote` columns)
 
 ### Setup

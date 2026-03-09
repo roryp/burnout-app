@@ -162,6 +162,35 @@
       font-weight: 600;
     }
 
+    /* Tooltip */
+    .breakdown-item { position: relative; cursor: help; }
+    .breakdown-item .tooltip {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 0;
+      right: 0;
+      background: rgba(30, 30, 50, 0.96);
+      border: 1px solid var(--accent);
+      color: var(--text);
+      font-size: 0.75rem;
+      line-height: 1.4;
+      padding: 8px 12px;
+      border-radius: 8px;
+      z-index: 10;
+      pointer-events: none;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    }
+    .breakdown-item .tooltip::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 20px;
+      border: 6px solid transparent;
+      border-top-color: var(--accent);
+    }
+    .breakdown-item:hover .tooltip { display: block; }
+
     .meta {
       display: flex;
       justify-content: center;
@@ -368,13 +397,17 @@
     };
     const maxVals = { workload: 40, chaos: 30, contextSwitching: 15, clarity: 10, sustained: 15, afterHours: 10 };
 
+    const hints = data.breakdownHints || {};
+
     for (const [key, label] of Object.entries(labels)) {
       const val = data.breakdown[key] || 0;
       const max = maxVals[key] || 20;
       const pct = Math.min(100, (val / max) * 100);
+      const hint = hints[key] || '';
       const item = document.createElement('div');
       item.className = 'breakdown-item';
       item.innerHTML =
+        (hint ? '<div class="tooltip">' + escHtml(hint) + '</div>' : '') +
         '<div class="name">' + label + '</div>' +
         '<div class="bar-bg"><div class="bar-fill" style="width:0%;background:' + scoreColor(pct) + '"></div></div>' +
         '<div class="val">' + val + '</div>';
@@ -395,6 +428,12 @@
     return '#ff5858';
   }
 
+  function escHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
   function reset() {
     document.getElementById('result-card').style.display = 'none';
     document.getElementById('form-card').style.display = 'block';
@@ -409,6 +448,14 @@
       doCheckin();
     }
   });
+
+  // Pre-fill from URL params (linked from study dashboard)
+  (function() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('userId')) document.getElementById('userId').value = params.get('userId');
+    if (params.get('repo')) document.getElementById('repo').value = params.get('repo');
+    if (params.get('userId') && params.get('repo')) doCheckin();
+  })();
 </script>
 </body>
 </html>

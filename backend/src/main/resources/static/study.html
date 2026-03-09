@@ -202,6 +202,12 @@
       display: flex;
       flex-direction: column;
       gap: 6px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .participant-tile:hover {
+      border-color: var(--accent);
+      background: rgba(102,126,234,0.08);
     }
 
     .participant-tile .name {
@@ -345,6 +351,47 @@
     .footer a { color: var(--accent); text-decoration: none; }
     .footer a:hover { text-decoration: underline; }
 
+    /* Tooltips for table cells */
+    .has-tooltip {
+      position: relative;
+      cursor: help;
+    }
+    .has-tooltip .cell-tip {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(30, 30, 50, 0.96);
+      border: 1px solid var(--accent);
+      color: var(--text);
+      font-size: 0.75rem;
+      line-height: 1.4;
+      padding: 6px 10px;
+      border-radius: 8px;
+      white-space: nowrap;
+      z-index: 10;
+      pointer-events: none;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    }
+    .has-tooltip .cell-tip::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 5px solid transparent;
+      border-top-color: var(--accent);
+    }
+    .has-tooltip:hover .cell-tip { display: block; }
+
+    .checkin-link {
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .checkin-link:hover { text-decoration: underline; }
+
     .loading {
       text-align: center;
       padding: 60px 20px;
@@ -462,6 +509,7 @@
     <div class="footer">
       Powered by <a href="https://github.com/roryp/burnout-app" target="_blank">Burnout-as-a-Service</a>
       &mdash; <a href="/flamegraph.html">Flamegraph</a>
+      &middot; <a href="/checkin.html">Check In</a>
     </div>
   </div>
 
@@ -831,6 +879,11 @@
 
         const tile = document.createElement('div');
         tile.className = 'participant-tile';
+        tile.title = 'Click to check stress for ' + user;
+        tile.onclick = () => {
+          const repo = pts[pts.length - 1].repo;
+          window.open('/checkin.html?userId=' + encodeURIComponent(user) + '&repo=' + encodeURIComponent(repo), '_blank');
+        };
         tile.innerHTML = `
           <div class="name">${escapeHtml(user)}</div>
           <div class="stats">${pts.length} snapshots &middot; avg ${avg}/100</div>
@@ -841,6 +894,7 @@
               <div class="mini-bar-fill" style="width:${latest}%; background:${color};"></div>
             </div>
           </div>
+          <div style="font-size:0.7rem;color:var(--text-muted);margin-top:2px;">Click to view stress details &rarr;</div>
         `;
         grid.appendChild(tile);
       });
@@ -866,17 +920,17 @@
 
         tr.innerHTML = `
           <td>${dt.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-          <td>${escapeHtml(d.userId)}</td>
+          <td><a class="checkin-link" href="/checkin.html?userId=${encodeURIComponent(d.userId)}&repo=${encodeURIComponent(d.repo)}" target="_blank">${escapeHtml(d.userId)}</a></td>
           <td>${escapeHtml(d.repo)}</td>
           <td><strong>${d.stressScore}</strong></td>
           <td><span class="level-badge ${levelClass}">${d.stressLevel}</span></td>
           <td><span class="source-badge">${escapeHtml(d.source)}</span></td>
-          <td>${d.workloadStress}</td>
-          <td>${d.chaosStress}</td>
-          <td>${d.contextSwitchingStress}</td>
-          <td>${d.clarityStress}</td>
-          <td>${d.sustainedStress}</td>
-          <td>${d.afterHoursStress}</td>
+          <td class="has-tooltip">${d.workloadStress}<span class="cell-tip">Workload: ${d.workloadStress}/40 — issue volume and deep work load</span></td>
+          <td class="has-tooltip">${d.chaosStress}<span class="cell-tip">Chaos: ${d.chaosStress}/30 — urgent unassigned, after-hours, missing info</span></td>
+          <td class="has-tooltip">${d.contextSwitchingStress}<span class="cell-tip">Context Switching: ${d.contextSwitchingStress}/15 — issues touched in last 8h</span></td>
+          <td class="has-tooltip">${d.clarityStress}<span class="cell-tip">Clarity: ${d.clarityStress}/10 — issues missing description or assignee</span></td>
+          <td class="has-tooltip">${d.sustainedStress}<span class="cell-tip">Sustained Load: ${d.sustainedStress}/15 — consecutive high-chaos days</span></td>
+          <td class="has-tooltip">${d.afterHoursStress}<span class="cell-tip">After Hours: ${d.afterHoursStress}/10 — issues updated outside 9AM-6PM</span></td>
         `;
         tbody.appendChild(tr);
       });

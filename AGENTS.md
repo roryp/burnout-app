@@ -83,24 +83,60 @@ azd up
 - After making changes, always run `mvn clean package -DskipTests` to verify the backend compiles, then `mvn test` to run the test suite.
 - To test the full flow locally: start the backend, build the MCP app, reload VS Code, then use the MCP tools in Copilot Chat.
 
+### Quick demo setup (one command)
+
+The `scripts/seed-demo.sh` (bash) and `scripts/seed-demo.ps1` (PowerShell) scripts seed everything needed for a live demo — issues, checkin snapshots, and 14 days of study history. All timestamps are generated relative to "now" so every metric lights up.
+
+```bash
+# Local
+bash scripts/seed-demo.sh
+
+# Azure (after azd up)
+bash scripts/seed-demo.sh https://your-app.azurecontainerapps.io
+```
+
+```powershell
+# Local
+.\scripts\seed-demo.ps1
+
+# Azure (after azd up)
+.\scripts\seed-demo.ps1 -BaseUrl https://your-app.azurecontainerapps.io
+```
+
+After seeding, open:
+- `/checkin.html` → enter `roryp` + `roryp/burnout-app` to see the full stress breakdown with hover tooltips
+- `/flamegraph.html?repo=roryp/burnout-app` → flamegraph visualization
+- `/study.html` → researcher dashboard (click **Load Data**, then click any participant to drill into their stress details)
+
 ### Testing the demo flamegraph locally
 
 1. Start the backend (see "Running the backend locally" above)
-2. Seed test data — POST to `/demo/api/seed` (no auth needed):
+2. Seed test data — POST to `/demo/api/seed` (no auth needed).
+   **CRITICAL: Use camelCase field names** (`createdAt`, `updatedAt`) — NOT snake_case (`created_at`, `updated_at`). The `Issue` Java record uses camelCase. Snake_case fields will deserialize as `null`, causing all time-based metrics (Context Switching, After Hours, Sustained Load) to show as 0.
+   **CRITICAL: Use recent timestamps** — metrics like Context Switching and After Hours are calculated relative to the current time. Old/static dates will produce zero values. Always generate timestamps relative to "now".
    ```bash
+   # Generate current timestamps
+   NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+   RECENT=$(date -u -d '-15 minutes' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-15M +%Y-%m-%dT%H:%M:%SZ)
+   AFTER_HOURS=$(date -u -d 'today 03:00' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u +%Y-%m-%dT03:00:00Z)
+   WEEK_AGO=$(date -u -d '-7 days' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-7d +%Y-%m-%dT%H:%M:%SZ)
+
    curl -X POST http://localhost:8080/demo/api/seed \
      -H 'Content-Type: application/json' \
-     -d '{"repo":"owner/repo","issues":[{"number":1,"title":"Test issue","body":"Body","labels":[{"name":"bug"}],"assignees":[{"login":"user"}],"created_at":"2026-01-01T00:00:00Z","updated_at":"2026-01-02T00:00:00Z","state":"open","pull_request":null}]}'
+     -d '{"repo":"owner/repo","issues":[
+       {"number":1,"title":"Critical bug","body":"Security issue","labels":[{"name":"priority:critical"},{"name":"bug"}],"assignees":[{"login":"user"}],"createdAt":"'$WEEK_AGO'","updatedAt":"'$RECENT'","state":"open"},
+       {"number":2,"title":"URGENT: memory leak","body":"","labels":[{"name":"urgent"}],"assignees":[],"createdAt":"'$WEEK_AGO'","updatedAt":"'$AFTER_HOURS'","state":"open"}
+     ]}'
    ```
 3. Open `http://localhost:8080/flamegraph.html?repo=owner/repo` in a browser
 4. Or check APIs directly: `GET /demo/api/repos` and `GET /demo/api/flamegraph?repo=owner/repo`
 
 ### Testing on Azure Container Apps
 
-After `azd up`, the in-memory `IssueCache` is empty. To test the deployed flamegraph:
-1. Seed data via `POST /demo/api/seed` (same payload as above, use the Azure URL)
-2. Or sync real issues via the MCP `sync_issues` tool in VS Code (this authenticates with GitHub)
-3. Navigate to `https://<your-app>.azurecontainerapps.io/flamegraph.html?repo=owner/repo`
+After `azd up`, the in-memory `IssueCache` is empty. To populate everything for a demo:
+1. Run `bash scripts/seed-demo.sh https://your-app.azurecontainerapps.io` (or `.\scripts\seed-demo.ps1 -BaseUrl ...`)
+2. Or seed manually via `POST /demo/api/seed` (see field reference below)
+3. Or sync real issues via the MCP `sync_issues` tool in VS Code (authenticates with GitHub)
 4. Verify: `GET /demo/api/repos` should list synced repos, `GET /actuator/health` should return UP
 
 ---
@@ -167,6 +203,27 @@ The demo endpoints never mutate GitHub issues or labels. Sync is rate-limited to
 
 The `POST /demo/api/seed` endpoint accepts `{"repo": "owner/repo", "issues": [...]}` and populates the `IssueCache` for testing without GitHub auth. Use this to test the flamegraph locally or on Azure without needing the full MCP sync flow.
 
+**Seed data field reference** (Issue record — all fields use **camelCase**):
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `number` | int | Yes | Issue number |
+| `title` | String | Yes | Issue title |
+| `body` | String | Yes | Empty string = "mystery meat" (hurts Clarity score) |
+| `labels` | `[{"name": "..."}]` | Yes | See label effects below |
+| `assignees` | `[{"login": "..."}]` | Yes | Empty = unassigned (hurts Chaos if urgent) |
+| `createdAt` | ISO 8601 | Yes | **camelCase! NOT `created_at`**. Must be recent for time-based metrics |
+| `updatedAt` | ISO 8601 | Yes | **camelCase! NOT `updated_at`**. Must be recent for time-based metrics |
+| `state` | String | Yes | `"open"` or `"closed"` |
+
+**Labels that affect classification and stress:**
+- Deep Work: `priority:critical`, `priority:high`, `architecture`, `security`, `deep-work`, `epic`, `feature`
+- Quick Win: `good-first-issue`, `quick-win`, `low-hanging-fruit`, `trivial`
+- Maintenance: `dependencies`, `documentation`, `triage`, `chore`, `refactor`, `tech-debt`, `ci`, `devops`, `maintenance`
+- Chaos triggers: `urgent` (especially if unassigned or >24h old)
+- After hours: set `updatedAt` to hours before 9 AM or after 6 PM UTC
+- Context switching: 6+ issues with `updatedAt` within the last 60 minutes
+
 ---
 
 ## Known issues and gotchas
@@ -176,6 +233,8 @@ The `POST /demo/api/seed` endpoint accepts `{"repo": "owner/repo", "issues": [..
 - **In-memory cache lost on restart**: The `IssueCache` uses `ConcurrentHashMap` — all synced data is lost when the backend restarts or the container is redeployed. Re-sync via MCP or re-seed via `/demo/api/seed`.
 - **Azure OpenAI fallback**: When the LLM is unavailable (dummy credentials, network issues), all agents return deterministic fallback responses. The agent explanation will include `*LLM agents unavailable - using deterministic fallback*`.
 - **Spring Boot version**: 3.5.10 with Spring Security 6.x. The `SecurityConfig` uses a single `SecurityFilterChain` bean with `permitAll` for demo/health paths and `authenticated` for `/api/**`.
+- **Seed data uses camelCase, NOT snake_case**: The `Issue` Java record uses `createdAt`/`updatedAt` (camelCase). The GitHub REST API returns `created_at`/`updated_at` (snake_case), but the `GitHubIssue` record in `DemoFlamegraphController` uses `@JsonProperty` annotations to map snake_case to camelCase during `/demo/api/sync`. When seeding directly via `/demo/api/seed`, you must use camelCase — snake_case fields silently deserialize as `null`, causing all time-based breakdown metrics (Context Switching, After Hours, Sustained Load) to show as 0.
+- **Seed data needs current timestamps**: Metrics like Context Switching (`issuesTouchedToday`) and After Hours are calculated relative to the server's current time. Using old/static dates (e.g. `2026-01-01`) will produce zero values. Always generate timestamps relative to "now" when seeding.
 
 ---
 
@@ -219,7 +278,12 @@ The `POST /demo/api/seed` endpoint accepts `{"repo": "owner/repo", "issues": [..
 | `backend/src/.../service/ComplianceService.java` | Analyzes compliance (labels, assignees, SLA) |
 | `backend/src/.../controller/DemoFlamegraphController.java` | Read-only demo endpoints + seed endpoint (no auth) |
 | `backend/src/main/resources/static/flamegraph.html` | Standalone flamegraph web app for live demos |
+| `backend/src/main/resources/static/checkin.html` | Stress check-in page (supports URL params for deep-linking) |
+| `backend/src/main/resources/static/study.html` | Researcher dashboard with clickthrough to checkin + tooltips |
 | `backend/src/main/resources/application.yml` | Server, security, Azure OpenAI, and demo config |
+| `scripts/seed-demo.sh` | Bash seed script: issues + checkins + study data in one command |
+| `scripts/seed-demo.ps1` | PowerShell seed script (same as above, for Windows) |
+| `scripts/seed-issues.sh` | Creates real GitHub issues via `gh` CLI (for live repos) |
 | `mcp-app/src/index.ts` | MCP server with 4 tool definitions + 2 UI resources |
 | `mcp-app/src/config.ts` | Backend URL config (reads from `.env`) |
 | `mcp-app/src/backend-client.ts` | HTTP client for backend API calls |
