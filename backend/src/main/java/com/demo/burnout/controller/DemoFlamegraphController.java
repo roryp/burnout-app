@@ -365,6 +365,21 @@ public class DemoFlamegraphController {
             "afterHours", Math.min(10, state.issuesUpdatedAfterHours() * 5)
         );
 
+        // Build human-readable hints explaining each score
+        Map<String, String> breakdownHints = Map.of(
+            "workload", buildWorkloadHint(state),
+            "chaos", buildChaosHint(state, chaos),
+            "contextSwitching", state.issuesTouchedToday() + " issues updated in the last 8 hours"
+                + (state.issuesTouchedToday() <= 5 ? " (threshold is 6+)" : " — that's a lot of context switching"),
+            "clarity", state.mysteryMeatCount() + " issues missing a description or assignee"
+                + (state.mysteryMeatCount() == 0 ? " — nice and clear" : " — unclear scope increases cognitive load"),
+            "sustained", state.consecutiveHighChaosDays() == 0
+                ? "No consecutive high-chaos days detected"
+                : state.consecutiveHighChaosDays() + " consecutive days of high chaos — take a break",
+            "afterHours", state.issuesUpdatedAfterHours() + " issues updated outside working hours (before 9 AM or after 6 PM)"
+                + (state.issuesUpdatedAfterHours() == 0 ? " — healthy boundaries" : " — signals overwork")
+        );
+
         // Self-reported fields (optional)
         Integer selfScore = req.selfScore();
         String note = req.note();
@@ -384,6 +399,7 @@ public class DemoFlamegraphController {
             "stressScore", stressScore,
             "stressLevel", stressLevel.name(),
             "breakdown", breakdown,
+            "breakdownHints", breakdownHints,
             "totalIssues", issues.size(),
             "is333Compliant", state.is333Compliant()
         ));
@@ -395,6 +411,42 @@ public class DemoFlamegraphController {
         if (state.deepWorkCount() > 1) stress += (state.deepWorkCount() - 1) * 10;
         if (state.deepWorkCount() == 0 && state.totalAssigned() > 0) stress += 5;
         return Math.min(40, stress);
+    }
+
+    private String buildWorkloadHint(WorldState state) {
+        StringBuilder sb = new StringBuilder();
+        sb.append(state.totalAssigned()).append(" issues assigned");
+        if (state.deepWorkCount() > 0) {
+            sb.append(", ").append(state.deepWorkCount()).append(" deep work");
+        }
+        if (state.quickWinCount() > 0) {
+            sb.append(", ").append(state.quickWinCount()).append(" quick wins");
+        }
+        if (state.maintenanceCount() > 0) {
+            sb.append(", ").append(state.maintenanceCount()).append(" maintenance");
+        }
+        if (state.totalAssigned() > 7) {
+            sb.append(" — more than 7 is overloaded");
+        }
+        if (state.deepWorkCount() > 1) {
+            sb.append(". Multiple deep work items increase cognitive load");
+        }
+        return sb.toString();
+    }
+
+    private String buildChaosHint(WorldState state, ChaosMetrics chaos) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Chaos level: ").append(state.chaosBucket().name());
+        if (state.urgentUnassigned() > 0) {
+            sb.append(". ").append(state.urgentUnassigned()).append(" urgent issues have no assignee");
+        }
+        if (chaos.afterHoursSignal()) {
+            sb.append(". After-hours activity detected");
+        }
+        if (state.mysteryMeatCount() >= 3) {
+            sb.append(". ").append(state.mysteryMeatCount()).append("+ issues lack descriptions");
+        }
+        return sb.toString();
     }
 
     public record CheckinRequest(String userId, String repo, Integer selfScore, String note) {}
