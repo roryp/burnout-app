@@ -392,6 +392,30 @@
     }
     .checkin-link:hover { text-decoration: underline; }
 
+    /* Pagination */
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+    .pagination button {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--card-border);
+      color: var(--text);
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .pagination button:hover { border-color: var(--accent); }
+    .pagination button:disabled { opacity: 0.3; cursor: not-allowed; }
+    .pagination button.active { background: var(--accent); border-color: var(--accent); font-weight: 700; }
+    .pagination .page-info { font-size: 0.8rem; color: var(--text-muted); }
+
     .loading {
       text-align: center;
       padding: 60px 20px;
@@ -493,6 +517,7 @@
         </thead>
         <tbody id="table-body"></tbody>
       </table>
+      <div class="pagination" id="pagination"></div>
     </div>
 
     <!-- Empty state -->
@@ -900,6 +925,9 @@
       });
     }
 
+    let tablePage = 1;
+    const PAGE_SIZE = 25;
+
     // --- Data table ---
     function renderTable(data) {
       const section = document.getElementById('table-section');
@@ -907,13 +935,24 @@
 
       document.getElementById('table-count').textContent = data.length + ' records';
 
+      // Show most recent first
+      const sorted = [...data].sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt));
+      const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
+      if (tablePage > totalPages) tablePage = totalPages;
+
+      renderTablePage(sorted, tablePage, totalPages);
+      renderPagination(sorted, totalPages);
+    }
+
+    function renderTablePage(sorted, page, totalPages) {
       const tbody = document.getElementById('table-body');
       tbody.innerHTML = '';
 
-      // Show most recent first
-      const sorted = [...data].sort((a, b) => new Date(b.recordedAt) - new Date(a.recordedAt));
+      const start = (page - 1) * PAGE_SIZE;
+      const end = Math.min(start + PAGE_SIZE, sorted.length);
+      const pageData = sorted.slice(start, end);
 
-      sorted.forEach(d => {
+      pageData.forEach(d => {
         const tr = document.createElement('tr');
         const dt = new Date(d.recordedAt);
         const levelClass = d.stressLevel.toLowerCase();
@@ -934,6 +973,43 @@
         `;
         tbody.appendChild(tr);
       });
+    }
+
+    function renderPagination(sorted, totalPages) {
+      const pag = document.getElementById('pagination');
+      pag.innerHTML = '';
+      if (totalPages <= 1) return;
+
+      const prevBtn = document.createElement('button');
+      prevBtn.textContent = '\u2190 Prev';
+      prevBtn.disabled = tablePage <= 1;
+      prevBtn.onclick = () => { tablePage--; renderTablePage(sorted, tablePage, totalPages); renderPagination(sorted, totalPages); };
+      pag.appendChild(prevBtn);
+
+      // Show page numbers (max 7 visible)
+      const maxVisible = 7;
+      let startPage = Math.max(1, tablePage - Math.floor(maxVisible / 2));
+      let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+      if (endPage - startPage < maxVisible - 1) startPage = Math.max(1, endPage - maxVisible + 1);
+
+      for (let i = startPage; i <= endPage; i++) {
+        const btn = document.createElement('button');
+        btn.textContent = i;
+        if (i === tablePage) btn.className = 'active';
+        btn.onclick = () => { tablePage = i; renderTablePage(sorted, tablePage, totalPages); renderPagination(sorted, totalPages); };
+        pag.appendChild(btn);
+      }
+
+      const nextBtn = document.createElement('button');
+      nextBtn.textContent = 'Next \u2192';
+      nextBtn.disabled = tablePage >= totalPages;
+      nextBtn.onclick = () => { tablePage++; renderTablePage(sorted, tablePage, totalPages); renderPagination(sorted, totalPages); };
+      pag.appendChild(nextBtn);
+
+      const info = document.createElement('span');
+      info.className = 'page-info';
+      info.textContent = 'Page ' + tablePage + ' of ' + totalPages + ' (' + sorted.length + ' total)';
+      pag.appendChild(info);
     }
 
     init();
