@@ -83,6 +83,21 @@ azd up
 - After making changes, always run `mvn clean package -DskipTests` to verify the backend compiles, then `mvn test` to run the test suite.
 - To test the full flow locally: start the backend, build the MCP app, reload VS Code, then use the MCP tools in Copilot Chat.
 
+### Post-deployment smoke test
+
+After `azd up`, run the smoke test to verify all endpoints, metrics, and pages work:
+
+```powershell
+.\scripts\smoke-test.ps1 -BaseUrl https://your-app.azurecontainerapps.io
+```
+
+This seeds fresh data, then tests 26 assertions covering:
+- Health endpoint, issue seeding, all 6 stress breakdown metrics are non-zero
+- Breakdown hints (tooltip data) present for all categories
+- Flamegraph API returns day plan with correct issue count
+- Study snapshots are persisted and queryable
+- All 3 static pages serve HTTP 200
+
 ### Quick demo setup (one command)
 
 The `scripts/seed-demo.sh` (bash) and `scripts/seed-demo.ps1` (PowerShell) scripts seed everything needed for a live demo — issues, checkin snapshots, and 14 days of study history. All timestamps are generated relative to "now" so every metric lights up.
@@ -283,6 +298,7 @@ The `POST /demo/api/seed` endpoint accepts `{"repo": "owner/repo", "issues": [..
 | `backend/src/main/resources/application.yml` | Server, security, Azure OpenAI, and demo config |
 | `scripts/seed-demo.sh` | Bash seed script: issues + checkins + study data in one command |
 | `scripts/seed-demo.ps1` | PowerShell seed script (same as above, for Windows) |
+| `scripts/smoke-test.ps1` | Post-deployment smoke test (26 assertions, seeds + verifies all endpoints) |
 | `scripts/seed-issues.sh` | Creates real GitHub issues via `gh` CLI (for live repos) |
 | `mcp-app/src/index.ts` | MCP server with 4 tool definitions + 2 UI resources |
 | `mcp-app/src/config.ts` | Backend URL config (reads from `.env`) |
