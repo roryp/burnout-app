@@ -49,6 +49,22 @@ Deterministic services compute all metrics (chaos score, compliance, stress). AI
 ```bash
 azd auth login
 azd up                    # Provisions Container Apps, Azure OpenAI, ACR, PostgreSQL, managed identity
+```
+
+Then seed demo data and verify (the in-memory cache is empty after every deploy):
+
+```powershell
+.\scripts\seed-demo.ps1 -BaseUrl https://your-app.azurecontainerapps.io   # seed issues + checkins + study data
+.\scripts\smoke-test.ps1 -BaseUrl https://your-app.azurecontainerapps.io  # 26 assertions, all should pass
+```
+
+```bash
+# Or on Mac/Linux:
+bash scripts/seed-demo.sh https://your-app.azurecontainerapps.io
+```
+
+Build the MCP app for VS Code integration:
+```bash
 cd mcp-app && npm install && npm run build
 ```
 
