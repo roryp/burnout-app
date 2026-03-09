@@ -6,6 +6,16 @@
 
 **Live demo:** [https://aka.ms/burnout-app](https://aka.ms/burnout-app) — enter any public repo and see its burnout flamegraph instantly.
 
+## Flows
+
+### VS Code Flow (MCP Tools)
+
+<img src="docs/images/flow-vscode.png" alt="VS Code MCP Flow: Developer → Copilot → MCP App → Backend → GitHub" width="100%"/>
+
+### Web Flow (No Auth Required)
+
+<img src="docs/images/flow-web.png" alt="Web Flow: Browser → Backend → GitHub → Stress Score → Study Dashboard" width="100%"/>
+
 ## How It Works
 
 A **Supervisor LLM** (Azure OpenAI) orchestrates 5 specialized sub-agents that analyze your workload and apply GitHub labels automatically:
