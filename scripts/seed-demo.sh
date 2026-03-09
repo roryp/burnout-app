@@ -78,6 +78,29 @@ for user in roryp alice bob; do
   done
 done
 
+# Re-seed issues after checkins to ensure curated data is the final cache state
+# (checkin may have re-fetched from GitHub, overwriting the seed)
+curl -s -X POST "$BASE_URL/demo/api/seed" \
+  -H 'Content-Type: application/json' \
+  -d "{\"repo\":\"$REPO\",\"issues\":[
+    {\"number\":1,\"title\":\"Critical auth bypass in OAuth flow\",\"body\":\"Security vulnerability in the OAuth callback handler.\",\"labels\":[{\"name\":\"priority:critical\"},{\"name\":\"security\"},{\"name\":\"bug\"}],\"assignees\":[{\"login\":\"roryp\"},{\"login\":\"alice\"}],\"createdAt\":\"$TWO_DAYS_AGO\",\"updatedAt\":\"$RECENT\",\"state\":\"open\"},
+    {\"number\":2,\"title\":\"Refactor agent orchestration layer\",\"body\":\"The AgentOrchestrator has grown too complex.\",\"labels\":[{\"name\":\"architecture\"},{\"name\":\"deep-work\"}],\"assignees\":[{\"login\":\"roryp\"},{\"login\":\"alice\"}],\"createdAt\":\"$WEEK_AGO\",\"updatedAt\":\"$RECENT2\",\"state\":\"open\"},
+    {\"number\":3,\"title\":\"Fix typo in README\",\"body\":\"Small typo fix needed\",\"labels\":[{\"name\":\"good-first-issue\"},{\"name\":\"quick-win\"}],\"assignees\":[{\"login\":\"roryp\"},{\"login\":\"bob\"}],\"createdAt\":\"$YESTERDAY\",\"updatedAt\":\"$RECENT3\",\"state\":\"open\"},
+    {\"number\":4,\"title\":\"Update Spring Boot to 3.5.11\",\"body\":\"Dependency bump\",\"labels\":[{\"name\":\"dependencies\"},{\"name\":\"maintenance\"}],\"assignees\":[{\"login\":\"roryp\"},{\"login\":\"bob\"}],\"createdAt\":\"$WEEK_AGO\",\"updatedAt\":\"$RECENT\",\"state\":\"open\"},
+    {\"number\":5,\"title\":\"URGENT: Production memory leak\",\"body\":\"\",\"labels\":[{\"name\":\"urgent\"},{\"name\":\"bug\"},{\"name\":\"priority:high\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$TWO_WEEKS_AGO\",\"updatedAt\":\"$AFTER_HOURS\",\"state\":\"open\"},
+    {\"number\":6,\"title\":\"URGENT: API rate limiting broken\",\"body\":\"\",\"labels\":[{\"name\":\"urgent\"},{\"name\":\"bug\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$TWO_DAYS_AGO\",\"updatedAt\":\"$AFTER_HOURS\",\"state\":\"open\"},
+    {\"number\":7,\"title\":\"URGENT: Database connection pool exhaustion\",\"body\":\"Pool runs out under load.\",\"labels\":[{\"name\":\"urgent\"},{\"name\":\"priority:critical\"}],\"assignees\":[{\"login\":\"roryp\"},{\"login\":\"alice\"}],\"createdAt\":\"$MONTH_AGO\",\"updatedAt\":\"$RECENT\",\"state\":\"open\"},
+    {\"number\":8,\"title\":\"Add dark mode toggle\",\"body\":\"Users want a dark mode option.\",\"labels\":[{\"name\":\"enhancement\"},{\"name\":\"size:s\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$WEEK_AGO\",\"updatedAt\":\"$RECENT2\",\"state\":\"open\"},
+    {\"number\":9,\"title\":\"Something unclear\",\"body\":\"\",\"labels\":[{\"name\":\"bug\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$TWO_MONTHS_AGO\",\"updatedAt\":\"$RECENT\",\"state\":\"open\"},
+    {\"number\":10,\"title\":\"Another vague issue\",\"body\":\"\",\"labels\":[{\"name\":\"bug\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$MONTH_AGO\",\"updatedAt\":\"$RECENT2\",\"state\":\"open\"},
+    {\"number\":11,\"title\":\"CI pipeline failing intermittently\",\"body\":\"GitHub Actions fails randomly on test step.\",\"labels\":[{\"name\":\"ci\"},{\"name\":\"devops\"},{\"name\":\"chore\"}],\"assignees\":[{\"login\":\"roryp\"},{\"login\":\"bob\"}],\"createdAt\":\"$WEEK_AGO\",\"updatedAt\":\"$RECENT3\",\"state\":\"open\"},
+    {\"number\":12,\"title\":\"Write API documentation\",\"body\":\"Need OpenAPI specs for all endpoints.\",\"labels\":[{\"name\":\"documentation\"},{\"name\":\"tech-debt\"}],\"assignees\":[{\"login\":\"roryp\"},{\"login\":\"alice\"}],\"createdAt\":\"$TWO_WEEKS_AGO\",\"updatedAt\":\"$RECENT\",\"state\":\"open\"},
+    {\"number\":13,\"title\":\"Implement feature flags\",\"body\":\"Large epic spanning multiple services.\",\"labels\":[{\"name\":\"epic\"},{\"name\":\"feature\"},{\"name\":\"architecture\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$MONTH_AGO\",\"updatedAt\":\"$AFTER_HOURS\",\"state\":\"open\"},
+    {\"number\":14,\"title\":\"Fix CORS headers on demo endpoints\",\"body\":\"Quick config change needed\",\"labels\":[{\"name\":\"quick-win\"},{\"name\":\"bug\"},{\"name\":\"size:s\"}],\"assignees\":[{\"login\":\"roryp\"},{\"login\":\"bob\"}],\"createdAt\":\"$YESTERDAY\",\"updatedAt\":\"$RECENT\",\"state\":\"open\"},
+    {\"number\":15,\"title\":\"Stale tracking issue from last quarter\",\"body\":\"\",\"labels\":[{\"name\":\"triage\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$TWO_MONTHS_AGO\",\"updatedAt\":\"$RECENT3\",\"state\":\"open\"},
+    {\"number\":16,\"title\":\"Upgrade Node.js to v22\",\"body\":\"MCP app should use latest LTS\",\"labels\":[{\"name\":\"dependencies\"},{\"name\":\"refactor\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$TWO_WEEKS_AGO\",\"updatedAt\":\"$RECENT2\",\"state\":\"open\"}
+  ]}" > /dev/null 2>&1
+
 # --- Step 3: Seed 14 days of dummy study data ---
 echo ""
 echo "📈 Step 3/3: Seeding 14 days of study history..."

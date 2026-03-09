@@ -67,6 +67,8 @@ $issues = @(
 )
 
 $seedBody = @{ repo = $repo; issues = $issues } | ConvertTo-Json -Depth 4 -Compress
+
+# Seed issues first so checkin uses them (checkin skips GitHub fetch if repo is in cache)
 $r = Invoke-RestMethod -Uri "$BaseUrl/demo/api/seed" -Method POST -ContentType "application/json" -Body $seedBody
 Write-Host "  Seeded $($r.issueCount) issues for $($r.repo)" -ForegroundColor Green
 
@@ -81,6 +83,10 @@ foreach ($user in @("roryp", "alice", "bob")) {
         Write-Host "  $user checkin ${i}: score=$($cr.stressScore) level=$($cr.stressLevel)" -ForegroundColor Gray
     }
 }
+
+# Re-seed issues after checkins to ensure the curated data is the final cache state
+# (checkin may have re-fetched from GitHub, overwriting the seed)
+$null = Invoke-RestMethod -Uri "$BaseUrl/demo/api/seed" -Method POST -ContentType "application/json" -Body $seedBody
 
 # --- Step 3: Seed study history ---
 Write-Host "`n📈 Step 3/3: Seeding 14 days of study history..." -ForegroundColor Yellow
