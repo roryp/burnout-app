@@ -5,16 +5,16 @@ param location string
 param openAiName string
 
 @description('Model deployment name')
-param deploymentName string = 'gpt-5-mini'
+param deploymentName string = 'gpt-4o-mini'
 
 @description('Model name to deploy')
-param modelName string = 'gpt-5-mini'
+param modelName string = 'gpt-4o-mini'
 
 @description('Model version')
-param modelVersion string = '2025-08-07'
+param modelVersion string = '2024-07-18'
 
 @description('Capacity in thousands of tokens per minute')
-param capacityK int = 50
+param capacityK int = 100
 
 resource openAi 'Microsoft.CognitiveServices/accounts@2024-10-01' = {
   name: openAiName
@@ -33,7 +33,7 @@ resource deployment 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01
   parent: openAi
   name: deploymentName
   sku: {
-    name: 'GlobalStandard'
+    name: 'Standard'
     capacity: capacityK
   }
   properties: {

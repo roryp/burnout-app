@@ -8,31 +8,34 @@
 
 **Want the big picture?** Start with the [System Sequence Diagram](#system-sequence-diagram), [Algorithm Pipeline](#algorithm-pipeline-overview), and [Developer Journey](#a-developers-journey-from-burnout-to-balance) — they tell the full story visually.
 
-**Want to understand the scoring?** Jump to sections [4 (Stress)](#4-stress-score), [5 (Chaos)](#5-chaos-metrics), and [6 (Compliance)](#6-compliance-violations).
+**Want to understand the friction?** Section [2 (Friction Points)](#2-the-7-friction-points) maps 7 real-world burnout forces to the system's metrics and agents.
 
-**Interested in the human side?** Sections [7 (Emotions)](#7-emotional-detection) and [8 (Protection)](#8-protective-intervention) cover how the system reads developer mood and intervenes.
+**Want to understand the scoring?** Jump to sections [5 (Stress)](#5-stress-score), [6 (Chaos)](#6-chaos-metrics), and [7 (Compliance)](#7-compliance-violations).
 
-**Looking up a specific number?** Section [15 (Constants)](#15-constants-reference) has every threshold, cap, and weight in one place.
+**Interested in the human side?** Sections [8 (Emotions)](#8-emotional-detection) and [9 (Protection)](#9-protective-intervention) cover how the system reads developer mood and intervenes.
 
-### The 15 Sections
+**Looking up a specific number?** Section [16 (Constants)](#16-constants-reference) has every threshold, cap, and weight in one place.
+
+### The 16 Sections
 
 | | Section | One-line summary |
 |---|---------|-----------------|
 | 1 | [Theoretical Foundations](#1-theoretical-foundations) | 6 research frameworks behind every design decision |
-| 2 | [The 3-3-3 Day](#2-the-3-3-3-day) | Cap the day at 7 items: 1 deep + 3 quick + 3 maintenance |
-| 3 | [Issue Classification](#3-issue-classification) | Sort issues into 4 buckets by label — no AI needed |
-| 4 | [Stress Score](#4-stress-score) | Single 0–100 number capturing developer health |
-| 5 | [Chaos Metrics](#5-chaos-metrics) | 5 signals measuring team/process disorder (0–10) |
-| 6 | [Compliance Violations](#6-compliance-violations) | 8 violations checking if the 3-3-3 structure holds |
-| 7 | [Emotional Detection](#7-emotional-detection) | 4 Plutchik emotions inferred from GitHub behavior |
-| 8 | [Protective Intervention](#8-protective-intervention) | Circuit breaker — safety net when thresholds are crossed |
-| 9 | [Friday Deploy](#9-friday-deploy) | Is it safe to ship today? (counters optimism bias) |
-| 10 | [Calendar Fragmentation](#10-calendar-fragmentation) | No 90-min block? Deep work gets deferred automatically |
-| 11 | [AI Agent Architecture](#11-ai-agent-architecture) | 5 sub-agents, 9 tools, 3 personas — the Supervisor Pattern |
-| 12 | [Flamegraph Psychology](#12-flamegraph-psychology) | Why fire metaphors work + per-issue stress formula |
-| 13 | [Priority & Day Plan](#13-priority--day-plan) | How the system picks *which* issues you work on today |
-| 14 | [Graceful Degradation](#14-graceful-degradation) | 4 fallback levels — works fully without AI |
-| 15 | [Constants Reference](#15-constants-reference) | Every magic number in one lookup table |
+| 2 | [The 7 Friction Points](#2-the-7-friction-points) | The real-world forces causing developer burnout — and how this system fights each one |
+| 3 | [The 3-3-3 Day](#3-the-3-3-3-day) | Cap the day at 7 items: 1 deep + 3 quick + 3 maintenance |
+| 4 | [Issue Classification](#4-issue-classification) | Sort issues into 4 buckets by label — no AI needed |
+| 5 | [Stress Score](#5-stress-score) | Single 0–100 number capturing developer health |
+| 6 | [Chaos Metrics](#6-chaos-metrics) | 5 signals measuring team/process disorder (0–10) |
+| 7 | [Compliance Violations](#7-compliance-violations) | 8 violations checking if the 3-3-3 structure holds |
+| 8 | [Emotional Detection](#8-emotional-detection) | 4 Plutchik emotions inferred from GitHub behavior |
+| 9 | [Protective Intervention](#9-protective-intervention) | Circuit breaker — safety net when thresholds are crossed |
+| 10 | [Friday Deploy](#10-friday-deploy) | Is it safe to ship today? (counters optimism bias) |
+| 11 | [Calendar Fragmentation](#11-calendar-fragmentation) | No 90-min block? Deep work gets deferred automatically |
+| 12 | [AI Agent Architecture](#12-ai-agent-architecture) | 5 sub-agents, 9 tools, 3 personas — the Supervisor Pattern |
+| 13 | [Flamegraph Psychology](#13-flamegraph-psychology) | Why fire metaphors work + per-issue stress formula |
+| 14 | [Priority & Day Plan](#14-priority--day-plan) | How the system picks *which* issues you work on today |
+| 15 | [Graceful Degradation](#15-graceful-degradation) | 4 fallback levels — works fully without AI |
+| 16 | [Constants Reference](#16-constants-reference) | Every magic number in one lookup table |
 
 ---
 
@@ -157,7 +160,109 @@ This system is built on six published research frameworks. Each one maps directl
 | **Pomodoro / Time Boxing** | Short focused intervals with breaks maintain energy | Quick wins as natural break-points between deep work sessions |
 | **Plutchik's Wheel** [[5]](#ref-5) | 8 primary emotions with behavioral signatures | 4 emotions detected from GitHub signals (frustration, exhaustion, overwhelm, anxiety) |
 
-## 2. The 3-3-3 Day
+## 2. The 7 Friction Points
+
+Theory explains *why* burnout happens. But what does it *feel like*? These seven friction points — identified from developer experience research — are the daily forces that grind people down. Each one maps directly to metrics, agents, and interventions in this system.
+
+### 2.1 Fragmentation
+
+> *Too many tools, tabs, models, prompts, and context switches.*
+
+<img src="images/friction/01-fragmentation.png" alt="Developer overwhelmed by fragmented tools, tabs, notifications, and context switches" width="800"/>
+
+*The modern developer's reality: IDE, terminal, Slack, email, Jira, GitHub, video calls — all competing for the same brain. Every switch costs 23 minutes of recovery [[6]](#ref-6).*
+
+**How the system fights it:** The `contextSwitching` stress dimension ([WorldState.java](../backend/src/main/java/com/demo/burnout/model/WorldState.java)) detects when 6+ issues are touched in 60 minutes. [ChaosMetricsService](../backend/src/main/java/com/demo/burnout/service/ChaosMetricsService.java) flags reactive firefighting. The 3-3-3 structure forces a single focus point (1 deep work item) instead of letting everything compete equally. Formula: `min(15, (touchedToday − 5) × 3)`.
+
+---
+
+### 2.2 Learning Pressure
+
+> *The constant feeling that you're already behind.*
+
+<img src="images/friction/02-learning-pressure.png" alt="Developer at the base of an impossibly tall staircase of new technologies and frameworks" width="800"/>
+
+*New frameworks, new AI models, new paradigms — the staircase keeps growing. The treadmill of "keeping up" never stops.*
+
+**How the system fights it:** [ComplianceService](../backend/src/main/java/com/demo/burnout/service/ComplianceService.java) flags `NO_DEEP_WORK` when `deepWork.isEmpty()` — no strategic/learning items means you're falling behind. But it also penalizes `MULTIPLE_DEEP_WORK` (more than 1 complex item), because trying to learn everything at once is just as damaging. The system enforces exactly 1 deep work item per day — structured learning, not panic-driven cramming.
+
+---
+
+### 2.3 Performance Standards
+
+> *Pressure to produce more, faster, because AI exists.*
+
+<img src="images/friction/03-performance-standards.png" alt="Human developer compared to AI robot producing 10x output, with rising expectations" width="800"/>
+
+*"AI can write code 10x faster" — so why can't you? The expectation ratchet turns AI productivity into human pressure.*
+
+**How the system fights it:** The `sustainedLoad` dimension tracks `consecutiveHighChaosDays` — each consecutive high-stress day adds 5 points (capped at 15). [CalendarService](../backend/src/main/java/com/demo/burnout/service/CalendarService.java) checks `isDeepWorkPossible()`, requiring a 90-minute uninterrupted block. [ProtectiveAiService](../backend/src/main/java/com/demo/burnout/agent/ProtectiveAiService.java) activates when stress ≥ 70 or consecutive high days ≥ 2, explicitly countering the "just push harder" mindset with: *"Sustainable pace > heroic effort."*
+
+---
+
+### 2.4 Isolation
+
+> *Doing cognitively heavy work alone, with less human grounding.*
+
+<img src="images/friction/04-isolation.png" alt="Developer alone in a dark bubble, disconnected from greyed-out teammates" width="800"/>
+
+*Complex work demands deep focus — but deep focus means disconnection. When no one else touches the critical issues, one developer carries the weight alone.*
+
+**How the system fights it:** [WorldState.urgentUnassigned](../backend/src/main/java/com/demo/burnout/model/WorldState.java) counts critical items with no owner — treating "working alone on critical stuff" as a measurable risk. The [DelegateAgent](../backend/src/main/java/com/demo/burnout/agent/supervisor/BurnoutAgents.java) recommends reassignment via [delegateIssue()](../backend/src/main/java/com/demo/burnout/agent/supervisor/BurnoutMutationTool.java). Emotional detection (Plutchik [[5]](#ref-5)) maps frustration → exhaustion → overwhelm → anxiety, catching isolation's emotional signature before it becomes burnout.
+
+---
+
+### 2.5 Interface Friction
+
+> *Fighting clunky tools instead of flowing through the work.*
+
+<img src="images/friction/05-interface-friction.png" alt="Developer wrestling a tangled machine of error dialogs and loading spinners to reach a simple goal" width="800"/>
+
+*The goal is simple — ship the feature. But between you and the goal: cryptic error messages, loading spinners, broken builds, and mystery-meat issues with no description.*
+
+**How the system fights it:** The `clarity` stress dimension measures "mystery meat" — issues with blank bodies, no assignees, or vague titles. [ChaosMetricsService](../backend/src/main/java/com/demo/burnout/service/ChaosMetricsService.java) counts them; formula: `min(10, mysteryMeat × 2) + min(5, unclearQuickWins)`. The [ScopeAgent](../backend/src/main/java/com/demo/burnout/agent/supervisor/BurnoutAgents.java) proactively flags unclear issues with `needs-scope` labels via [addScopeNeeded()](../backend/src/main/java/com/demo/burnout/agent/supervisor/BurnoutMutationTool.java), pushing friction back to its source.
+
+---
+
+### 2.6 Altitude Sickness
+
+> *Being asked to think strategically at a high level while still being pulled into fine-grained review and execution.*
+
+<img src="images/friction/06-altitude-sickness.png" alt="Developer stretched between cloud-level strategic planning and ground-level code review" width="800"/>
+
+*Architecture planning at 30,000 feet, then line-by-line code review at ground level — the cognitive whiplash of switching altitudes is exhausting.*
+
+**How the system fights it:** The 4-bucket classification explicitly separates strategic (DEEP_WORK) from tactical (QUICK_WIN, MAINTENANCE). [DayStructure.MAX_ACTIVE = 7](../backend/src/main/java/com/demo/burnout/model/DayStructure.java) prevents reactive "manage 200 issues" thinking. [ComplianceService](../backend/src/main/java/com/demo/burnout/service/ComplianceService.java) flags `TOTAL_OVERLOAD` (activeIssues > 7, −25 compliance points) and audits the 3-3-3 structure. [ChaosMetricsService](../backend/src/main/java/com/demo/burnout/service/ChaosMetricsService.java) detects label explosion (≥ 12 labels) — a symptom of altitude sickness at the organizational level.
+
+---
+
+### 2.7 Workload Creep
+
+> *AI makes more possible, so more gets expected.*
+
+<img src="images/friction/07-workload-creep.png" alt="AI robot flooding a funnel with generated work while a developer drowns in the output" width="800"/>
+
+*AI generates code, documentation, tests, PRs — but someone still has to review, test, deploy, and maintain all of it. The flood of "possible" becomes a tide of "expected."*
+
+**How the system fights it:** This is the most structurally defended friction point. [MAX_ACTIVE = 7](../backend/src/main/java/com/demo/burnout/model/DayStructure.java) is a **hard ceiling** — the stress formula adds `(totalAssigned − 7) × 4` for every issue above 7. The [WellnessAgent](../backend/src/main/java/com/demo/burnout/agent/supervisor/BurnoutAgents.java) recommends reducing intake via [slowIntake()](../backend/src/main/java/com/demo/burnout/agent/supervisor/BurnoutMutationTool.java). [ComplianceService](../backend/src/main/java/com/demo/burnout/service/ComplianceService.java) flags `DEFERRED_BACKLOG_GROWING` when stale deferred items exceed 5, making the invisible creep visible.
+
+---
+
+### Friction Points → System Mapping
+
+| Friction Point | Primary Stress Dimension | Key Service | Agent Response |
+|----------------|------------------------|-------------|----------------|
+| Fragmentation | Context Switching (cap 15) | ChaosMetricsService | ClassifyAgent — auto-label into buckets |
+| Learning Pressure | Workload (cap 40) | ComplianceService | ClassifyAgent — enforce 1 deep work |
+| Performance Standards | Sustained Load (cap 15) | CalendarService | ProtectiveAiService — "sustainable pace" |
+| Isolation | Chaos (cap 30) | WorldState | DelegateAgent — redistribute work |
+| Interface Friction | Clarity (cap 15) | ChaosMetricsService | ScopeAgent — flag unclear issues |
+| Altitude Sickness | Chaos + Compliance | ComplianceService | DayStructure — 3-3-3 structure |
+| Workload Creep | Workload (cap 40) | ComplianceService | WellnessAgent — slow intake |
+
+---
+
+## 3. The 3-3-3 Day
 
 Instead of an unbounded task list, the system caps each day at exactly **7 items** across three attention types. This comes from Miller's Law [[10]](#ref-10) (working memory holds 7 ± 2 items) and flow-state research [[3]](#ref-3) (deep work needs singular focus). Everything beyond 7 is automatically deferred — not lost, just scheduled for later.
 
@@ -170,7 +275,7 @@ Instead of an unbounded task list, the system caps each day at exactly **7 items
 
 Overflow beyond 7 active items → automatically deferred. Deep work gets a protected 90-minute block.
 
-## 3. Issue Classification
+## 4. Issue Classification
 
 Before the system can structure a day, it needs to understand what kind of work each issue represents. [IssueClassifierService.java](../backend/src/main/java/com/demo/burnout/service/IssueClassifierService.java) examines GitHub labels and assigns every issue to one of four [Classification](../backend/src/main/java/com/demo/burnout/model/Classification.java) buckets — deterministic, priority-ordered, no LLM involved. Each issue lands in the **first** matching bucket:
 
@@ -185,7 +290,7 @@ Before the system can structure a day, it needs to understand what kind of work 
 
 **Clear scope detection** looks for: checkboxes (`- [ ]`), "acceptance criteria", "expected"/"actual", numbered steps, or "definition of done".
 
-## 4. Stress Score
+## 5. Stress Score
 
 The system's central metric — a single number (0–100) that captures how much pressure a developer is under right now, grounded in Yerkes-Dodson's [[11]](#ref-11) inverted-U model (too little stress = disengaged, too much = breakdown). [WorldState.java](../backend/src/main/java/com/demo/burnout/model/WorldState.java) holds the 18 capped variables and runs `calculateStressScore()` to produce it; [StressLevel.java](../backend/src/main/java/com/demo/burnout/model/StressLevel.java) defines the thresholds that drive protective interventions, the supervisor agent's priorities, and the flamegraph visualization. Calculated from 6 dimensions:
 
@@ -200,7 +305,7 @@ The system's central metric — a single number (0–100) that captures how much
 
 **Stress levels:** ≥ 70 CRITICAL, ≥ 50 HIGH, ≥ 30 MODERATE, < 30 LOW.
 
-## 5. Chaos Metrics
+## 6. Chaos Metrics
 
 While the stress score measures the individual, the chaos score (0–10) measures the *environment* — problems with the team's process. [ChaosMetricsService.java](../backend/src/main/java/com/demo/burnout/service/ChaosMetricsService.java) evaluates five binary signals, each worth 2 points, and packs the result into a [ChaosMetrics](../backend/src/main/java/com/demo/burnout/model/ChaosMetrics.java) record (score, bucket, and individual signal flags). Each reveals a different kind of dysfunction:
 
@@ -214,7 +319,7 @@ While the stress score measures the individual, the chaos score (0–10) measure
 
 **Chaos buckets:** ≤ 2 LOW, ≤ 5 MEDIUM, ≤ 8 HIGH, > 8 CRITICAL.
 
-## 6. Compliance Violations
+## 7. Compliance Violations
 
 Is the 3-3-3 structure actually being followed? [ComplianceService.java](../backend/src/main/java/com/demo/burnout/service/ComplianceService.java) audits the day structure — the compliance score starts at 100 and drops for each [ViolationType](../backend/src/main/java/com/demo/burnout/model/ViolationType.java), from critical issues like multiple deep-work items down to informational warnings like a growing backlog:
 
@@ -231,7 +336,7 @@ Is the 3-3-3 structure actually being followed? [ComplianceService.java](../back
 
 CRITICAL = actively causes burnout. WARNING = accelerates burnout trajectory. INFO = predicts future burnout.
 
-## 7. Emotional Detection
+## 8. Emotional Detection
 
 Developers don't fill out mood surveys — but their GitHub activity tells a story. [AgentOrchestrator.java](../backend/src/main/java/com/demo/burnout/agent/AgentOrchestrator.java) detects four emotions from observable signals — context-switch frequency, after-hours commits, stale urgent issues, and workload size — mapping each to a Plutchik [[5]](#ref-5) primary family. Under stress, attention narrows [[9]](#ref-9), so the system keeps responses brief and actionable:
 
@@ -244,7 +349,7 @@ Developers don't fill out mood surveys — but their GitHub activity tells a sto
 
 **AI response principles:** Validate without patronizing. Concrete suggestions only. Brevity — Easterbrook [[9]](#ref-9) showed stressed people have narrowed attention, so short messages land better. No guilt or shame. One actionable item.
 
-## 8. Protective Intervention
+## 9. Protective Intervention
 
 The system's safety net, informed by McEwen's [[8]](#ref-8) research on allostatic load — sustained stress causes cumulative physiological damage, so early intervention matters. When **any single** signal crosses a critical threshold, [ProtectiveAiService.java](../backend/src/main/java/com/demo/burnout/agent/ProtectiveAiService.java) — a LangChain4j `@AiService` with a Plutchik-informed system prompt — generates an empathetic intervention. If the LLM is unavailable, pre-written fallbacks ensure protection never silently fails.
 
@@ -265,7 +370,7 @@ The system's safety net, informed by McEwen's [[8]](#ref-8) research on allostat
 | Heavy workload | "Your workload is heavy today. Sustainable pace > heroic effort." |
 | No trigger | "You're doing well! Keep up the balanced approach. 💪" |
 
-## 9. Friday Deploy
+## 10. Friday Deploy
 
 Should you deploy on Friday? [FridayDeployAiService.java](../backend/src/main/java/com/demo/burnout/agent/FridayDeployAiService.java) answers with a readiness score (0–100), deducting points for chaos, non-compliance, unassigned urgents, after-hours signals, and poor issue quality, then generating an AI explanation of the risk. The real value: it counters **optimism bias** (“it’ll be fine”) and **completion bias** (“just ship it before the weekend”).
 
@@ -280,13 +385,13 @@ Should you deploy on Friday? [FridayDeployAiService.java](../backend/src/main/ja
 
 **Readiness:** ≥ 80 READY 🟢, 50–79 CAUTION 🟡, < 50 NOT_READY 🔴.
 
-## 10. Calendar Fragmentation
+## 11. Calendar Fragmentation
 
 Deep work requires sustained focus [[4]](#ref-4) — but a day full of meetings makes that impossible. Context-switching has a 23-minute recovery cost [[6]](#ref-6), so [CalendarService.java](../backend/src/main/java/com/demo/burnout/service/CalendarService.java) scans the day for a contiguous **90-minute** block (23 min ramp-up + 60 min flow + 7 min buffer). No block? Deep work gets automatically deferred rather than setting the developer up for a frustrating, interrupted attempt.
 
 `largestFreeBlock ≥ 90 min` → deep work feasible. Otherwise → `calendarBlocked = true` → deep work deferred.
 
-## 11. AI Agent Architecture
+## 12. AI Agent Architecture
 
 Deterministic services calculate all metrics first. AI agents only explain, recommend, and act — they never make the initial measurements. This is the LangChain4j **Supervisor Pattern** in action: [AgentOrchestrator.java](../backend/src/main/java/com/demo/burnout/agent/AgentOrchestrator.java) coordinates the full pipeline from metrics through supervisor to protective response, [BurnoutAgents.java](../backend/src/main/java/com/demo/burnout/agent/supervisor/BurnoutAgents.java) declares the five sub-agent `@Agent` interfaces (Defer, Delegate, Classify, Scope, Wellness), and [AgentConfiguration.java](../backend/src/main/java/com/demo/burnout/config/AgentConfiguration.java) wires the Spring beans for both LLM models and all agent instances.
 
@@ -326,7 +431,7 @@ Deterministic services calculate all metrics first. AI agents only explain, reco
 
 Both default to the Azure OpenAI deployment (`gpt-4o` configurable). Stress reduction estimate: each mutation reduces stress by **7 points** (heuristic).
 
-## 12. Flamegraph Psychology
+## 13. Flamegraph Psychology
 
 The flamegraph isn't just a chart — it's designed to exploit how the brain processes threats. [flamegraph.html](../backend/src/main/resources/static/flamegraph.html) renders the interactive visualization as a standalone page, computing per-issue heat and applying green/amber/red color mapping. Fire metaphors activate threat detection. Height conveys cognitive weight. Color maps to the universal traffic-light instinct.
 
@@ -352,7 +457,7 @@ The flamegraph isn't just a chart — it's designed to exploit how the brain pro
 
 **Color thresholds:** < 35% green 🟢, 35–64% amber 🟡, ≥ 65% red 🔴.
 
-## 13. Priority & Day Plan
+## 14. Priority & Day Plan
 
 Once issues are classified, they still need ranking. [IssueClassifierService.java](../backend/src/main/java/com/demo/burnout/service/IssueClassifierService.java) applies a multi-level sort key to decide *which* issues fill today's 3-3-3 slots, packing the result into a [DayStructure](../backend/src/main/java/com/demo/burnout/model/DayStructure.java) record; the rest overflow to Deferred.
 
@@ -369,7 +474,7 @@ Each bucket fills its quota from the sorted list; overflow → Deferred:
 - **Quick Wins:** top 3 → today, remaining → deferred
 - **Maintenance:** top 3 → today, remaining → deferred
 
-## 14. Graceful Degradation
+## 15. Graceful Degradation
 
 A burnout tool that crashes when you're stressed would *increase* burnout. So every AI feature works without AI — [AgentConfiguration.java](../backend/src/main/java/com/demo/burnout/config/AgentConfiguration.java) detects whether Azure OpenAI credentials are real or dummy and sets the `llmEnabled` flag, letting all metrics run fully deterministic. For live demos, [SyntheticTimeResolver.java](../backend/src/main/java/com/demo/burnout/util/SyntheticTimeResolver.java) lets the `demo:*` labels defined in [DemoLabels.java](../backend/src/main/java/com/demo/burnout/util/DemoLabels.java) override the real clock so demos work any day of the week. The AI layers add explanation and mutation planning, but the system is complete without them.
 
@@ -391,7 +496,7 @@ A burnout tool that crashes when you're stressed would *increase* burnout. So ev
 
 **Golden Rule:** If *any* `demo:*` label exists, real timestamps are never consulted.
 
-## 15. Constants Reference
+## 16. Constants Reference
 
 If you're reading the code and wondering "why that number?", this section explains every threshold in plain language.
 
