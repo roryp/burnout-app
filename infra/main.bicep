@@ -5,16 +5,16 @@ param location string = 'swedencentral'
 param environmentName string = 'burnout'
 
 @description('Azure OpenAI model deployment name')
-param openAiDeployment string = 'gpt-5-mini'
+param openAiDeployment string = 'gpt-4o-mini'
 
 @description('Azure OpenAI model name')
-param openAiModelName string = 'gpt-5-mini'
+param openAiModelName string = 'gpt-4o-mini'
 
 @description('Azure OpenAI model version')
-param openAiModelVersion string = '2025-08-07'
+param openAiModelVersion string = '2024-07-18'
 
 @description('Azure OpenAI capacity in thousands of tokens per minute')
-param openAiCapacityK int = 50
+param openAiCapacityK int = 100
 
 @description('PostgreSQL administrator password')
 @secure()

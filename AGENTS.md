@@ -33,7 +33,7 @@ BACKEND_URL=https://your-backend.wonderfulstone-xxxxx.swedencentral.azurecontain
 # For local development:
 AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
 AZURE_OPENAI_API_KEY=your-api-key
-AZURE_OPENAI_DEPLOYMENT=gpt-5-mini
+AZURE_OPENAI_DEPLOYMENT=gpt-4o-mini
 BACKEND_URL=http://localhost:8080
 ```
 
