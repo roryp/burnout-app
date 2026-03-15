@@ -58,6 +58,46 @@ cd .. && azd up                                 # deploy to Azure
 bash scripts/seed-demo.sh <azure-url>           # seed demo data
 ```
 
+## Demo Screenshot Workflow (CRITICAL)
+
+When asked to take screenshots, capture demo screenshots, or run the demo flow:
+
+1. **ALWAYS use the real Azure deployment** — NEVER use dummy endpoints, dummy credentials, or localhost
+   unless the user explicitly asks for local. Discover the URL via `azd env get-values` and look for
+   `SERVICE_BACKEND_URI`.
+
+2. **Run the full before/after flow:**
+   ```powershell
+   # Option A: Automated script (captures screenshots via Playwright)
+   .\scripts\demo-screenshots.ps1
+
+   # Option B: Manual with Playwright MCP tool in Copilot Chat
+   # Step 1: Seed BEFORE state
+   .\scripts\seed-demo.ps1 -BaseUrl <azure-url>
+   # Step 2: Take BEFORE screenshots (checkin + flamegraph)
+   # Step 3: Seed AFTER state
+   .\scripts\seed-demo.ps1 -BaseUrl <azure-url> -Mode after
+   # Step 4: Take AFTER screenshots (checkin + flamegraph)
+   # Step 5: Take study dashboard screenshot
+   ```
+
+3. **Screenshot checklist (5 screenshots minimum):**
+   - `checkin-before.png` — Stress 100, CRITICAL, all bars red
+   - `flamegraph-before.png` — 100/100 stress, 0 quick wins, 12 deferred
+   - `checkin-after.png` — Stress ~26, LOW, most bars zeroed
+   - `flamegraph-after.png` — ~65/100 stress, 70% Friday Score, 3-3-3 structure
+   - `study-dashboard.png` — trend chart, participant cards, raw snapshots
+
+4. **Using Playwright MCP tool for screenshots:** Navigate to each page, fill in
+   `roryp` / `roryp/burnout-app`, click the action button, wait for results, then
+   use `browser_take_screenshot` with `fullPage: true` and `type: png`.
+
+5. **Endpoint discovery command:**
+   ```powershell
+   azd env get-values | Select-String 'SERVICE_BACKEND_URI'
+   # Returns: SERVICE_BACKEND_URI="https://burnoutdemorpza-backend.yellowwave-d1b4ff3a.swedencentral.azurecontainerapps.io"
+   ```
+
 ## Key Architecture Rules
 
 - The `Issue` Java record uses **camelCase** (`createdAt`/`updatedAt`)
