@@ -156,7 +156,10 @@ A zero-friction web page for study participants. No VS Code, no CLI, no auth —
 
 **URL:** `https://<your-app>.azurecontainerapps.io/checkin.html`
 
-![Stress Check-In](docs/images/checkin-critical.png)
+| Before (Chaotic) | After (Reshaped) |
+|:---:|:---:|
+| ![Stress 100 — CRITICAL](docs/images/checkin-before.png) | ![Stress 26 — LOW](docs/images/checkin-after.png) |
+| Stress 100, CRITICAL — all bars red | Stress 26, LOW — most bars zeroed |
 
 1. Student enters their GitHub username and a **public** repo
 2. Optionally sets the **self-report slider** (0–100: "How stressed do you feel?") and **notes**
@@ -186,7 +189,7 @@ A researcher-facing web page for tracking stress score trends over time, built f
 
 **Live:** `https://<your-app>.azurecontainerapps.io/study.html`
 
-![Study Dashboard](docs/images/study-dashboard.jpeg)
+![Study Dashboard](docs/images/study-dashboard.png)
 
 ### What it does
 
@@ -215,6 +218,41 @@ curl -X POST https://<your-app>/demo/api/study/seed
 | GET | `/demo/api/study/snapshots?from=YYYY-MM-DD&to=YYYY-MM-DD` | No | JSON snapshots (optional `userId` filter) |
 | GET | `/demo/api/study/export?from=YYYY-MM-DD&to=YYYY-MM-DD` | No | CSV download (optional `userId` filter) |
 | POST | `/demo/api/study/seed` | No | Seed dummy data for demos |
+
+## Demo Screenshots
+
+Capture a full set of before/after screenshots for presentations. The scripts auto-discover the Azure URL via `azd env get-values` or accept it as a parameter.
+
+```powershell
+# Windows — auto-discovers Azure URL
+.\scripts\demo-screenshots.ps1
+
+# Windows — explicit URL
+.\scripts\demo-screenshots.ps1 -BaseUrl https://your-app.azurecontainerapps.io
+```
+
+```bash
+# Mac/Linux — auto-discovers Azure URL
+bash scripts/demo-screenshots.sh
+
+# Mac/Linux — explicit URL
+bash scripts/demo-screenshots.sh https://your-app.azurecontainerapps.io
+```
+
+The scripts run the full before/after flow:
+1. Seed **BEFORE** (chaotic) state → stress 100, CRITICAL
+2. Capture checkin + flamegraph screenshots
+3. Seed **AFTER** (reshaped) state → stress ~26, LOW
+4. Capture checkin + flamegraph + study dashboard screenshots
+
+Screenshots are saved to `docs/images/demo/`. If Playwright browsers aren't installed, the scripts fall back to API-only validation. You can also use the **Playwright MCP tool** in Copilot Chat to take screenshots interactively.
+
+### Flamegraph Before / After
+
+| Before (Chaotic) | After (Reshaped) |
+|:---:|:---:|
+| ![100/100 stress, 0 quick wins, 12 deferred](docs/images/flamegraph-before.png) | ![65/100 stress, 70% Friday Score, 3-3-3](docs/images/flamegraph-after.png) |
+| 100/100 stress, 0 quick wins, 12 deferred | 65/100 stress, 70% Friday Score, 3-3-3 structure |
 
 ## Security
 

@@ -299,6 +299,8 @@ The `POST /demo/api/seed` endpoint accepts `{"repo": "owner/repo", "issues": [..
 | `scripts/seed-demo.sh` | Bash seed script: issues + checkins + study data in one command |
 | `scripts/seed-demo.ps1` | PowerShell seed script (same as above, for Windows) |
 | `scripts/smoke-test.ps1` | Post-deployment smoke test (26 assertions, seeds + verifies all endpoints) |
+| `scripts/demo-screenshots.ps1` | Full before/after demo screenshot capture (auto-discovers Azure URL) |
+| `scripts/demo-screenshots.sh` | Bash version of demo screenshot script (same flow, for Linux/macOS/CI) |
 | `scripts/seed-issues.sh` | Creates real GitHub issues via `gh` CLI (for live repos) |
 | `mcp-app/src/index.ts` | MCP server with 4 tool definitions + 2 UI resources |
 | `mcp-app/src/config.ts` | Backend URL config (reads from `.env`) |
