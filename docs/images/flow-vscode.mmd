@@ -18,3 +18,12 @@ sequenceDiagram
     BE->>BE: Classify → Metrics → WorldState
     BE-->>MCP: Stress score + 3-3-3 plan
     MCP-->>VS: Interactive flamegraph panel
+    
+    Dev->>VS: "reshape my day"
+    VS->>MCP: reshape_day(repo)
+    MCP->>BE: POST /api/reshape
+    BE->>BE: Supervisor → 5 sub-agents → mutation plan
+    BE-->>MCP: Labels + explanation
+    MCP->>GH: Apply labels via gh CLI
+    GH-->>MCP: Updated ✓
+    MCP-->>VS: Before/after summary

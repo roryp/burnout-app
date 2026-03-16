@@ -2,17 +2,24 @@ sequenceDiagram
     participant User as Browser
     participant BE as Java Backend
     participant GH as GitHub API
+    participant DB as PostgreSQL
 
-    User->>BE: Open /checkin.html
-    User->>BE: POST /demo/api/checkin {userId, repo}
+    User->>BE: Open /flamegraph.html → Sync from GitHub
     BE->>GH: Fetch public issues
     GH-->>BE: Issues JSON
-    BE->>BE: Classify → Metrics → Stress Score
-    BE->>BE: Record snapshot (PostgreSQL)
+    BE->>BE: Classify → Metrics → WorldState
+    BE-->>User: Flamegraph (stress + 3-3-3 plan)
+
+    User->>BE: Open /checkin.html → Check My Stress
+    BE->>BE: Calculate stress score + breakdown
+    BE->>DB: Record snapshot
     BE-->>User: Score + breakdown + hover hints
 
+    User->>BE: POST /demo/api/reshape
+    BE->>BE: Supervisor → 5 sub-agents → mutation plan
+    BE->>BE: Apply labels to IssueCache
+    BE-->>User: Before/after scores
+
     User->>BE: Open /study.html → Load Data
-    BE-->>User: Snapshots over time
-    User->>User: Click participant tile
-    User->>BE: /checkin.html?userId=X&repo=Y
-    BE-->>User: Auto-runs stress check
+    BE->>DB: Query snapshots
+    BE-->>User: Trend chart + participant cards
