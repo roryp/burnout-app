@@ -144,7 +144,7 @@ bash scripts/seed-demo.sh https://your-app.azurecontainerapps.io
 .\scripts\seed-demo.ps1 -BaseUrl https://your-app.azurecontainerapps.io
 ```
 
-This seeds 16 issues, runs checkins for 3 users, and generates 14 days of study history.
+This seeds 16 issues, runs checkins for 3 users, and generates 14 days of study history for 5 participants (alice, bob, carol, dave, roryp).
 
 > **⚠️ Two critical rules when seeding manually:**
 > 1. **Use camelCase** field names (`createdAt`, `updatedAt`) — NOT snake_case. Snake_case fields silently deserialize as `null`, causing Context Switching, After Hours, and Sustained Load to show as 0.
