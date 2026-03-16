@@ -255,6 +255,7 @@
       border: 1px solid var(--card-border);
       margin-bottom: 32px;
       overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
     }
 
     .table-header {
@@ -273,14 +274,15 @@
     }
 
     table {
-      width: 100%;
+      width: max-content;
+      min-width: 100%;
       border-collapse: collapse;
       font-size: 0.85rem;
     }
 
     th {
       text-align: left;
-      padding: 10px 12px;
+      padding: 8px 10px;
       border-bottom: 1px solid var(--card-border);
       color: var(--text-muted);
       text-transform: uppercase;
@@ -288,15 +290,29 @@
       letter-spacing: 0.05em;
       font-weight: 600;
       white-space: nowrap;
+      position: sticky;
+      top: 0;
+      background: var(--card-bg);
+      z-index: 1;
     }
 
     td {
-      padding: 10px 12px;
+      padding: 8px 10px;
       border-bottom: 1px solid rgba(255,255,255,0.03);
       white-space: nowrap;
     }
 
+    /* Sticky first column (Time) */
+    th:first-child, td:first-child {
+      position: sticky;
+      left: 0;
+      background: var(--card-bg);
+      z-index: 2;
+    }
+    th:first-child { z-index: 3; }
+
     tr:hover td { background: rgba(255,255,255,0.03); }
+    tr:hover td:first-child { background: var(--card-bg); }
 
     .level-badge {
       padding: 3px 10px;
@@ -513,6 +529,8 @@
             <th>Clarity</th>
             <th>Sustained</th>
             <th>After-hrs</th>
+            <th>Self Score</th>
+            <th>Note</th>
           </tr>
         </thead>
         <tbody id="table-body"></tbody>
@@ -926,7 +944,7 @@
     }
 
     let tablePage = 1;
-    const PAGE_SIZE = 25;
+    const PAGE_SIZE = 10;
 
     // --- Data table ---
     function renderTable(data) {
@@ -970,6 +988,8 @@
           <td class="has-tooltip">${d.clarityStress}<span class="cell-tip">Clarity: ${d.clarityStress}/10 — issues missing description or assignee</span></td>
           <td class="has-tooltip">${d.sustainedStress}<span class="cell-tip">Sustained Load: ${d.sustainedStress}/15 — consecutive high-chaos days</span></td>
           <td class="has-tooltip">${d.afterHoursStress}<span class="cell-tip">After Hours: ${d.afterHoursStress}/10 — issues updated outside 9AM-6PM</span></td>
+          <td>${d.selfReportedScore != null ? d.selfReportedScore : ''}</td>
+          <td>${d.selfReportedNote ? escapeHtml(d.selfReportedNote) : ''}</td>
         `;
         tbody.appendChild(tr);
       });
