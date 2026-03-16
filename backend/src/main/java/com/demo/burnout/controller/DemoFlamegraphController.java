@@ -1,5 +1,8 @@
 package com.demo.burnout.controller;
 
+import com.demo.burnout.agent.AgentOrchestrator;
+import com.demo.burnout.agent.supervisor.BurnoutSupervisorService;
+import com.demo.burnout.goap.*;
 import com.demo.burnout.model.*;
 import com.demo.burnout.service.*;
 import com.demo.burnout.service.StressSnapshotService;
@@ -20,6 +23,7 @@ import java.net.http.HttpResponse;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +55,8 @@ public class DemoFlamegraphController {
     private final ComplianceService complianceService;
     private final IssueClassifierService classifier;
     private final StressSnapshotService snapshotService;
+    private final BurnoutSupervisorService supervisorService;
+    private final AgentOrchestrator agentOrchestrator;
     private final Clock clock;
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient;
@@ -61,6 +67,8 @@ public class DemoFlamegraphController {
                                     ComplianceService complianceService,
                                     IssueClassifierService classifier,
                                     StressSnapshotService snapshotService,
+                                    BurnoutSupervisorService supervisorService,
+                                    AgentOrchestrator agentOrchestrator,
                                     Clock clock,
                                     ObjectMapper objectMapper) {
         this.issueCache = issueCache;
@@ -68,6 +76,8 @@ public class DemoFlamegraphController {
         this.complianceService = complianceService;
         this.classifier = classifier;
         this.snapshotService = snapshotService;
+        this.supervisorService = supervisorService;
+        this.agentOrchestrator = agentOrchestrator;
         this.clock = clock;
         this.objectMapper = objectMapper;
         this.httpClient = HttpClient.newBuilder()
@@ -242,6 +252,114 @@ public class DemoFlamegraphController {
     public List<String> syncedRepos() {
         // Return repos currently in the cache so the UI can offer a dropdown
         return issueCache.getSyncedRepos();
+    }
+
+    /**
+     * Demo reshape endpoint. Runs the same supervisor/reshape logic as /api/reshape
+     * but without auth, and applies the mutation plan (label changes) to the
+     * in-memory IssueCache instead of GitHub.
+     */
+    @PostMapping("/reshape")
+    public ResponseEntity<Map<String, Object>> reshape(@RequestBody ReshapeRequest req) {
+        String repo = req.repo();
+        String userId = req.userId() != null ? req.userId() : "roryp";
+
+        if (!issueCache.hasRepo(repo)) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Repo not synced. Seed issues first."));
+        }
+
+        List<Issue> issues = issueCache.get(repo);
+        ChaosMetrics chaos = chaosMetricsService.calculate(issues, clock);
+        ComplianceReport compliance = complianceService.analyze(issues, userId);
+        WorldState state = WorldState.from(issues, userId, chaos, compliance, clock);
+
+        int beforeScore = state.calculateStressScore();
+
+        // Run supervisor pattern — same as ReshapeController
+        var supervisorResult = supervisorService.preventBurnout(
+            state, issues, userId, repo, chaos);
+
+        GitHubMutationPlan mutationPlan = supervisorResult.mutationPlan();
+
+        // Apply mutations to the IssueCache (in-memory) instead of GitHub
+        List<Issue> mutatedIssues = applyMutationsToIssues(issues, mutationPlan);
+        issueCache.put(repo, mutatedIssues, Instant.now(clock));
+
+        // Recalculate stress after mutations
+        ChaosMetrics afterChaos = chaosMetricsService.calculate(mutatedIssues, clock);
+        ComplianceReport afterCompliance = complianceService.analyze(mutatedIssues, userId);
+        WorldState afterState = WorldState.from(mutatedIssues, userId, afterChaos, afterCompliance, clock);
+        int afterScore = afterState.calculateStressScore();
+
+        // Record snapshot
+        try {
+            snapshotService.record(userId, repo, afterScore,
+                    afterState.getStressLevel(), "reshape", Map.of());
+        } catch (Exception e) {
+            log.warn("Failed to persist reshape snapshot: {}", e.getMessage());
+        }
+
+        DayStructure afterPlan = buildDayPlan(mutatedIssues, userId);
+
+        return ResponseEntity.ok(Map.of(
+            "status", "reshaped",
+            "beforeScore", beforeScore,
+            "afterScore", afterScore,
+            "afterLevel", afterState.getStressLevel().name(),
+            "actionsApplied", mutationPlan.actions().size(),
+            "explanation", supervisorResult.explanation(),
+            "llmUsed", supervisorResult.llmUsed(),
+            "dayPlan", Map.of(
+                "deepWork", afterPlan.deepWork() != null ? afterPlan.deepWork().number() : 0,
+                "quickWins", afterPlan.quickWins().stream().map(Issue::number).toList(),
+                "maintenance", afterPlan.maintenance().stream().map(Issue::number).toList(),
+                "deferred", afterPlan.deferred().stream().map(Issue::number).toList()
+            )
+        ));
+    }
+
+    public record ReshapeRequest(String repo, String userId) {}
+
+    /**
+     * Apply mutation plan (label adds/removes) to issues in memory.
+     * Returns a new list of issues with updated labels.
+     */
+    private List<Issue> applyMutationsToIssues(List<Issue> issues, GitHubMutationPlan plan) {
+        // Build a map of issue number -> mutable label list
+        var labelMap = new ConcurrentHashMap<Integer, List<String>>();
+        for (Issue issue : issues) {
+            List<String> labels = new ArrayList<>();
+            if (issue.labels() != null) {
+                issue.labels().forEach(l -> labels.add(l.name()));
+            }
+            labelMap.put(issue.number(), labels);
+        }
+
+        // Apply each action
+        for (GitHubAction action : plan.actions()) {
+            List<String> labels = labelMap.get(action.issueNumber());
+            if (labels == null) continue;
+
+            if (action instanceof GitHubAction.AddLabels add) {
+                for (String label : add.labels()) {
+                    if (!labels.contains(label)) labels.add(label);
+                }
+            } else if (action instanceof GitHubAction.RemoveLabels remove) {
+                labels.removeAll(remove.labels());
+            }
+            // Comments don't change issue data
+        }
+
+        // Rebuild issues with updated labels
+        return issues.stream().map(issue -> {
+            List<String> newLabels = labelMap.get(issue.number());
+            return new Issue(
+                issue.number(), issue.title(), issue.body(),
+                newLabels.stream().map(Issue.Label::new).toList(),
+                issue.assignees(), issue.createdAt(), issue.updatedAt(),
+                issue.state(), issue.milestone()
+            );
+        }).toList();
     }
 
     // --- day plan logic (same as ReshapeController, read-only) ---

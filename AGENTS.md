@@ -200,6 +200,7 @@ The system has two main components:
 | GET | `/demo/api/flamegraph?repo=...&userId=...` | No | Read-only flamegraph data for pre-synced repos |
 | GET | `/demo/api/repos` | No | List repos currently synced in memory |
 | POST | `/demo/api/sync?repo=owner/repo` | No | Sync issues from GitHub public API (rate-limited: 1 per repo per 5 min) |
+| POST | `/demo/api/reshape` | No | Run reshape (supervisor agent) and apply mutations to IssueCache |
 
 ### Demo web app
 
