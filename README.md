@@ -158,8 +158,8 @@ A zero-friction web page for study participants. No VS Code, no CLI, no auth —
 
 | Before (Chaotic) | After (Reshaped) |
 |:---:|:---:|
-| ![Stress 100 — CRITICAL](docs/images/checkin-before.png) | ![Stress 26 — LOW](docs/images/checkin-after.png) |
-| Stress 100, CRITICAL — all bars red | Stress 26, LOW — most bars zeroed |
+| ![Stress 100 — CRITICAL](docs/images/demo/checkin-before.png) | ![Stress 14 — LOW](docs/images/demo/checkin-after.png) |
+| Stress 100, CRITICAL — all bars red | Stress 14, LOW — most bars zeroed |
 
 1. Student enters their GitHub username and a **public** repo
 2. Optionally sets the **self-report slider** (0–100: "How stressed do you feel?") and **notes**
@@ -189,7 +189,7 @@ A researcher-facing web page for tracking stress score trends over time, built f
 
 **Live:** `https://<your-app>.azurecontainerapps.io/study.html`
 
-![Study Dashboard](docs/images/study-dashboard.png)
+![Study Dashboard](docs/images/demo/study-dashboard.png)
 
 ### What it does
 
@@ -242,7 +242,7 @@ bash scripts/demo-screenshots.sh https://your-app.azurecontainerapps.io
 The scripts run the full before/after flow:
 1. Seed **BEFORE** (chaotic) state → stress 100, CRITICAL
 2. Capture checkin + flamegraph screenshots
-3. Seed **AFTER** (reshaped) state → stress ~26, LOW
+3. Run **reshape** via real supervisor agent → stress ~14, LOW
 4. Capture checkin + flamegraph + study dashboard screenshots
 
 Screenshots are saved to `docs/images/demo/`. If Playwright browsers aren't installed, the scripts fall back to API-only validation. You can also use the **Playwright MCP tool** in Copilot Chat to take screenshots interactively.
@@ -251,8 +251,8 @@ Screenshots are saved to `docs/images/demo/`. If Playwright browsers aren't inst
 
 | Before (Chaotic) | After (Reshaped) |
 |:---:|:---:|
-| ![100/100 stress, 0 quick wins, 12 deferred](docs/images/flamegraph-before.png) | ![65/100 stress, 70% Friday Score, 3-3-3](docs/images/flamegraph-after.png) |
-| 100/100 stress, 0 quick wins, 12 deferred | 65/100 stress, 70% Friday Score, 3-3-3 structure |
+| ![100/100 stress, 0 quick wins, 12 deferred](docs/images/demo/flamegraph-before.png) | ![14/100 stress, 90% Friday Score, 3-3-3](docs/images/demo/flamegraph-after.png) |
+| 100/100 stress, 0 quick wins, 12 deferred | 14/100 stress, 90% Friday Score, 3-3-3 structure |
 
 ## Security
 
