@@ -6,6 +6,40 @@
 
 **Live demo:** [https://aka.ms/burnout-app](https://aka.ms/burnout-app) — enter any public repo and see its burnout flamegraph instantly.
 
+## See It In Action
+
+Three pages, no auth required:
+
+| Page | URL | What you see |
+|------|-----|-------------|
+| **Flamegraph** | `/flamegraph.html?repo=roryp/burnout-app` | 3-3-3 day plan, stress score, per-issue heat |
+| **Check-In** | `/checkin.html` | Stress breakdown with self-report slider |
+| **Study Dashboard** | `/study.html` | Trend chart, 5 participants, raw data table |
+
+### Before / After
+
+| Before (Chaotic) | After (Reshaped) |
+|:---:|:---:|
+| ![100/100 stress](docs/images/demo/flamegraph-before.png) | ![14/100 stress, 3-3-3](docs/images/demo/flamegraph-after.png) |
+| 100/100 stress, 0 quick wins, 12 deferred | 14/100 stress, 90% Friday Score, 3-3-3 compliant |
+
+**How to get there:**
+
+```bash
+# 1. Seed chaotic issues (stress → 100)
+bash scripts/seed-demo.sh https://your-app.azurecontainerapps.io
+
+# 2. Reshape via MCP in VS Code Copilot Chat:
+#    "Sync issues for roryp/burnout-app"
+#    "Reshape my day for roryp/burnout-app"
+
+# 3. View the result:
+#    /flamegraph.html?repo=roryp/burnout-app&userId=roryp  → 14/100 stress
+#    /study.html → click Load Data → see roryp's 85→14 dramatic drop
+```
+
+![Study Dashboard](docs/images/demo/study-dashboard.png)
+
 ## Flows
 
 ### VS Code Flow (MCP Tools)
@@ -122,33 +156,32 @@ What's my stress score for owner/repo # Quick stress check (0-100)
 | GET | `/demo/api/repos` | No | List synced repos |
 | POST | `/demo/api/sync?repo=owner/repo` | No | Sync from GitHub public API (rate-limited) |
 | POST | `/demo/api/seed` | No | Seed test data (**use camelCase fields** — see below) |
+| POST | `/demo/api/reshape` | No | Run reshape (supervisor agent), apply mutations to cache |
 | POST | `/demo/api/checkin` | No | Student stress check-in (syncs + records snapshot) |
 
-## Seeding Test Data
+## Seeding & Demo Data
 
-The easiest way to seed everything for a demo is the one-command script:
+The seed script populates everything needed for a live demo — 16 issues, checkins, and 14 days of study history for 5 participants (alice, bob, carol, dave, roryp):
 
 ```bash
-# Local
-bash scripts/seed-demo.sh
-
-# Azure
-bash scripts/seed-demo.sh https://your-app.azurecontainerapps.io
+bash scripts/seed-demo.sh https://your-app.azurecontainerapps.io           # seed BEFORE (chaotic)
+bash scripts/seed-demo.sh https://your-app.azurecontainerapps.io after      # seed + reshape (AFTER)
 ```
 
 ```powershell
-# Windows (local)
-.\scripts\seed-demo.ps1
-
-# Windows (Azure)
-.\scripts\seed-demo.ps1 -BaseUrl https://your-app.azurecontainerapps.io
+.\scripts\seed-demo.ps1 -BaseUrl https://your-app.azurecontainerapps.io              # seed BEFORE
+.\scripts\seed-demo.ps1 -BaseUrl https://your-app.azurecontainerapps.io -Mode after  # seed + reshape
 ```
 
-This seeds 16 issues, runs checkins for 3 users, and generates 14 days of study history for 5 participants (alice, bob, carol, dave, roryp).
+The **AFTER** mode seeds chaotic issues then calls the real `/demo/api/reshape` endpoint, which runs the LLM supervisor agent to restructure the workload. No hardcoded data — the reshape result comes from the actual AI.
 
-> **⚠️ Two critical rules when seeding manually:**
-> 1. **Use camelCase** field names (`createdAt`, `updatedAt`) — NOT snake_case. Snake_case fields silently deserialize as `null`, causing Context Switching, After Hours, and Sustained Load to show as 0.
-> 2. **Use recent timestamps** — metrics are calculated relative to the server's current time. Static/old dates produce zero values.
+<details>
+<summary><strong>⚠️ Manual seeding rules</strong></summary>
+
+1. **Use camelCase** field names (`createdAt`, `updatedAt`) — NOT snake_case. Snake_case fields silently deserialize as `null`, causing Context Switching, After Hours, and Sustained Load to show as 0.
+2. **Use recent timestamps** — metrics are calculated relative to the server's current time. Static/old dates produce zero values.
+
+</details>
 
 ## Student Check-In
 
@@ -205,7 +238,7 @@ Every call to `get_stress_score`, `reshape_day`, or the **check-in page** automa
 
 PostgreSQL is provisioned automatically by `azd up` (see `infra/modules/postgresql.bicep`). The backend auto-creates the `stress_snapshots` table via JPA on first startup.
 
-To seed dummy data for demos (4 users, 14 days, ~90 snapshots):
+To seed dummy data for demos (5 users, 14 days, ~113 snapshots):
 
 ```bash
 curl -X POST https://<your-app>/demo/api/study/seed
@@ -221,38 +254,19 @@ curl -X POST https://<your-app>/demo/api/study/seed
 
 ## Demo Screenshots
 
-Capture a full set of before/after screenshots for presentations. The scripts auto-discover the Azure URL via `azd env get-values` or accept it as a parameter.
+Capture a full set of before/after screenshots for presentations:
 
 ```powershell
-# Windows — auto-discovers Azure URL
-.\scripts\demo-screenshots.ps1
-
-# Windows — explicit URL
-.\scripts\demo-screenshots.ps1 -BaseUrl https://your-app.azurecontainerapps.io
+.\scripts\demo-screenshots.ps1                                                    # auto-discovers Azure URL
+.\scripts\demo-screenshots.ps1 -BaseUrl https://your-app.azurecontainerapps.io     # explicit URL
 ```
 
 ```bash
-# Mac/Linux — auto-discovers Azure URL
-bash scripts/demo-screenshots.sh
-
-# Mac/Linux — explicit URL
-bash scripts/demo-screenshots.sh https://your-app.azurecontainerapps.io
+bash scripts/demo-screenshots.sh                                                  # auto-discovers Azure URL
+bash scripts/demo-screenshots.sh https://your-app.azurecontainerapps.io            # explicit URL
 ```
 
-The scripts run the full before/after flow:
-1. Seed **BEFORE** (chaotic) state → stress 100, CRITICAL
-2. Capture checkin + flamegraph screenshots
-3. Run **reshape** via real supervisor agent → stress ~14, LOW
-4. Capture checkin + flamegraph + study dashboard screenshots
-
-Screenshots are saved to `docs/images/demo/`. If Playwright browsers aren't installed, the scripts fall back to API-only validation. You can also use the **Playwright MCP tool** in Copilot Chat to take screenshots interactively.
-
-### Flamegraph Before / After
-
-| Before (Chaotic) | After (Reshaped) |
-|:---:|:---:|
-| ![100/100 stress, 0 quick wins, 12 deferred](docs/images/demo/flamegraph-before.png) | ![14/100 stress, 90% Friday Score, 3-3-3](docs/images/demo/flamegraph-after.png) |
-| 100/100 stress, 0 quick wins, 12 deferred | 14/100 stress, 90% Friday Score, 3-3-3 structure |
+The scripts seed BEFORE data, capture screenshots, run reshape via the real supervisor agent, then capture AFTER + study screenshots. Saved to `docs/images/demo/`.
 
 ## Security
 
