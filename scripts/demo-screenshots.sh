@@ -13,7 +13,7 @@
 # What it does:
 #   1. Seeds BEFORE (chaotic) data via seed-demo.sh
 #   2. Opens checkin + flamegraph pages and takes BEFORE screenshots
-#   3. Seeds AFTER (reshaped) data via seed-demo.sh (after mode)
+#   3. Seeds AFTER (reshaped) data via seed-demo.sh (calls real reshape endpoint)
 #   4. Opens checkin + flamegraph pages and takes AFTER screenshots
 #   5. Opens study dashboard, loads data, takes screenshot
 #   6. Saves all screenshots to docs/images/demo/

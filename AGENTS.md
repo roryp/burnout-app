@@ -100,7 +100,7 @@ This seeds fresh data, then tests 26 assertions covering:
 
 ### Quick demo setup (one command)
 
-The `scripts/seed-demo.sh` (bash) and `scripts/seed-demo.ps1` (PowerShell) scripts seed everything needed for a live demo — issues, checkin snapshots, and 14 days of study history. All timestamps are generated relative to "now" so every metric lights up.
+The `scripts/seed-demo.sh` (bash) and `scripts/seed-demo.ps1` (PowerShell) scripts seed everything needed for a live demo — issues, checkin snapshots, and 14 days of study history for 5 participants (alice, bob, carol, dave, roryp). All timestamps are generated relative to "now" so every metric lights up.
 
 ```bash
 # Local
@@ -201,6 +201,7 @@ The system has two main components:
 | GET | `/demo/api/repos` | No | List repos currently synced in memory |
 | POST | `/demo/api/sync?repo=owner/repo` | No | Sync issues from GitHub public API (rate-limited: 1 per repo per 5 min) |
 | POST | `/demo/api/reshape` | No | Run reshape (supervisor agent) and apply mutations to IssueCache |
+| POST | `/demo/api/checkin` | No | Record a stress check-in with optional self-reported score and note |
 
 ### Demo web app
 

@@ -14,7 +14,7 @@
 #   1. Seeds 16 chaotic issues into IssueCache
 #   2. (AFTER mode) Calls /demo/api/reshape to run the real supervisor agent
 #   3. Runs 3 checkins each for roryp, alice, bob to generate study snapshots
-#   4. Seeds 14 days of dummy study data (alice, bob, carol, dave)
+#   4. Seeds 14 days of dummy study data (alice, bob, carol, dave, roryp)
 #
 # BEFORE mode: All issues assigned to roryp, blank bodies, after-hours updates,
 #   multiple URGENT unassigned items -> stress score ~100 (CRITICAL)

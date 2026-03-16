@@ -75,7 +75,8 @@ When asked to take screenshots, capture demo screenshots, or run the demo flow:
    # Step 1: Seed BEFORE state
    .\scripts\seed-demo.ps1 -BaseUrl <azure-url>
    # Step 2: Take BEFORE screenshots (checkin + flamegraph)
-   # Step 3: Seed AFTER state
+   # Step 3: Sync real issues and reshape via MCP
+   #   Use sync_issues then reshape_day MCP tools, OR:
    .\scripts\seed-demo.ps1 -BaseUrl <azure-url> -Mode after
    # Step 4: Take AFTER screenshots (checkin + flamegraph)
    # Step 5: Take study dashboard screenshot
@@ -84,9 +85,9 @@ When asked to take screenshots, capture demo screenshots, or run the demo flow:
 3. **Screenshot checklist (5 screenshots minimum):**
    - `checkin-before.png` — Stress 100, CRITICAL, all bars red
    - `flamegraph-before.png` — 100/100 stress, 0 quick wins, 12 deferred
-   - `checkin-after.png` — Stress ~26, LOW, most bars zeroed
-   - `flamegraph-after.png` — ~65/100 stress, 70% Friday Score, 3-3-3 structure
-   - `study-dashboard.png` — trend chart, participant cards, raw snapshots
+   - `checkin-after.png` — Stress ~14, LOW, most bars zeroed
+   - `flamegraph-after.png` — ~14/100 stress, 90% Friday Score, 3-3-3 structure
+   - `study-dashboard.png` — trend chart with roryp's dramatic drop, 5 participant cards, raw snapshots
 
 4. **Using Playwright MCP tool for screenshots:** Navigate to each page, fill in
    `roryp` / `roryp/burnout-app`, click the action button, wait for results, then
