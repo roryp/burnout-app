@@ -168,8 +168,6 @@ Theory explains *why* burnout happens. But what does it *feel like*? These seven
 
 > *Too many tools, tabs, models, prompts, and context switches.*
 
-<img src="images/friction/01-fragmentation.png" alt="Developer overwhelmed by fragmented tools, tabs, notifications, and context switches" width="800"/>
-
 *The modern developer's reality: IDE, terminal, Slack, email, Jira, GitHub, video calls — all competing for the same brain. Every switch costs 23 minutes of recovery [[6]](#ref-6).*
 
 **How the system fights it:** The `contextSwitching` stress dimension ([WorldState.java](../backend/src/main/java/com/demo/burnout/model/WorldState.java)) detects when 6+ issues are touched in 60 minutes. [ChaosMetricsService](../backend/src/main/java/com/demo/burnout/service/ChaosMetricsService.java) flags reactive firefighting. The 3-3-3 structure forces a single focus point (1 deep work item) instead of letting everything compete equally. Formula: `min(15, (touchedToday − 5) × 3)`.
@@ -179,8 +177,6 @@ Theory explains *why* burnout happens. But what does it *feel like*? These seven
 ### 2.2 Learning Pressure
 
 > *The constant feeling that you're already behind.*
-
-<img src="images/friction/02-learning-pressure.png" alt="Developer at the base of an impossibly tall staircase of new technologies and frameworks" width="800"/>
 
 *New frameworks, new AI models, new paradigms — the staircase keeps growing. The treadmill of "keeping up" never stops.*
 
@@ -192,8 +188,6 @@ Theory explains *why* burnout happens. But what does it *feel like*? These seven
 
 > *Pressure to produce more, faster, because AI exists.*
 
-<img src="images/friction/03-performance-standards.png" alt="Human developer compared to AI robot producing 10x output, with rising expectations" width="800"/>
-
 *"AI can write code 10x faster" — so why can't you? The expectation ratchet turns AI productivity into human pressure.*
 
 **How the system fights it:** The `sustainedLoad` dimension tracks `consecutiveHighChaosDays` — each consecutive high-stress day adds 5 points (capped at 15). [CalendarService](../backend/src/main/java/com/demo/burnout/service/CalendarService.java) checks `isDeepWorkPossible()`, requiring a 90-minute uninterrupted block. [ProtectiveAiService](../backend/src/main/java/com/demo/burnout/agent/ProtectiveAiService.java) activates when stress ≥ 70 or consecutive high days ≥ 2, explicitly countering the "just push harder" mindset with: *"Sustainable pace > heroic effort."*
@@ -203,8 +197,6 @@ Theory explains *why* burnout happens. But what does it *feel like*? These seven
 ### 2.4 Isolation
 
 > *Doing cognitively heavy work alone, with less human grounding.*
-
-<img src="images/friction/04-isolation.png" alt="Developer alone in a dark bubble, disconnected from greyed-out teammates" width="800"/>
 
 *Complex work demands deep focus — but deep focus means disconnection. When no one else touches the critical issues, one developer carries the weight alone.*
 
@@ -216,8 +208,6 @@ Theory explains *why* burnout happens. But what does it *feel like*? These seven
 
 > *Fighting clunky tools instead of flowing through the work.*
 
-<img src="images/friction/05-interface-friction.png" alt="Developer wrestling a tangled machine of error dialogs and loading spinners to reach a simple goal" width="800"/>
-
 *The goal is simple — ship the feature. But between you and the goal: cryptic error messages, loading spinners, broken builds, and mystery-meat issues with no description.*
 
 **How the system fights it:** The `clarity` stress dimension measures "mystery meat" — issues with blank bodies, no assignees, or vague titles. [ChaosMetricsService](../backend/src/main/java/com/demo/burnout/service/ChaosMetricsService.java) counts them; formula: `min(10, mysteryMeat × 2) + min(5, unclearQuickWins)`. The [ScopeAgent](../backend/src/main/java/com/demo/burnout/agent/supervisor/BurnoutAgents.java) proactively flags unclear issues with `needs-scope` labels via [addScopeNeeded()](../backend/src/main/java/com/demo/burnout/agent/supervisor/BurnoutMutationTool.java), pushing friction back to its source.
@@ -228,8 +218,6 @@ Theory explains *why* burnout happens. But what does it *feel like*? These seven
 
 > *Being asked to think strategically at a high level while still being pulled into fine-grained review and execution.*
 
-<img src="images/friction/06-altitude-sickness.png" alt="Developer stretched between cloud-level strategic planning and ground-level code review" width="800"/>
-
 *Architecture planning at 30,000 feet, then line-by-line code review at ground level — the cognitive whiplash of switching altitudes is exhausting.*
 
 **How the system fights it:** The 4-bucket classification explicitly separates strategic (DEEP_WORK) from tactical (QUICK_WIN, MAINTENANCE). [DayStructure.MAX_ACTIVE = 7](../backend/src/main/java/com/demo/burnout/model/DayStructure.java) prevents reactive "manage 200 issues" thinking. [ComplianceService](../backend/src/main/java/com/demo/burnout/service/ComplianceService.java) flags `TOTAL_OVERLOAD` (activeIssues > 7, −25 compliance points) and audits the 3-3-3 structure. [ChaosMetricsService](../backend/src/main/java/com/demo/burnout/service/ChaosMetricsService.java) detects label explosion (≥ 12 labels) — a symptom of altitude sickness at the organizational level.
@@ -239,8 +227,6 @@ Theory explains *why* burnout happens. But what does it *feel like*? These seven
 ### 2.7 Workload Creep
 
 > *AI makes more possible, so more gets expected.*
-
-<img src="images/friction/07-workload-creep.png" alt="AI robot flooding a funnel with generated work while a developer drowns in the output" width="800"/>
 
 *AI generates code, documentation, tests, PRs — but someone still has to review, test, deploy, and maintain all of it. The flood of "possible" becomes a tide of "expected."*
 
