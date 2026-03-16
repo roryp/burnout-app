@@ -118,10 +118,10 @@ public class StudyExportController {
         snapshotRepository.deleteAllInBatch();
         Random rng = new Random(42);
         String repo = "roryp/burnout-app";
-        String[] users = {"alice", "bob", "carol", "dave"};
-        // Base stress levels and trajectories per user
-        int[] baselines = {25, 55, 70, 40};       // starting stress
-        int[] deltas    = {-1,  2, -3,  0};        // daily drift (improvement / worsening)
+        // roryp starts high (85) and stays high — the real reshape will create the dramatic drop
+        String[] users = {"alice", "bob", "carol", "dave", "roryp"};
+        int[] baselines = {25, 55, 70, 40, 85};       // starting stress
+        int[] deltas    = {-1,  2, -3,  0,  1};        // daily drift
 
         Instant now = Instant.now();
         Instant start = now.minus(java.time.Duration.ofDays(14));
