@@ -99,11 +99,23 @@ public class StudyExportController {
     }
 
     /**
+     * Reset all stress snapshots. Used before re-seeding demo data.
+     */
+    @DeleteMapping("/reset")
+    public ResponseEntity<Map<String, Object>> resetSnapshots() {
+        long count = snapshotRepository.count();
+        snapshotRepository.deleteAllInBatch();
+        return ResponseEntity.ok(Map.of("deleted", count));
+    }
+
+    /**
      * Seed dummy stress snapshots for demo purposes.
-     * Creates 14 days of data for 4 simulated participants with realistic stress curves.
+     * Clears existing snapshots first, then creates 14 days of data
+     * for 4 simulated participants with realistic stress curves.
      */
     @PostMapping("/seed")
     public ResponseEntity<Map<String, Object>> seedDummyData() {
+        snapshotRepository.deleteAllInBatch();
         Random rng = new Random(42);
         String repo = "roryp/burnout-app";
         String[] users = {"alice", "bob", "carol", "dave"};
