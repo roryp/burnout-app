@@ -23,6 +23,21 @@ Three pages, no auth required:
 | ![100/100 stress](docs/images/demo/flamegraph-before.png) | ![14/100 stress, 3-3-3](docs/images/demo/flamegraph-after.png) |
 | 100/100 stress, 0 quick wins, 12 deferred | 14/100 stress, 90% Friday Score, 3-3-3 compliant |
 
+### Stress Breakdown: What Changed
+
+| Before (100/CRITICAL) | After (14/LOW) |
+|:---:|:---:|
+| ![Stress 100 — all bars red](docs/images/demo/stress-before.png) | ![Stress 14 — bars nearly empty](docs/images/demo/stress-after.png) |
+
+| Metric | Before | After | What changed |
+|--------|--------|-------|-------------|
+| **Workload** | 40 | 4 | 16 issues all on roryp → only 8 of 32 assigned |
+| **Chaos** | 30 | 10 | 3 unassigned URGENTs, no descriptions → all assigned, well-labeled |
+| **Context Switching** | 15 | 0 | 10+ issues updated in 60 min → no rapid-fire updates |
+| **Clarity** | 10 | 0 | All 16 issues had empty body → every issue has a description |
+| **After Hours** | 10 | 0 | Updates at 3AM/4AM/10PM → all during business hours |
+| **Sustained** | 0 | 0 | — |
+
 **How to get there:**
 
 ```bash
