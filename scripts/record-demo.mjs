@@ -72,8 +72,17 @@ async function main() {
     }));
   console.log(`  Cached ${realIssues.length} issues (filtered out PRs)`);
 
-  // ── Step 2: Seed BEFORE state (16 chaotic issues → stress 100) ──
-  console.log('\nStep 2: Seeding BEFORE state (16 chaotic issues)...');
+  // ── Step 2: Clear old data and seed fresh study history ──
+  console.log('\nStep 2: Resetting study data and seeding fresh history...');
+  await fetch(`${BASE}/demo/api/study/reset`, { method: 'DELETE' });
+  const studyResp = await fetch(`${BASE}/demo/api/study/seed`, { method: 'POST' });
+  if (studyResp.ok) {
+    const sd = await studyResp.json();
+    console.log(`  Seeded ${sd.seeded} fresh snapshots for ${sd.users.join(', ')}`);
+  }
+
+  // ── Step 3: Seed BEFORE state (16 chaotic issues → stress 100) ──
+  console.log('\nStep 3: Seeding BEFORE state (16 chaotic issues)...');
   // Use the seed endpoint directly to avoid the seed script's checkin re-sync
   const now = new Date();
   const fmt = d => d.toISOString().replace(/\.\d+Z$/, 'Z');
