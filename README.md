@@ -50,7 +50,7 @@ bash scripts/seed-demo.sh https://your-app.azurecontainerapps.io
 
 # 3. View the result:
 #    /flamegraph.html?repo=roryp/burnout-app&userId=roryp  → 10/100 stress
-#    /study.html → click Load Data → see roryp's 85→14 dramatic drop
+#    /study.html → click Load Data → see roryp's 85→10 dramatic drop
 ```
 
 ![Study Dashboard](docs/images/demo/study-dashboard.png)

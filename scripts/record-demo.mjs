@@ -4,7 +4,7 @@
  *
  * Uses the REAL flow as documented in README:
  *   1. seed-demo.ps1 seeds 16 chaotic issues (stress → 100)
- *   2. /demo/api/sync fetches real GitHub issues (stress → 14)
+ *   2. /demo/api/sync fetches real GitHub issues (stress → 10)
  *   3. Study dashboard shows team trends
  *
  * Usage:
@@ -297,7 +297,7 @@ async function main() {
   await page.click('#checkin-btn');
 
   await page.waitForSelector('#result-card', { state: 'visible', timeout: 15000 });
-  await sleep(3000); // HOLD: viewer sees 14/LOW — the dramatic drop
+  await sleep(3000); // HOLD: viewer sees 10/LOW — the dramatic drop
 
   // Expand workload to show the balanced issue list
   const afterToggles = await page.$$('.issue-toggle');
