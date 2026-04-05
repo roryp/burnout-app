@@ -592,9 +592,26 @@ public class DemoFlamegraphController {
     }
 
     private List<Issue> findChaosIssues(List<Issue> issues) {
+        // Return all issues that trigger any chaos signal:
+        // - urgent + unassigned
+        // - missing description or assignee (mystery meat)
+        // - after-hours activity
+        // - urgent and older than 24h
+        Instant now = clock.instant();
         return issues.stream()
-            .filter(i -> LabelUtils.hasAnyLabel(i, List.of("urgent", "priority:critical")))
-            .filter(i -> i.assignees() == null || i.assignees().isEmpty())
+            .filter(i -> {
+                boolean urgentUnassigned = LabelUtils.hasAnyLabel(i, List.of("urgent", "priority:critical"))
+                    && (i.assignees() == null || i.assignees().isEmpty());
+                boolean mysteryMeat = (i.body() == null || i.body().isBlank())
+                    || (i.assignees() == null || i.assignees().isEmpty());
+                boolean afterHours = DemoLabels.hasLabel(i, DemoLabels.AFTER_HOURS)
+                    || (!DemoLabels.hasDemoLabel(i) && isAfterHoursTime(i.updatedAt(), clock));
+                boolean urgentStale = LabelUtils.hasLabel(i, "urgent")
+                    && (DemoLabels.hasLabel(i, DemoLabels.STALE_14D)
+                        || (!DemoLabels.hasDemoLabel(i) && i.createdAt() != null
+                            && i.createdAt().isBefore(now.minusSeconds(86400))));
+                return urgentUnassigned || mysteryMeat || afterHours || urgentStale;
+            })
             .toList();
     }
 

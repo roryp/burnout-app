@@ -148,7 +148,7 @@ async function main() {
       el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity 0.6s;';
       el.innerHTML = `
         <div style="font-size:2.2rem;font-weight:800;background:linear-gradient(135deg,#00f260,#0575e6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:12px;">${t}</div>
-        <div style="color:#94a3b8;font-size:1.1rem;">${s}</div>
+        <div style="color:#94a3b8;font-size:1.1rem;max-width:500px;text-align:center;line-height:1.5;">${s}</div>
       `;
       document.body.appendChild(el);
     }, [title, subtitle]);
@@ -159,6 +159,50 @@ async function main() {
     });
     await sleep(600);
     await page.evaluate(() => document.getElementById('scene-title')?.remove());
+  }
+
+  // Helper: show title card, navigate while it's visible, then fade out once loaded
+  // Prevents the flash of landing pages / intermediate content before the real view renders
+  async function showTitleThenNavigate(url, title, subtitle, holdMs = 2500, waitForSelector = null) {
+    // Show overlay on the CURRENT page first
+    await page.evaluate(([t, s]) => {
+      const el = document.createElement('div');
+      el.id = 'scene-title';
+      el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity 0.6s;';
+      el.innerHTML = `
+        <div style="font-size:2.2rem;font-weight:800;background:linear-gradient(135deg,#00f260,#0575e6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:12px;">${t}</div>
+        <div style="color:#94a3b8;font-size:1.1rem;max-width:500px;text-align:center;line-height:1.5;">${s}</div>
+      `;
+      document.body.appendChild(el);
+    }, [title, subtitle]);
+    await sleep(holdMs);
+
+    // Navigate to the new page
+    await page.goto(url, { waitUntil: 'domcontentloaded' });
+
+    // Immediately inject a black cover so the landing page / loading state is hidden
+    await page.evaluate(() => {
+      const cover = document.createElement('div');
+      cover.id = 'page-cover';
+      cover.style.cssText = 'position:fixed;inset:0;background:#0a0a1a;z-index:9998;transition:opacity 0.5s;';
+      document.body.appendChild(cover);
+    });
+
+    // Wait for the real content to render underneath the cover
+    if (waitForSelector) {
+      await page.waitForSelector(waitForSelector, { timeout: 15000 }).catch(() => {});
+    } else {
+      await page.waitForLoadState('networkidle');
+    }
+    await sleep(500); // extra buffer for animations/rendering
+
+    // Fade out the cover to reveal the fully loaded page
+    await page.evaluate(() => {
+      const cover = document.getElementById('page-cover');
+      if (cover) cover.style.opacity = '0';
+    });
+    await sleep(500);
+    await page.evaluate(() => document.getElementById('page-cover')?.remove());
   }
 
   // ── Scene 1: BEFORE Check-in ──
@@ -187,12 +231,13 @@ async function main() {
 
   // ── Scene 2: BEFORE Flamegraph ──
   console.log('Scene 2: BEFORE flamegraph...');
-  await page.goto(`${BASE}/flamegraph.html?repo=${REPO}&userId=${USER}`);
-  await page.waitForLoadState('networkidle');
-
-  await showTitle('Step 2: View Flamegraph', '16 issues — no quick wins, 9 deferred, 100% stress');
-
-  await page.waitForSelector('text=Deep Work', { timeout: 15000 }).catch(() => {});
+  await showTitleThenNavigate(
+    `${BASE}/flamegraph.html?repo=${REPO}&userId=${USER}`,
+    'Step 2: View Flamegraph',
+    '16 issues — no quick wins, 9 deferred, 100% stress',
+    2500,
+    'text=Deep Work'
+  );
   await sleep(5000); // HOLD: viewer scans the imbalanced flamegraph
 
   // ── Scene 3: Rebalance transition ──
@@ -240,10 +285,11 @@ async function main() {
 
   // ── Scene 4: AFTER Check-in ──
   console.log('Scene 4: AFTER check-in...');
-  await page.goto(`${BASE}/checkin.html`);
-  await page.waitForLoadState('networkidle');
-
-  await showTitle('Step 3: Check Again', 'Same developer, same repo — after reshaping');
+  await showTitleThenNavigate(
+    `${BASE}/checkin.html`,
+    'Step 3: Check Again',
+    'Same developer, same repo — after reshaping'
+  );
 
   await page.fill('#userId', USER);
   await page.fill('#repo', REPO);
@@ -263,21 +309,24 @@ async function main() {
 
   // ── Scene 5: AFTER Flamegraph ──
   console.log('Scene 5: AFTER flamegraph...');
-  await page.goto(`${BASE}/flamegraph.html?repo=${REPO}&userId=${USER}`);
-  await page.waitForLoadState('networkidle');
-
-  await showTitle('Step 4: Balanced Flamegraph', '3-3-3 structure — 1 deep work, 3 quick wins, 3 maintenance');
-
-  await page.waitForSelector('text=Deep Work', { timeout: 15000 }).catch(() => {});
+  await showTitleThenNavigate(
+    `${BASE}/flamegraph.html?repo=${REPO}&userId=${USER}`,
+    'Step 4: Balanced Flamegraph',
+    '3-3-3 structure — 1 deep work, 3 quick wins, 3 maintenance',
+    2500,
+    'text=Deep Work'
+  );
   await sleep(5000); // HOLD: viewer scans the balanced 3-3-3 flamegraph
 
   // ── Scene 6: Team Dashboard ──
   console.log('Scene 6: Team stress dashboard...');
-  await page.goto(`${BASE}/study.html`);
-  await page.waitForLoadState('networkidle');
-
-  await showTitle('Step 5: Team Dashboard', 'Track stress trends across participants over time');
-
+  await showTitleThenNavigate(
+    `${BASE}/study.html`,
+    'Step 5: Team Dashboard',
+    'Track stress trends across participants over time',
+    2500,
+    '#load-btn'
+  );
   await page.click('#load-btn');
   await page.waitForSelector('#summary', { state: 'visible', timeout: 15000 }).catch(() => {});
   await sleep(3000); // HOLD: viewer reads summary cards + trend chart
