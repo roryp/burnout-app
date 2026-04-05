@@ -68,25 +68,26 @@ When asked to take screenshots, capture demo screenshots, or run the demo flow:
 
 2. **Run the full before/after flow:**
    ```powershell
-   # Option A: Automated script (captures screenshots via Playwright)
+   # Option A: Automated script (captures 7 screenshots via Playwright)
    .\scripts\demo-screenshots.ps1
 
    # Option B: Manual with Playwright MCP tool in Copilot Chat
    # Step 1: Seed BEFORE state
    .\scripts\seed-demo.ps1 -BaseUrl <azure-url>
-   # Step 2: Take BEFORE screenshots (checkin + flamegraph)
-   # Step 3: Sync real issues and reshape via MCP
-   #   Use sync_issues then reshape_day MCP tools, OR:
-   .\scripts\seed-demo.ps1 -BaseUrl <azure-url> -Mode after
-   # Step 4: Take AFTER screenshots (checkin + flamegraph)
+   # Step 2: Take BEFORE screenshots (checkin, stress drilldown, flamegraph)
+   # Step 3: Sync real GitHub issues for AFTER state
+   #   POST /demo/api/sync?repo=roryp/burnout-app
+   # Step 4: Take AFTER screenshots (checkin, stress drilldown, flamegraph)
    # Step 5: Take study dashboard screenshot
    ```
 
-3. **Screenshot checklist (5 screenshots minimum):**
-   - `checkin-before.png` — Stress 100, CRITICAL, all bars red
-   - `flamegraph-before.png` — 100/100 stress, 0 quick wins, 12 deferred
+3. **Screenshot checklist (7 screenshots):**
+   - `checkin-before.png` — Stress 100, CRITICAL, all bars red, issue toggles visible
+   - `stress-before.png` — Stress 100, CRITICAL, with Workload issue drilldown expanded
+   - `flamegraph-before.png` — 100/100 stress, 0 quick wins, 9 deferred
    - `checkin-after.png` — Stress ~14, LOW, most bars zeroed
-   - `flamegraph-after.png` — ~14/100 stress, 90% Friday Score, 3-3-3 structure
+   - `stress-after.png` — Stress ~14, LOW, with Workload issue drilldown expanded
+   - `flamegraph-after.png` — ~14/100 stress, 75% Friday Score, 3-3-3 structure
    - `study-dashboard.png` — trend chart with roryp's dramatic drop, 5 participant cards, raw snapshots
 
 4. **Using Playwright MCP tool for screenshots:** Navigate to each page, fill in
@@ -239,13 +240,14 @@ node scripts/record-demo.mjs [base-url]
 # Output: docs/images/demo/demo-pipeline.webm (~30s, 2.5MB)
 ```
 
-The recording script: resets study data, syncs real GitHub issues, seeds chaotic BEFORE state, records 6 scenes (BEFORE checkin/flamegraph → sync overlay → AFTER checkin/flamegraph → team dashboard).
+The recording script: resets study data, syncs real GitHub issues, seeds chaotic BEFORE state, records 6 scenes with title cards (BEFORE checkin with drilldown → BEFORE flamegraph → "Reshaping Your Day" transition → AFTER checkin with drilldown → AFTER flamegraph → team dashboard).
 
 ### 9. Capture Screenshots
 
 ```powershell
 .\scripts\demo-screenshots.ps1 -BaseUrl <url>
-# Output: docs/images/demo/checkin-before.png, flamegraph-before.png, etc.
+# Output: docs/images/demo/checkin-before.png, stress-before.png, flamegraph-before.png,
+#         checkin-after.png, stress-after.png, flamegraph-after.png, study-dashboard.png
 ```
 
 ### 10. Azure Deployment Verification
