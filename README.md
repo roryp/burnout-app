@@ -20,18 +20,18 @@ Three pages, no auth required:
 
 | Before (Chaotic) | After (Reshaped) |
 |:---:|:---:|
-| ![100/100 stress](docs/images/demo/flamegraph-before.png) | ![14/100 stress, 3-3-3](docs/images/demo/flamegraph-after.png) |
-| 100/100 stress, 0 quick wins, 9 deferred | 14/100 stress, 75% Friday Score, 3-3-3 compliant |
+| ![100/100 stress](docs/images/demo/flamegraph-before.png) | ![10/100 stress, 3-3-3](docs/images/demo/flamegraph-after.png) |
+| 100/100 stress, 0 quick wins, 9 deferred | 10/100 stress, 90% Friday Score, 3-3-3 compliant |
 
 ### Stress Breakdown: What Changed
 
-| Before (100/CRITICAL) | After (14/LOW) |
+| Before (100/CRITICAL) | After (10/LOW) |
 |:---:|:---:|
-| ![Stress 100 — all bars red](docs/images/demo/stress-before.png) | ![Stress 14 — bars nearly empty](docs/images/demo/stress-after.png) |
+| ![Stress 100 — all bars red](docs/images/demo/stress-before.png) | ![Stress 10 — bars nearly empty](docs/images/demo/stress-after.png) |
 
 | Metric | Before | After | What changed |
 |--------|--------|-------|-------------|
-| **Workload** | 40 | 4 | 16 issues all on roryp → only 8 of 32 assigned |
+| **Workload** | 40 | 0 | 16 issues all on roryp → only 7 of 32 assigned, 3-3-3 compliant |
 | **Chaos** | 30 | 10 | 3 unassigned URGENTs, no descriptions → after-hours activity detected (click to see which issues) |
 | **Context Switching** | 15 | 0 | 10+ issues updated in 60 min → no rapid-fire updates |
 | **Clarity** | 10 | 0 | All 16 issues had empty body → every issue has a description |
@@ -49,7 +49,7 @@ bash scripts/seed-demo.sh https://your-app.azurecontainerapps.io
 #    "Reshape my day for roryp/burnout-app"
 
 # 3. View the result:
-#    /flamegraph.html?repo=roryp/burnout-app&userId=roryp  → 14/100 stress
+#    /flamegraph.html?repo=roryp/burnout-app&userId=roryp  → 10/100 stress
 #    /study.html → click Load Data → see roryp's 85→14 dramatic drop
 ```
 
@@ -206,8 +206,8 @@ A zero-friction web page for study participants. No VS Code, no CLI, no auth —
 
 | Before (Chaotic) | After (Reshaped) |
 |:---:|:---:|
-| ![Stress 100 — CRITICAL](docs/images/demo/checkin-before.png) | ![Stress 14 — LOW](docs/images/demo/checkin-after.png) |
-| Stress 100, CRITICAL — all bars red | Stress 14, LOW — most bars zeroed |
+| ![Stress 100 — CRITICAL](docs/images/demo/checkin-before.png) | ![Stress 10 — LOW](docs/images/demo/checkin-after.png) |
+| Stress 100, CRITICAL — all bars red | Stress 10, LOW — most bars zeroed |
 
 1. Student enters their GitHub username and a **public** repo
 2. Optionally sets the **self-report slider** (0–100: "How stressed do you feel?") and **notes**

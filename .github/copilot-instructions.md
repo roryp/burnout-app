@@ -85,9 +85,9 @@ When asked to take screenshots, capture demo screenshots, or run the demo flow:
    - `checkin-before.png` — Stress 100, CRITICAL, all bars red, issue toggles visible
    - `stress-before.png` — Stress 100, CRITICAL, with Workload issue drilldown expanded
    - `flamegraph-before.png` — 100/100 stress, 0 quick wins, 9 deferred
-   - `checkin-after.png` — Stress ~14, LOW, most bars zeroed
-   - `stress-after.png` — Stress ~14, LOW, with Workload issue drilldown expanded
-   - `flamegraph-after.png` — ~14/100 stress, 75% Friday Score, 3-3-3 structure
+   - `checkin-after.png` — Stress ~10, LOW, most bars zeroed
+   - `stress-after.png` — Stress ~10, LOW, with Workload issue drilldown expanded
+   - `flamegraph-after.png` — ~10/100 stress, 90% Friday Score, 3-3-3 structure
    - `study-dashboard.png` — trend chart with roryp's dramatic drop, 5 participant cards, raw snapshots
 
 4. **Using Playwright MCP tool for screenshots:** Navigate to each page, fill in
@@ -180,7 +180,7 @@ After seeding, open these URLs (replace base URL for Azure):
 | Study | `/study.html` | Click Load Data → 5 participants, trend chart, 113+ snapshots |
 | Health | `/actuator/health` | `{"status":"UP"}` |
 
-**CRITICAL:** Always use `&userId=roryp` on the flamegraph URL — without it, stress is calculated across ALL users (higher score). With it, stress filters to roryp's assigned issues only (matches reference screenshots: 14/100).
+**CRITICAL:** Always use `&userId=roryp` on the flamegraph URL — without it, stress is calculated across ALL users (higher score). With it, stress filters to roryp's assigned issues only (matches reference screenshots: 10/100).
 
 ### 5. Post-Deployment Smoke Test (26 Assertions)
 
@@ -205,7 +205,7 @@ Show my burnout wheel for roryp/burnout-app
 Reshape my day for roryp/burnout-app
 ```
 
-Expected: `sync_issues` fetches 32 issues, `get_stress_score` returns 14/LOW, `show_burnout_wheel` shows 3-3-3 flamegraph, `reshape_day` applies labels and returns AI explanation.
+Expected: `sync_issues` fetches 32 issues, `get_stress_score` returns 10/LOW, `show_burnout_wheel` shows 3-3-3 flamegraph, `reshape_day` applies labels and returns AI explanation.
 
 ### 7. Test the Before/After Demo Flow
 
@@ -223,9 +223,9 @@ This is the **live demo flow** — captures the full 100→14 stress reduction:
 # Either via MCP: "Sync issues for roryp/burnout-app"
 # Or via API: POST /demo/api/sync?repo=roryp/burnout-app
 
-# Step 4: Verify AFTER (14/LOW)
-# Open /checkin.html → roryp → 14
-# Open /flamegraph.html?repo=roryp/burnout-app&userId=roryp → 14/100, 75% Friday
+# Step 4: Verify AFTER (10/LOW)
+# Open /checkin.html → roryp → 10
+# Open /flamegraph.html?repo=roryp/burnout-app&userId=roryp → 10/100, 90% Friday
 
 # Step 5: Check study dashboard
 # Open /study.html → Load Data → see 5 participants with trend chart
