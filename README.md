@@ -212,13 +212,14 @@ A zero-friction web page for study participants. No VS Code, no CLI, no auth —
 1. Student enters their GitHub username and a **public** repo
 2. Optionally sets the **self-report slider** (0–100: "How stressed do you feel?") and **notes**
 3. Clicks **"Check My Stress"**
-4. Sees their computed stress score + breakdown — snapshot is recorded automatically
+4. Sees their computed stress score + breakdown — **click any metric** to drill down into the specific issues causing that score
+5. Each issue links directly to GitHub — snapshot is recorded automatically
 
 The check-in compares **objective stress** (computed from GitHub signals) with **subjective stress** (self-reported), enabling researchers to study the gap between perceived and actual workload pressure.
 
 ### Stress Breakdown
 
-Each check-in calculates six stress dimensions from GitHub issue signals. **Hover over any metric** to see why that score was given.
+Each check-in calculates six stress dimensions from GitHub issue signals. **Hover over any metric** to see why that score was given. **Click the issue count** below any metric to expand a list of the specific GitHub issues driving that score — each issue links directly to GitHub.
 
 | Metric | What it measures | Max |
 |--------|-----------------|-----|

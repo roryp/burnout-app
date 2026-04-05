@@ -88,86 +88,8 @@ $outPath = [System.IO.Path]::GetFullPath($outPath)
 New-Item -ItemType Directory -Path $outPath -Force | Out-Null
 Write-Host "  Output directory: $outPath`n" -ForegroundColor Gray
 
-# --- Create the Playwright script ---
-$playwrightScript = @"
-const { chromium } = require('playwright');
-
-(async () => {
-    const baseUrl = process.argv[2];
-    const outDir = process.argv[3];
-    const width = parseInt(process.argv[4]) || 1280;
-    const height = parseInt(process.argv[5]) || 900;
-    const waitMs = parseInt(process.argv[6]) || 3000;
-
-    const browser = await chromium.launch({ headless: true });
-    const context = await browser.newContext({ viewport: { width, height } });
-
-    async function screenshot(url, filename, actions) {
-        const page = await context.newPage();
-        await page.goto(url, { waitUntil: 'networkidle' });
-        if (actions) await actions(page);
-        await page.waitForTimeout(waitMs);
-        const path = outDir + '/' + filename;
-        await page.screenshot({ path, fullPage: true, type: 'png' });
-        console.log('  Saved: ' + filename);
-        await page.close();
-    }
-
-    // --- BEFORE: Checkin ---
-    console.log('Taking BEFORE checkin screenshot...');
-    await screenshot(baseUrl + '/checkin.html', 'checkin-before.png', async (page) => {
-        await page.fill('input[placeholder*="octocat"]', 'roryp');
-        await page.fill('input[placeholder*="owner/repo"]', 'roryp/burnout-app');
-        await page.click('button:has-text("Check My Stress")');
-        await page.waitForSelector('text=CRITICAL', { timeout: 15000 }).catch(() => {
-            return page.waitForSelector('[class*="score"]', { timeout: 5000 });
-        });
-    });
-
-    // --- BEFORE: Flamegraph ---
-    console.log('Taking BEFORE flamegraph screenshot...');
-    await screenshot(baseUrl + '/flamegraph.html?repo=roryp/burnout-app', 'flamegraph-before.png', async (page) => {
-        await page.waitForSelector('text=Deep Work', { timeout: 15000 });
-    });
-
-    console.log('BEFORE screenshots done. Signaling for AFTER seed...');
-    console.log('__BEFORE_DONE__');
-
-    // Wait for AFTER seed (the PowerShell script will signal us)
-    // We just wait a fixed time since we're called after seeding
-    await new Promise(r => setTimeout(r, 2000));
-
-    // --- AFTER: Checkin ---
-    console.log('Taking AFTER checkin screenshot...');
-    await screenshot(baseUrl + '/checkin.html', 'checkin-after.png', async (page) => {
-        await page.fill('input[placeholder*="octocat"]', 'roryp');
-        await page.fill('input[placeholder*="owner/repo"]', 'roryp/burnout-app');
-        await page.click('button:has-text("Check My Stress")');
-        await page.waitForSelector('text=LOW', { timeout: 15000 }).catch(() => {
-            return page.waitForSelector('[class*="score"]', { timeout: 5000 });
-        });
-    });
-
-    // --- AFTER: Flamegraph ---
-    console.log('Taking AFTER flamegraph screenshot...');
-    await screenshot(baseUrl + '/flamegraph.html?repo=roryp/burnout-app', 'flamegraph-after.png', async (page) => {
-        await page.waitForSelector('text=Deep Work', { timeout: 15000 });
-    });
-
-    // --- Study Dashboard ---
-    console.log('Taking study dashboard screenshot...');
-    await screenshot(baseUrl + '/study.html', 'study-dashboard.png', async (page) => {
-        await page.click('button:has-text("Load Data")');
-        await page.waitForSelector('text=Snapshots', { timeout: 15000 });
-    });
-
-    await browser.close();
-    console.log('__ALL_DONE__');
-})();
-"@
-
-$tempScript = Join-Path $env:TEMP "burnout-demo-screenshots.js"
-Set-Content -Path $tempScript -Value $playwrightScript -Encoding UTF8
+# --- Playwright script path (standalone JS file, no temp file needed) ---
+$playwrightJs = Join-Path $PSScriptRoot "demo-screenshots.js"
 
 # --- Step 1: Seed BEFORE data ---
 Write-Host "Step 1: Seeding BEFORE (chaotic) data..." -ForegroundColor Yellow
@@ -189,51 +111,51 @@ if (-not $playwrightAvailable) {
     npx playwright install chromium 2>$null
 }
 
-# Take BEFORE screenshots
-$env:PLAYWRIGHT_BROWSERS_PATH = "0"
-$beforeOutput = npx playwright test --reporter=list 2>$null
-# Actually, use node directly with the script
-node $tempScript $BaseUrl $outPath $Width $Height $WaitMs 2>&1 | ForEach-Object {
-    if ($_ -match '__BEFORE_DONE__') {
-        # Seed AFTER data
-        Write-Host "`nStep 3: Seeding AFTER (reshaped) data..." -ForegroundColor Yellow
-        & "$PSScriptRoot\seed-demo.ps1" -BaseUrl $BaseUrl -Mode after
-        Write-Host ""
-    } else {
-        Write-Host $_
+# Take BEFORE screenshots, then sync, then AFTER screenshots (separate node runs to avoid timing issues)
+Write-Host "`nStep 2: Taking BEFORE screenshots..." -ForegroundColor Yellow
+node $playwrightJs $BaseUrl $outPath "before" $Width $Height $WaitMs 2>&1 | ForEach-Object { Write-Host $_ }
+
+$playwrightOk = ($LASTEXITCODE -eq 0)
+
+# --- Step 3: Sync real GitHub issues for AFTER state ---
+Write-Host "`nStep 3: Syncing real GitHub issues for AFTER state..." -ForegroundColor Yellow
+$synced = $false
+for ($attempt = 0; $attempt -lt 3 -and -not $synced; $attempt++) {
+    try {
+        $syncResp = Invoke-RestMethod -Uri "$BaseUrl/demo/api/sync?repo=roryp/burnout-app" -Method POST -TimeoutSec 30
+        Write-Host "  Synced $($syncResp.issueCount) real issues from GitHub" -ForegroundColor Green
+        $synced = $true
+    } catch {
+        $errBody = $_.ErrorDetails.Message | ConvertFrom-Json -ErrorAction SilentlyContinue
+        $waitSec = if ($errBody.retryAfterSeconds) { $errBody.retryAfterSeconds + 5 } else { 120 }
+        Write-Host "  Rate-limited. Waiting ${waitSec}s..." -ForegroundColor Yellow
+        Start-Sleep -Seconds $waitSec
     }
 }
+if (-not $synced) {
+    Write-Host "  WARNING: Could not sync. AFTER screenshots may show stale data." -ForegroundColor Red
+}
 
-# If the node script failed (playwright not installed as a module), fall back to simpler approach
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "`n  Playwright node module not found. Falling back to API-only validation..." -ForegroundColor Yellow
-    Write-Host "  To enable screenshots, run: npm install playwright && npx playwright install chromium" -ForegroundColor Yellow
-    Write-Host "  Or use the Playwright MCP tool in VS Code Copilot Chat instead.`n" -ForegroundColor Gray
+# --- Step 4: AFTER screenshots ---
+if ($playwrightOk) {
+    Write-Host "`nStep 4: Taking AFTER screenshots..." -ForegroundColor Yellow
+    node $playwrightJs $BaseUrl $outPath "after" $Width $Height $WaitMs 2>&1 | ForEach-Object { Write-Host $_ }
 
-    # --- Fallback: API-only validation (no screenshots) ---
-    Write-Host "Step 2 (fallback): Validating BEFORE state via API..." -ForegroundColor Yellow
+    Write-Host "`nStep 5: Taking study dashboard screenshot..." -ForegroundColor Yellow
+    node $playwrightJs $BaseUrl $outPath "study" $Width $Height $WaitMs 2>&1 | ForEach-Object { Write-Host $_ }
+} else {
+    Write-Host "`n  Playwright failed. Falling back to API-only validation..." -ForegroundColor Yellow
+    Write-Host "  To enable screenshots, run: npm install playwright && npx playwright install chromium`n" -ForegroundColor Yellow
+
+    # Validate BEFORE via API
+    Write-Host "Validating BEFORE state via API..." -ForegroundColor Yellow
     $beforeCheck = Invoke-RestMethod -Uri "$BaseUrl/demo/api/checkin" -Method POST -ContentType "application/json" -Body (@{userId="roryp";repo="roryp/burnout-app";selfScore=50} | ConvertTo-Json -Compress)
     Write-Host "  BEFORE stress: $($beforeCheck.stressScore) ($($beforeCheck.stressLevel))" -ForegroundColor $(if ($beforeCheck.stressScore -ge 80) { "Red" } else { "Yellow" })
-    Write-Host "  Workload=$($beforeCheck.breakdown.workload) Chaos=$($beforeCheck.breakdown.chaos) CtxSwitch=$($beforeCheck.breakdown.contextSwitching) Clarity=$($beforeCheck.breakdown.clarity) AfterHrs=$($beforeCheck.breakdown.afterHours)"
 
-    $beforeFg = Invoke-RestMethod -Uri "$BaseUrl/demo/api/flamegraph?repo=roryp/burnout-app"
-    $qw = ($beforeFg.plan | Where-Object { $_.category -eq 'QUICK_WIN' }).issues.Count
-    $df = ($beforeFg.plan | Where-Object { $_.category -eq 'DEFERRED' }).issues.Count
-    Write-Host "  Flamegraph: stress=$($beforeFg.stressScore)/100, quickWins=$qw, deferred=$df"
-
-    Write-Host "`nStep 3: Seeding AFTER (reshaped) data..." -ForegroundColor Yellow
-    & "$PSScriptRoot\seed-demo.ps1" -BaseUrl $BaseUrl -Mode after
-
-    Write-Host "`nStep 4 (fallback): Validating AFTER state via API..." -ForegroundColor Yellow
+    # Validate AFTER via API
+    Write-Host "Validating AFTER state via API..." -ForegroundColor Yellow
     $afterCheck = Invoke-RestMethod -Uri "$BaseUrl/demo/api/checkin" -Method POST -ContentType "application/json" -Body (@{userId="roryp";repo="roryp/burnout-app";selfScore=50} | ConvertTo-Json -Compress)
     Write-Host "  AFTER stress: $($afterCheck.stressScore) ($($afterCheck.stressLevel))" -ForegroundColor $(if ($afterCheck.stressScore -le 40) { "Green" } else { "Yellow" })
-    Write-Host "  Workload=$($afterCheck.breakdown.workload) Chaos=$($afterCheck.breakdown.chaos) CtxSwitch=$($afterCheck.breakdown.contextSwitching) Clarity=$($afterCheck.breakdown.clarity) AfterHrs=$($afterCheck.breakdown.afterHours)"
-
-    $afterFg = Invoke-RestMethod -Uri "$BaseUrl/demo/api/flamegraph?repo=roryp/burnout-app"
-    $qw = ($afterFg.plan | Where-Object { $_.category -eq 'QUICK_WIN' }).issues.Count
-    $dw = ($afterFg.plan | Where-Object { $_.category -eq 'DEEP_WORK' }).issues.Count
-    $mt = ($afterFg.plan | Where-Object { $_.category -eq 'MAINTENANCE' }).issues.Count
-    Write-Host "  Flamegraph: stress=$($afterFg.stressScore)/100, deepWork=$dw, quickWins=$qw, maintenance=$mt (3-3-3 structure)"
 }
 
 # --- Summary ---
@@ -258,5 +180,4 @@ Write-Host "  $BaseUrl/flamegraph.html?repo=roryp/burnout-app    -> Flamegraph"
 Write-Host "  $BaseUrl/study.html                                -> Study Dashboard"
 Write-Host ""
 
-# Cleanup temp file
-Remove-Item -Path $tempScript -ErrorAction SilentlyContinue
+# (no temp file cleanup needed — demo-screenshots.js is a version-controlled file)

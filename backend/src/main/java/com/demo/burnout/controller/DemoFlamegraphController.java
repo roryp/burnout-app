@@ -5,6 +5,8 @@ import com.demo.burnout.agent.supervisor.BurnoutSupervisorService;
 import com.demo.burnout.goap.*;
 import com.demo.burnout.model.*;
 import com.demo.burnout.service.*;
+import com.demo.burnout.util.DemoLabels;
+import com.demo.burnout.util.LabelUtils;
 import com.demo.burnout.service.StressSnapshotService;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -25,6 +27,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -513,14 +517,26 @@ public class DemoFlamegraphController {
             log.warn("Failed to persist check-in snapshot: {}", e.getMessage());
         }
 
-        return ResponseEntity.ok(Map.of(
-            "stressScore", stressScore,
-            "stressLevel", stressLevel.name(),
-            "breakdown", breakdown,
-            "breakdownHints", breakdownHints,
-            "totalIssues", issues.size(),
-            "is333Compliant", state.is333Compliant()
-        ));
+        // Build issue attribution per metric (lightweight: number + title only)
+        Map<String, List<Map<String, Object>>> breakdownIssues = new LinkedHashMap<>();
+        breakdownIssues.put("workload", toIssueSummaries(findWorkloadIssues(issues, userId)));
+        breakdownIssues.put("chaos", toIssueSummaries(findChaosIssues(issues)));
+        breakdownIssues.put("contextSwitching", toIssueSummaries(findContextSwitchingIssues(issues, userId, clock)));
+        breakdownIssues.put("clarity", toIssueSummaries(findClarityIssues(issues)));
+        breakdownIssues.put("sustained", List.of()); // historical pattern, not per-issue
+        breakdownIssues.put("afterHours", toIssueSummaries(findAfterHoursIssues(issues, userId, clock)));
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("stressScore", stressScore);
+        response.put("stressLevel", stressLevel.name());
+        response.put("breakdown", breakdown);
+        response.put("breakdownHints", breakdownHints);
+        response.put("breakdownIssues", breakdownIssues);
+        response.put("totalIssues", issues.size());
+        response.put("is333Compliant", state.is333Compliant());
+        response.put("repo", repo);
+
+        return ResponseEntity.ok(response);
     }
 
     private int calculateWorkloadStress(WorldState state) {
@@ -565,6 +581,63 @@ public class DemoFlamegraphController {
             sb.append(". ").append(state.mysteryMeatCount()).append("+ issues lack descriptions");
         }
         return sb.toString();
+    }
+
+    // --- Issue-finding helpers (mirror WorldState counting logic, return issues instead of counts) ---
+
+    private List<Issue> findWorkloadIssues(List<Issue> issues, String userId) {
+        return issues.stream()
+            .filter(i -> isAssignedToUser(i, userId))
+            .toList();
+    }
+
+    private List<Issue> findChaosIssues(List<Issue> issues) {
+        return issues.stream()
+            .filter(i -> LabelUtils.hasAnyLabel(i, List.of("urgent", "priority:critical")))
+            .filter(i -> i.assignees() == null || i.assignees().isEmpty())
+            .toList();
+    }
+
+    private List<Issue> findContextSwitchingIssues(List<Issue> issues, String userId, Clock clock) {
+        Instant cutoff = clock.instant().minus(Duration.ofHours(8));
+        return issues.stream()
+            .filter(i -> isAssignedToUser(i, userId))
+            .filter(i -> DemoLabels.hasLabel(i, DemoLabels.TOUCHED_TODAY) ||
+                         (!DemoLabels.hasDemoLabel(i) && i.updatedAt() != null &&
+                          i.updatedAt().isAfter(cutoff)))
+            .toList();
+    }
+
+    private List<Issue> findClarityIssues(List<Issue> issues) {
+        return issues.stream()
+            .filter(i -> i.body() == null || i.body().isBlank())
+            .toList();
+    }
+
+    private List<Issue> findAfterHoursIssues(List<Issue> issues, String userId, Clock clock) {
+        return issues.stream()
+            .filter(i -> isAssignedToUser(i, userId))
+            .filter(i -> DemoLabels.hasLabel(i, DemoLabels.AFTER_HOURS) ||
+                         (!DemoLabels.hasDemoLabel(i) && isAfterHoursTime(i.updatedAt(), clock)))
+            .toList();
+    }
+
+    private static boolean isAssignedToUser(Issue issue, String userId) {
+        if (userId == null || userId.isEmpty()) return true;
+        return issue.assignees() != null &&
+               issue.assignees().stream().anyMatch(a -> a.login().equalsIgnoreCase(userId));
+    }
+
+    private static boolean isAfterHoursTime(Instant timestamp, Clock clock) {
+        if (timestamp == null) return false;
+        int hour = timestamp.atZone(clock.getZone()).getHour();
+        return hour < 9 || hour >= 18;
+    }
+
+    private List<Map<String, Object>> toIssueSummaries(List<Issue> issues) {
+        return issues.stream()
+            .map(i -> Map.<String, Object>of("number", i.number(), "title", i.title()))
+            .toList();
     }
 
     public record CheckinRequest(String userId, String repo, Integer selfScore, String note) {}

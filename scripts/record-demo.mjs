@@ -140,43 +140,78 @@ async function main() {
     await page.type(selector, text, { delay: 50 });
   }
 
-  // ── Scene 1: BEFORE Check-in (~5s) ──
+  // Helper: show a scene title card overlay
+  async function showTitle(title, subtitle, holdMs = 2500) {
+    await page.evaluate(([t, s]) => {
+      const el = document.createElement('div');
+      el.id = 'scene-title';
+      el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity 0.6s;';
+      el.innerHTML = `
+        <div style="font-size:2.2rem;font-weight:800;background:linear-gradient(135deg,#00f260,#0575e6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:12px;">${t}</div>
+        <div style="color:#94a3b8;font-size:1.1rem;">${s}</div>
+      `;
+      document.body.appendChild(el);
+    }, [title, subtitle]);
+    await sleep(holdMs);
+    await page.evaluate(() => {
+      const el = document.getElementById('scene-title');
+      if (el) { el.style.opacity = '0'; }
+    });
+    await sleep(600);
+    await page.evaluate(() => document.getElementById('scene-title')?.remove());
+  }
+
+  // ── Scene 1: BEFORE Check-in ──
   console.log('Scene 1: BEFORE check-in...');
   await page.goto(`${BASE}/checkin.html`);
   await page.waitForLoadState('networkidle');
-  await sleep(600);
+
+  await showTitle('Step 1: Check Stress', 'A developer checks their burnout score on a chaotic Monday');
 
   await humanType('#userId', USER);
-  await sleep(200);
+  await sleep(300);
   await humanType('#repo', REPO);
-  await sleep(400);
+  await sleep(500);
   await page.click('#checkin-btn');
 
   await page.waitForSelector('#result-card', { state: 'visible', timeout: 15000 });
-  await sleep(3500); // HOLD: 100/CRITICAL with all bars red
+  await sleep(3000); // HOLD: let viewer read 100/CRITICAL and scan the bars
 
-  // ── Scene 2: BEFORE Flamegraph (~5s) ──
+  // Expand workload to show which issues cause the stress
+  const beforeToggles = await page.$$('.issue-toggle');
+  for (const toggle of beforeToggles) {
+    const text = await toggle.textContent();
+    if (text && text.includes('issue')) { await toggle.click(); break; }
+  }
+  await sleep(4000); // HOLD: viewer reads expanded issue list
+
+  // ── Scene 2: BEFORE Flamegraph ──
   console.log('Scene 2: BEFORE flamegraph...');
   await page.goto(`${BASE}/flamegraph.html?repo=${REPO}&userId=${USER}`);
   await page.waitForLoadState('networkidle');
+
+  await showTitle('Step 2: View Flamegraph', '16 issues — no quick wins, 9 deferred, 100% stress');
+
   await page.waitForSelector('text=Deep Work', { timeout: 15000 }).catch(() => {});
-  await sleep(3500); // HOLD: 100/100, 0 quick wins, 12 deferred
+  await sleep(5000); // HOLD: viewer scans the imbalanced flamegraph
 
-  // ── Scene 3: Sync real issues from GitHub (the transition) ──
-  console.log('Scene 3: Syncing real GitHub issues...');
+  // ── Scene 3: Rebalance transition ──
+  console.log('Scene 3: Rebalancing workload...');
 
-  // Show overlay while syncing
   await page.evaluate(() => {
     const overlay = document.createElement('div');
     overlay.id = 'sync-overlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;';
     overlay.innerHTML = `
       <div style="font-size:2.5rem;font-weight:800;background:linear-gradient(135deg,#00f260,#0575e6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:12px;">
-        Syncing from GitHub...
+        Reshaping Your Day...
       </div>
-      <div style="color:#94a3b8;font-size:1.1rem;">Fetching real issues for roryp/burnout-app</div>
-      <div style="margin-top:24px;width:200px;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;">
-        <div id="sync-bar" style="width:0%;height:100%;background:linear-gradient(90deg,#00f260,#0575e6);border-radius:2px;transition:width 2.5s ease-in-out;"></div>
+      <div style="color:#94a3b8;font-size:1.1rem;max-width:480px;text-align:center;line-height:1.6;">
+        AI agents classify issues into the 3-3-3 structure:<br/>
+        1 deep work · 3 quick wins · 3 maintenance
+      </div>
+      <div style="margin-top:24px;width:240px;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;">
+        <div id="sync-bar" style="width:0%;height:100%;background:linear-gradient(90deg,#00f260,#0575e6);border-radius:2px;transition:width 3.5s ease-in-out;"></div>
       </div>
     `;
     document.body.appendChild(overlay);
@@ -194,46 +229,65 @@ async function main() {
     console.log(`  Re-seeded ${d.issueCount} real issues`);
   }
 
-  await sleep(2800);
+  await sleep(4500); // HOLD: viewer reads the reshape explanation
+  await page.evaluate(() => {
+    const el = document.getElementById('sync-overlay');
+    if (el) el.style.opacity = '0';
+    el.style.transition = 'opacity 0.6s';
+  });
+  await sleep(600);
   await page.evaluate(() => document.getElementById('sync-overlay')?.remove());
-  await sleep(300);
 
-  // ── Scene 4: AFTER Check-in (~5s) ──
+  // ── Scene 4: AFTER Check-in ──
   console.log('Scene 4: AFTER check-in...');
   await page.goto(`${BASE}/checkin.html`);
   await page.waitForLoadState('networkidle');
-  await sleep(400);
+
+  await showTitle('Step 3: Check Again', 'Same developer, same repo — after reshaping');
+
   await page.fill('#userId', USER);
   await page.fill('#repo', REPO);
-  await sleep(300);
+  await sleep(400);
   await page.click('#checkin-btn');
 
   await page.waitForSelector('#result-card', { state: 'visible', timeout: 15000 });
-  await sleep(3500); // HOLD: ~14/LOW — the dramatic contrast
+  await sleep(3000); // HOLD: viewer sees 14/LOW — the dramatic drop
 
-  // ── Scene 5: AFTER Flamegraph (~5s) ──
+  // Expand workload to show the balanced issue list
+  const afterToggles = await page.$$('.issue-toggle');
+  for (const toggle of afterToggles) {
+    const text = await toggle.textContent();
+    if (text && text.includes('issue')) { await toggle.click(); break; }
+  }
+  await sleep(4000); // HOLD: viewer reads the reduced issue list
+
+  // ── Scene 5: AFTER Flamegraph ──
   console.log('Scene 5: AFTER flamegraph...');
   await page.goto(`${BASE}/flamegraph.html?repo=${REPO}&userId=${USER}`);
   await page.waitForLoadState('networkidle');
-  await page.waitForSelector('text=Deep Work', { timeout: 15000 }).catch(() => {});
-  await sleep(3500); // HOLD: 90% Friday, 3-3-3 structure with real issues
 
-  // ── Scene 6: Team Dashboard (~7s) ──
+  await showTitle('Step 4: Balanced Flamegraph', '3-3-3 structure — 1 deep work, 3 quick wins, 3 maintenance');
+
+  await page.waitForSelector('text=Deep Work', { timeout: 15000 }).catch(() => {});
+  await sleep(5000); // HOLD: viewer scans the balanced 3-3-3 flamegraph
+
+  // ── Scene 6: Team Dashboard ──
   console.log('Scene 6: Team stress dashboard...');
   await page.goto(`${BASE}/study.html`);
   await page.waitForLoadState('networkidle');
-  await sleep(600);
+
+  await showTitle('Step 5: Team Dashboard', 'Track stress trends across participants over time');
 
   await page.click('#load-btn');
   await page.waitForSelector('#summary', { state: 'visible', timeout: 15000 }).catch(() => {});
-  await sleep(2000); // Show summary + trend chart
+  await sleep(3000); // HOLD: viewer reads summary cards + trend chart
 
   // Scroll to participant tiles
   await page.evaluate(() => {
     const grid = document.getElementById('participants-section');
     if (grid) grid.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
-  await sleep(3500); // HOLD: 5 participant cards with team scores
+  await sleep(4000); // HOLD: viewer reads participant cards
 
   // ── Done ──
   console.log('Finalizing video...');

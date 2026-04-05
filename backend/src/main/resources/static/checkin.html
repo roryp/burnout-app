@@ -191,6 +191,42 @@
     }
     .breakdown-item:hover .tooltip { display: block; }
 
+    /* Expandable issue list */
+    .breakdown-wrapper { margin-bottom: 8px; }
+    .issue-toggle {
+      display: inline-block;
+      font-size: 0.7rem;
+      color: var(--accent);
+      cursor: pointer;
+      margin-left: 140px;
+      margin-top: 2px;
+      user-select: none;
+    }
+    .issue-toggle:hover { text-decoration: underline; }
+    .issue-list {
+      display: none;
+      margin: 6px 0 4px 140px;
+      padding: 0;
+      list-style: none;
+    }
+    .issue-list.open { display: block; }
+    .issue-list li {
+      margin-bottom: 3px;
+    }
+    .issue-list a {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.72rem;
+      line-height: 1.4;
+      transition: color 0.15s;
+    }
+    .issue-list a:hover { color: var(--accent); }
+    .issue-list .issue-num {
+      color: var(--accent);
+      font-weight: 600;
+      margin-right: 4px;
+    }
+
     .meta {
       display: flex;
       justify-content: center;
@@ -398,12 +434,19 @@
     const maxVals = { workload: 40, chaos: 30, contextSwitching: 15, clarity: 10, sustained: 15, afterHours: 10 };
 
     const hints = data.breakdownHints || {};
+    const issueMap = data.breakdownIssues || {};
+    const repo = data.repo || document.getElementById('repo').value.trim();
 
     for (const [key, label] of Object.entries(labels)) {
       const val = data.breakdown[key] || 0;
       const max = maxVals[key] || 20;
       const pct = Math.min(100, (val / max) * 100);
       const hint = hints[key] || '';
+      const issues = issueMap[key] || [];
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'breakdown-wrapper';
+
       const item = document.createElement('div');
       item.className = 'breakdown-item';
       item.innerHTML =
@@ -411,10 +454,48 @@
         '<div class="name">' + label + '</div>' +
         '<div class="bar-bg"><div class="bar-fill" style="width:0%;background:' + scoreColor(pct) + '"></div></div>' +
         '<div class="val">' + val + '</div>';
-      bd.appendChild(item);
+      wrapper.appendChild(item);
       requestAnimationFrame(() => {
         item.querySelector('.bar-fill').style.width = pct + '%';
       });
+
+      // Expandable issue list
+      if (issues.length > 0) {
+        const toggleId = 'issues-' + key;
+        const toggle = document.createElement('div');
+        toggle.className = 'issue-toggle';
+        toggle.textContent = '\u25B6 ' + issues.length + ' issue' + (issues.length === 1 ? '' : 's');
+        toggle.onclick = function() {
+          const list = document.getElementById(toggleId);
+          const open = list.classList.toggle('open');
+          toggle.textContent = (open ? '\u25BC ' : '\u25B6 ') + issues.length + ' issue' + (issues.length === 1 ? '' : 's');
+        };
+        wrapper.appendChild(toggle);
+
+        const ul = document.createElement('ul');
+        ul.className = 'issue-list';
+        ul.id = toggleId;
+        issues.forEach(function(iss) {
+          const li = document.createElement('li');
+          const a = document.createElement('a');
+          a.href = 'https://github.com/' + encodeURI(repo) + '/issues/' + iss.number;
+          a.target = '_blank';
+          a.rel = 'noopener';
+          a.innerHTML = '<span class="issue-num">#' + iss.number + '</span> ' + escHtml(iss.title);
+          li.appendChild(a);
+          ul.appendChild(li);
+        });
+        wrapper.appendChild(ul);
+      } else if (key === 'sustained') {
+        const note = document.createElement('div');
+        note.className = 'issue-toggle';
+        note.style.cursor = 'default';
+        note.style.color = 'var(--text-muted)';
+        note.textContent = 'Based on historical patterns';
+        wrapper.appendChild(note);
+      }
+
+      bd.appendChild(wrapper);
     }
 
     // Meta
