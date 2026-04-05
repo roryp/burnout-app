@@ -225,7 +225,7 @@ This is the **live demo flow** — captures the full 100→14 stress reduction:
 
 # Step 4: Verify AFTER (14/LOW)
 # Open /checkin.html → roryp → 14
-# Open /flamegraph.html?repo=roryp/burnout-app&userId=roryp → 14/100, 90% Friday
+# Open /flamegraph.html?repo=roryp/burnout-app&userId=roryp → 14/100, 75% Friday
 
 # Step 5: Check study dashboard
 # Open /study.html → Load Data → see 5 participants with trend chart
