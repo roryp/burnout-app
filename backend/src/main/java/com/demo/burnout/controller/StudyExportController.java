@@ -112,17 +112,17 @@ public class StudyExportController {
      * Seed dummy stress snapshots for demo purposes.
      * Clears existing snapshots first, then creates 14 days of data
      * for 5 simulated participants with realistic stress curves.
-     * roryp starts high (~85) and stays high — the real reshape creates the dramatic drop.
+     * roryp starts high (~95) and stays high — the real reshape creates the dramatic drop.
      */
     @PostMapping("/seed")
     public ResponseEntity<Map<String, Object>> seedDummyData() {
         snapshotRepository.deleteAllInBatch();
         Random rng = new Random(42);
         String repo = "roryp/burnout-app";
-        // roryp starts high (85) and stays high — the real reshape will create the dramatic drop
+        // roryp starts high (95) and stays high — the real reshape will create the dramatic drop
         String[] users = {"alice", "bob", "carol", "dave", "roryp"};
-        int[] baselines = {25, 55, 70, 40, 85};       // starting stress
-        int[] deltas    = {-1,  2, -3,  0,  1};        // daily drift
+        int[] baselines = {25, 55, 70, 40, 95};       // starting stress
+        int[] deltas    = {-1,  2, -3,  0,  0};        // daily drift
 
         Instant now = Instant.now();
         Instant start = now.minus(java.time.Duration.ofDays(14));
