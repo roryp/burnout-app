@@ -503,11 +503,14 @@
         });
         wrapper.appendChild(ul);
       } else if (key === 'sustained') {
+        const sustainedVal = data.breakdown.sustained || 0;
         const note = document.createElement('div');
         note.className = 'issue-toggle';
         note.style.cursor = 'default';
         note.style.color = 'var(--text-muted)';
-        note.textContent = 'Based on historical patterns';
+        note.textContent = sustainedVal > 0
+          ? 'Consecutive high-chaos days detected'
+          : 'No consecutive high-chaos days';
         wrapper.appendChild(note);
       }
 
