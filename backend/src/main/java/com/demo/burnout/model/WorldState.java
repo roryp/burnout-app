@@ -295,8 +295,10 @@ public record WorldState(
 
     private static boolean isAfterHours(Instant timestamp, Clock clock) {
         if (timestamp == null) return false;
-        int hour = timestamp.atZone(clock.getZone()).getHour();
-        return hour < 9 || hour >= 18;
+        java.time.ZonedDateTime zdt = timestamp.atZone(clock.getZone());
+        int hour = zdt.getHour();
+        java.time.DayOfWeek dow = zdt.getDayOfWeek();
+        return hour < 9 || hour >= 18 || dow == java.time.DayOfWeek.SATURDAY || dow == java.time.DayOfWeek.SUNDAY;
     }
 
     private static boolean isStale(Instant timestamp, int days, Clock clock) {

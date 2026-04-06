@@ -39,7 +39,7 @@ When seeding issues via `POST /demo/api/seed`:
 - **Quick Win**: `good-first-issue`, `quick-win`, `low-hanging-fruit`, `trivial`
 - **Maintenance**: `dependencies`, `documentation`, `triage`, `chore`, `refactor`, `tech-debt`, `ci`, `devops`, `maintenance`
 - **Chaos**: `urgent` (especially if unassigned or >24h old)
-- **After Hours**: set `updatedAt` to before 9 AM or after 6 PM UTC
+- **After Hours**: set `updatedAt` to before 9 AM or after 6 PM in the user's timezone (weekends also count)
 - **Context Switching**: 6+ issues with `updatedAt` in the last 60 minutes
 
 ## Demo Pages
@@ -107,6 +107,7 @@ When asked to take screenshots, capture demo screenshots, or run the demo flow:
 - The `/demo/api/seed` endpoint deserializes directly into `Issue` — so it needs **camelCase**
 - Deterministic services calculate all metrics first; AI agents only explain — they never make decisions
 - Every AI agent must have a deterministic fallback when the LLM is unavailable
+- **After-hours is timezone-aware**: The checkin page auto-detects the browser timezone and sends it as `tz` in the request body. Working hours are 9 AM–6 PM in the user's timezone; weekends always count as after-hours. All three after-hours implementations (ChaosMetricsService, WorldState, SyntheticTimeResolver) use the same 9 AM–6 PM + weekends rule.
 
 ## Testing the App (Comprehensive Guide)
 

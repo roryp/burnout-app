@@ -232,7 +232,7 @@ While the stress score measures the individual, the chaos score (0–10) measure
 | Mystery meat | ≥ 3 issues with blank body or no assignees | Team not investing in issue quality |
 | Unresolved urgent | ≥ 3 urgent items > 24h old | Broken priority system |
 | Issues touched today | ≥ 6 updated in 60 min | Reactive firefighting [[6]](#ref-6) |
-| After-hours | Any update outside 8am–6pm or weekend | Boundary erosion [[7]](#ref-7) |
+| After-hours | Any update outside 9am–6pm or weekend | Boundary erosion [[7]](#ref-7) |
 | Label explosion | ≥ 12 distinct labels | Taxonomy chaos → cognitive overhead [[2]](#ref-2) |
 
 **Chaos buckets:** ≤ 2 LOW, ≤ 5 MEDIUM, ≤ 8 HIGH, > 8 CRITICAL.
@@ -426,7 +426,7 @@ If you're reading the code and wondering "why that number?", this section explai
 
 ### What counts as "after hours"?
 
-[ChaosMetricsService.java](../backend/src/main/java/com/demo/burnout/service/ChaosMetricsService.java) flags activity outside **8am–6pm** (or weekends) as a chaos signal. [WorldState.java](../backend/src/main/java/com/demo/burnout/model/WorldState.java) uses a slightly narrower window — **9am–6pm** — for protective interventions, so an 8:30am commit won't trigger an intervention but will still register as an early-morning chaos signal.
+[ChaosMetricsService.java](../backend/src/main/java/com/demo/burnout/service/ChaosMetricsService.java) flags activity outside **9am–6pm** (or weekends) as a chaos signal. [WorldState.java](../backend/src/main/java/com/demo/burnout/model/WorldState.java) uses the same **9am–6pm** window for protective interventions. The checkin endpoint accepts an optional `tz` parameter (IANA timezone, e.g. `America/New_York`) so after-hours detection uses the user's local time. If no timezone is provided, the server's configured `demo.clock.zone` is used (default: `Africa/Johannesburg`).
 
 ### When is something "stale" or "urgent"?
 

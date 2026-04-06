@@ -110,6 +110,6 @@ public class ChaosMetricsService {
         ZonedDateTime zoned = timestamp.atZone(clk.getZone());
         int hour = zoned.getHour();
         DayOfWeek dow = zoned.getDayOfWeek();
-        return hour < 8 || hour >= 18 || dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY;
+        return hour < 9 || hour >= 18 || dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY;
     }
 }

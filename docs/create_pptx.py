@@ -419,7 +419,7 @@ data_chaos = [
     ["Mystery meat", "≥ 3 blank issues", "Poor issue quality"],
     ["Unresolved urgent", "≥ 3 items > 24h", "Broken priorities"],
     ["Touched today", "≥ 6 in 60 min", "Reactive firefighting"],
-    ["After-hours", "Outside 8am–6pm", "Boundary erosion"],
+    ["After-hours", "Outside 9am–6pm in user's TZ", "Boundary erosion"],
     ["Label explosion", "≥ 12 labels", "Taxonomy chaos"],
 ]
 add_table(slide, Inches(0.3), Inches(1.9), Inches(6.2), data_chaos,

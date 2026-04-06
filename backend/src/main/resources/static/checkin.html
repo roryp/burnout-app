@@ -75,6 +75,8 @@
     }
     .field input:focus { border-color: var(--accent); }
     .field input::placeholder { color: var(--text-muted); }
+    .field select:focus { border-color: var(--accent); }
+    .field select option { background: #1a1a2e; color: #ffffff; padding: 8px; }
     .field .hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
     .btn {
       width: 100%;
@@ -297,6 +299,15 @@
       <input type="text" id="repo" placeholder="e.g. owner/repo" />
       <div class="hint">Must be a public GitHub repository with open issues</div>
     </div>
+    <div class="field">
+      <label>Timezone (for after-hours detection)</label>
+      <div style="position:relative;">
+        <select id="tz" style="width:100%;background:#1a1a2e;border:1px solid var(--card-border);color:var(--text);padding:12px 16px;padding-right:40px;border-radius:10px;font-size:0.95rem;outline:none;cursor:pointer;-webkit-appearance:none;-moz-appearance:none;appearance:none;">
+        </select>
+        <span style="position:absolute;right:14px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--text-muted);font-size:0.7rem;">&#9660;</span>
+      </div>
+      <div class="hint">Working hours: 9 AM – 6 PM in your timezone. Weekends count as after-hours.</div>
+    </div>
     <button class="btn" id="checkin-btn" onclick="doCheckin()">Check My Stress</button>
     <div class="error-msg" id="error"></div>
 
@@ -369,6 +380,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, repo,
+          tz: document.getElementById('tz').value,
           selfScore: parseInt(document.getElementById('self-score').value, 10),
           note: document.getElementById('self-note').value.trim() || null
         })
@@ -436,6 +448,7 @@
     const hints = data.breakdownHints || {};
     const issueMap = data.breakdownIssues || {};
     const repo = data.repo || document.getElementById('repo').value.trim();
+    const usedTz = data.timezone || document.getElementById('tz').value;
 
     for (const [key, label] of Object.entries(labels)) {
       const val = data.breakdown[key] || 0;
@@ -449,8 +462,11 @@
 
       const item = document.createElement('div');
       item.className = 'breakdown-item';
+      const tooltipText = key === 'afterHours' && hint
+        ? hint + ' (' + usedTz.replace(/_/g, ' ') + ')'
+        : hint;
       item.innerHTML =
-        (hint ? '<div class="tooltip">' + escHtml(hint) + '</div>' : '') +
+        (tooltipText ? '<div class="tooltip">' + escHtml(tooltipText) + '</div>' : '') +
         '<div class="name">' + label + '</div>' +
         '<div class="bar-bg"><div class="bar-fill" style="width:0%;background:' + scoreColor(pct) + '"></div></div>' +
         '<div class="val">' + val + '</div>';
@@ -535,6 +551,33 @@
     const params = new URLSearchParams(window.location.search);
     if (params.get('userId')) document.getElementById('userId').value = params.get('userId');
     if (params.get('repo')) document.getElementById('repo').value = params.get('repo');
+
+    // Populate timezone dropdown
+    const tzSelect = document.getElementById('tz');
+    const detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const commonZones = [
+      'Pacific/Auckland', 'Australia/Sydney', 'Australia/Perth', 'Asia/Tokyo',
+      'Asia/Shanghai', 'Asia/Kolkata', 'Asia/Dubai', 'Africa/Johannesburg',
+      'Europe/Moscow', 'Europe/Istanbul', 'Europe/Helsinki', 'Europe/Berlin',
+      'Europe/Paris', 'Europe/London', 'Atlantic/Azores', 'America/Sao_Paulo',
+      'America/Buenos_Aires', 'America/New_York', 'America/Chicago',
+      'America/Denver', 'America/Los_Angeles', 'America/Anchorage', 'Pacific/Honolulu', 'UTC'
+    ];
+    // Ensure detected timezone is in the list
+    const zones = commonZones.includes(detectedTz) ? commonZones : [detectedTz, ...commonZones];
+    zones.forEach(function(tz) {
+      const opt = document.createElement('option');
+      opt.value = tz;
+      try {
+        const offset = new Date().toLocaleString('en-US', { timeZone: tz, timeZoneName: 'shortOffset' }).split(', ').pop() || '';
+        opt.textContent = tz.replace(/_/g, ' ') + (offset ? '  (' + offset + ')' : '');
+      } catch (e) {
+        opt.textContent = tz.replace(/_/g, ' ');
+      }
+      if (tz === detectedTz) opt.selected = true;
+      tzSelect.appendChild(opt);
+    });
+
     if (params.get('userId') && params.get('repo')) doCheckin();
   })();
 </script>

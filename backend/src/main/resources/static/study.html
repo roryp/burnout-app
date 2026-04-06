@@ -987,7 +987,7 @@
           <td class="has-tooltip">${d.contextSwitchingStress}<span class="cell-tip">Context Switching: ${d.contextSwitchingStress}/15 — issues touched in last 8h</span></td>
           <td class="has-tooltip">${d.clarityStress}<span class="cell-tip">Clarity: ${d.clarityStress}/10 — issues missing description or assignee</span></td>
           <td class="has-tooltip">${d.sustainedStress}<span class="cell-tip">Sustained Load: ${d.sustainedStress}/15 — consecutive high-chaos days</span></td>
-          <td class="has-tooltip">${d.afterHoursStress}<span class="cell-tip">After Hours: ${d.afterHoursStress}/10 — issues updated outside 9AM-6PM</span></td>
+          <td class="has-tooltip">${d.afterHoursStress}<span class="cell-tip">After Hours: ${d.afterHoursStress}/10 — issues updated outside 9AM-6PM in your timezone (weekends included)</span></td>
           <td>${d.selfReportedScore != null ? d.selfReportedScore : ''}</td>
           <td>${d.selfReportedNote ? escapeHtml(d.selfReportedNote) : ''}</td>
         `;

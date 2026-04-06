@@ -35,7 +35,7 @@ Three pages, no auth required:
 | **Chaos** | 30 | 10 | 3 unassigned URGENTs, no descriptions → after-hours activity detected (click to see which issues) |
 | **Context Switching** | 15 | 0 | 10+ issues updated in 60 min → no rapid-fire updates |
 | **Clarity** | 10 | 0 | All 16 issues had empty body → every issue has a description |
-| **After Hours** | 10 | 0 | Updates at 3AM/4AM/10PM → all during business hours |
+| **After Hours** | 10 | 0 | Updates at 3AM/4AM/10PM → all during business hours (timezone-aware) |
 | **Sustained** | 0 | 0 | — |
 
 **How to get there:**
@@ -172,7 +172,7 @@ What's my stress score for owner/repo # Quick stress check (0-100)
 | POST | `/demo/api/sync?repo=owner/repo` | No | Sync from GitHub public API (rate-limited) |
 | POST | `/demo/api/seed` | No | Seed test data (**use camelCase fields** — see below) |
 | POST | `/demo/api/reshape` | No | Run reshape (supervisor agent), apply mutations to cache |
-| POST | `/demo/api/checkin` | No | Student stress check-in (syncs + records snapshot) |
+| POST | `/demo/api/checkin` | No | Student stress check-in — accepts optional `tz` param for timezone-aware after-hours (syncs + records snapshot) |
 
 ## Seeding & Demo Data
 
@@ -228,7 +228,7 @@ Each check-in calculates six stress dimensions from GitHub issue signals. **Hove
 | **Context Switching** | Issues touched today > 5 (constant interrupts) | 15 |
 | **Clarity** | "Mystery meat" issues — no labels, no body | 10 |
 | **Sustained Load** | Consecutive high-chaos days | 15 |
-| **After Hours** | Issues updated outside 9am–6pm | 10 |
+| **After Hours** | Issues updated outside 9am–6pm in your timezone (weekends included) | 10 |
 
 Score is capped at 100. Levels: **LOW** (0–29), **MODERATE** (30–49), **HIGH** (50–69), **CRITICAL** (70+).
 

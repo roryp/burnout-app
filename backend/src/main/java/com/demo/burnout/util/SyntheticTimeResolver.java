@@ -52,6 +52,6 @@ public final class SyntheticTimeResolver {
         ZonedDateTime zdt = updatedAt.atZone(clk.getZone());
         int hour = zdt.getHour();
         DayOfWeek dow = zdt.getDayOfWeek();
-        return hour < 8 || hour >= 18 || dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY;
+        return hour < 9 || hour >= 18 || dow == DayOfWeek.SATURDAY || dow == DayOfWeek.SUNDAY;
     }
 }

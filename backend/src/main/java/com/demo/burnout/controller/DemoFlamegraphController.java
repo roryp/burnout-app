@@ -25,6 +25,7 @@ import java.net.http.HttpResponse;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -440,6 +441,19 @@ public class DemoFlamegraphController {
             return ResponseEntity.badRequest().body(Map.of("error", "Invalid repo format. Use owner/repo"));
         }
 
+        // Use user-provided timezone if valid, otherwise fall back to server default
+        Clock effectiveClock = clock;
+        String effectiveTimezone = clock.getZone().getId();
+        if (req.tz() != null && !req.tz().isBlank()) {
+            try {
+                ZoneId userZone = ZoneId.of(req.tz());
+                effectiveClock = Clock.system(userZone);
+                effectiveTimezone = userZone.getId();
+            } catch (Exception e) {
+                log.warn("Invalid timezone '{}', falling back to server default", req.tz());
+            }
+        }
+
         // Sync issues from GitHub (reuses cache + rate limiting)
         if (!issueCache.hasRepo(repo)) {
             Instant lastSync = lastSyncTimes.get(repo);
@@ -471,9 +485,9 @@ public class DemoFlamegraphController {
 
         // Calculate stress
         List<Issue> issues = issueCache.get(repo);
-        ChaosMetrics chaos = chaosMetricsService.calculate(issues, clock);
+        ChaosMetrics chaos = chaosMetricsService.calculate(issues, effectiveClock);
         ComplianceReport compliance = complianceService.analyze(issues, userId);
-        WorldState state = WorldState.from(issues, userId, chaos, compliance, clock);
+        WorldState state = WorldState.from(issues, userId, chaos, compliance, effectiveClock);
         int stressScore = state.calculateStressScore();
         StressLevel stressLevel = state.getStressLevel();
 
@@ -498,7 +512,7 @@ public class DemoFlamegraphController {
             "sustained", state.consecutiveHighChaosDays() == 0
                 ? "No consecutive high-chaos days detected"
                 : state.consecutiveHighChaosDays() + " consecutive days of high chaos — take a break",
-            "afterHours", state.issuesUpdatedAfterHours() + " issues updated outside working hours (before 9 AM or after 6 PM)"
+            "afterHours", state.issuesUpdatedAfterHours() + " of your assigned issues updated outside working hours (before 9 AM or after 6 PM)"
                 + (state.issuesUpdatedAfterHours() == 0 ? " — healthy boundaries" : " — signals overwork")
         );
 
@@ -521,10 +535,10 @@ public class DemoFlamegraphController {
         Map<String, List<Map<String, Object>>> breakdownIssues = new LinkedHashMap<>();
         breakdownIssues.put("workload", toIssueSummaries(findWorkloadIssues(issues, userId)));
         breakdownIssues.put("chaos", toIssueSummaries(findChaosIssues(issues)));
-        breakdownIssues.put("contextSwitching", toIssueSummaries(findContextSwitchingIssues(issues, userId, clock)));
+        breakdownIssues.put("contextSwitching", toIssueSummaries(findContextSwitchingIssues(issues, userId, effectiveClock)));
         breakdownIssues.put("clarity", toIssueSummaries(findClarityIssues(issues)));
         breakdownIssues.put("sustained", List.of()); // historical pattern, not per-issue
-        breakdownIssues.put("afterHours", toIssueSummaries(findAfterHoursIssues(issues, userId, clock)));
+        breakdownIssues.put("afterHours", toIssueSummaries(findAfterHoursIssues(issues, userId, effectiveClock)));
 
         Map<String, Object> response = new HashMap<>();
         response.put("stressScore", stressScore);
@@ -535,6 +549,7 @@ public class DemoFlamegraphController {
         response.put("totalIssues", issues.size());
         response.put("is333Compliant", state.is333Compliant());
         response.put("repo", repo);
+        response.put("timezone", effectiveTimezone);
 
         return ResponseEntity.ok(response);
     }
@@ -575,7 +590,7 @@ public class DemoFlamegraphController {
             sb.append(". ").append(state.urgentUnassigned()).append(" urgent issues have no assignee");
         }
         if (chaos.afterHoursSignal()) {
-            sb.append(". After-hours activity detected");
+            sb.append(". After-hours activity detected in repo (any contributor)");
         }
         if (state.mysteryMeatCount() >= 3) {
             sb.append(". ").append(state.mysteryMeatCount()).append("+ issues lack descriptions");
@@ -647,8 +662,10 @@ public class DemoFlamegraphController {
 
     private static boolean isAfterHoursTime(Instant timestamp, Clock clock) {
         if (timestamp == null) return false;
-        int hour = timestamp.atZone(clock.getZone()).getHour();
-        return hour < 9 || hour >= 18;
+        java.time.ZonedDateTime zdt = timestamp.atZone(clock.getZone());
+        int hour = zdt.getHour();
+        java.time.DayOfWeek dow = zdt.getDayOfWeek();
+        return hour < 9 || hour >= 18 || dow == java.time.DayOfWeek.SATURDAY || dow == java.time.DayOfWeek.SUNDAY;
     }
 
     private List<Map<String, Object>> toIssueSummaries(List<Issue> issues) {
@@ -657,7 +674,7 @@ public class DemoFlamegraphController {
             .toList();
     }
 
-    public record CheckinRequest(String userId, String repo, Integer selfScore, String note) {}
+    public record CheckinRequest(String userId, String repo, Integer selfScore, String note, String tz) {}
 
     public record FlamegraphResponse(
         String status,

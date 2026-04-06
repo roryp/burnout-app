@@ -201,7 +201,7 @@ The system has two main components:
 | GET | `/demo/api/repos` | No | List repos currently synced in memory |
 | POST | `/demo/api/sync?repo=owner/repo` | No | Sync issues from GitHub public API (rate-limited: 1 per repo per 5 min) |
 | POST | `/demo/api/reshape` | No | Run reshape (supervisor agent) and apply mutations to IssueCache |
-| POST | `/demo/api/checkin` | No | Stress check-in — returns `breakdown`, `breakdownHints`, and `breakdownIssues` (per-metric issue lists with `number` and `title`) |
+| POST | `/demo/api/checkin` | No | Stress check-in — accepts optional `tz` param (e.g. `America/New_York`) for timezone-aware after-hours detection. Returns `breakdown`, `breakdownHints`, `breakdownIssues`, and `timezone` |
 
 ### Demo web app
 
@@ -238,7 +238,7 @@ The `POST /demo/api/seed` endpoint accepts `{"repo": "owner/repo", "issues": [..
 - Quick Win: `good-first-issue`, `quick-win`, `low-hanging-fruit`, `trivial`
 - Maintenance: `dependencies`, `documentation`, `triage`, `chore`, `refactor`, `tech-debt`, `ci`, `devops`, `maintenance`
 - Chaos triggers: `urgent` (especially if unassigned or >24h old)
-- After hours: set `updatedAt` to hours before 9 AM or after 6 PM UTC
+- After hours: set `updatedAt` to hours before 9 AM or after 6 PM in the user's timezone (defaults to server timezone if no `tz` param). Weekends also count as after-hours.
 - Context switching: 6+ issues with `updatedAt` within the last 60 minutes
 
 ---
@@ -252,6 +252,7 @@ The `POST /demo/api/seed` endpoint accepts `{"repo": "owner/repo", "issues": [..
 - **Spring Boot version**: 3.5.10 with Spring Security 6.x. The `SecurityConfig` uses a single `SecurityFilterChain` bean with `permitAll` for demo/health paths and `authenticated` for `/api/**`.
 - **Seed data uses camelCase, NOT snake_case**: The `Issue` Java record uses `createdAt`/`updatedAt` (camelCase). The GitHub REST API returns `created_at`/`updated_at` (snake_case), but the `GitHubIssue` record in `DemoFlamegraphController` uses `@JsonProperty` annotations to map snake_case to camelCase during `/demo/api/sync`. When seeding directly via `/demo/api/seed`, you must use camelCase — snake_case fields silently deserialize as `null`, causing all time-based breakdown metrics (Context Switching, After Hours, Sustained Load) to show as 0.
 - **Seed data needs current timestamps**: Metrics like Context Switching (`issuesTouchedToday`) and After Hours are calculated relative to the server's current time. Using old/static dates (e.g. `2026-01-01`) will produce zero values. Always generate timestamps relative to "now" when seeding.
+- **After-hours is timezone-aware**: The checkin endpoint accepts an optional `tz` field (IANA timezone, e.g. `America/New_York`). The checkin.html page auto-detects the browser timezone and sends it. Working hours are 9 AM–6 PM in the user's timezone; weekends always count as after-hours. If no `tz` is provided, the server's configured `demo.clock.zone` is used (default: `Africa/Johannesburg`).
 
 ---
 
