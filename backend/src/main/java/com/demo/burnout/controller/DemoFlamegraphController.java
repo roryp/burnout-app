@@ -241,6 +241,11 @@ public class DemoFlamegraphController {
 
         int fridayScore = calculateFridayScore(chaos, compliance, state);
 
+        // Count issues relevant to the user (assigned to them, or all if no userId)
+        long userIssueCount = userId.isEmpty() ? issues.size() :
+            issues.stream().filter(i -> i.assignees() != null &&
+                i.assignees().stream().anyMatch(a -> a.login().equalsIgnoreCase(userId))).count();
+
         return new FlamegraphResponse(
             "ok",
             repo,
@@ -249,7 +254,7 @@ public class DemoFlamegraphController {
             state.getStressLevel(),
             fridayScore,
             compliance.isCompliant(),
-            issues.size()
+            (int) userIssueCount
         );
     }
 
