@@ -24,6 +24,7 @@
 #   reorganize the workload. No hardcoded AFTER state.
 #
 # After running, open:
+#   - /                    → landing page with links to all pages
 #   - /checkin.html         → stress check-in (enter roryp + roryp/burnout-app)
 #   - /flamegraph.html      → flamegraph visualization
 #   - /study.html           → researcher dashboard (click Load Data)
@@ -168,6 +169,7 @@ print(f\"   Workload={b['workload']} Chaos={b['chaos']} CtxSwitch={b['contextSwi
 
 echo ""
 echo "✅ Demo data seeded ($MODE)! Open these pages:"
+echo "   ${BASE_URL}/                              → Landing page"
 echo "   ${BASE_URL}/checkin.html              → Stress check-in (use: roryp / roryp/burnout-app)"
 echo "   ${BASE_URL}/flamegraph.html?repo=roryp/burnout-app  → Flamegraph"
 echo "   ${BASE_URL}/study.html                → Study dashboard (click Load Data)"

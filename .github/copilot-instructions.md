@@ -46,6 +46,7 @@ When seeding issues via `POST /demo/api/seed`:
 
 | Page | URL | What to enter |
 |------|-----|---------------|
+| Home | `/` | Landing page with links to all pages |
 | Stress Check-In | `/checkin.html` | Username: `roryp`, Repo: `roryp/burnout-app` |
 | Flamegraph | `/flamegraph.html?repo=roryp/burnout-app` | Auto-loads |
 | Study Dashboard | `/study.html` | Click **Load Data**, then click a participant |
@@ -81,7 +82,8 @@ When asked to take screenshots, capture demo screenshots, or run the demo flow:
    # Step 5: Take study dashboard screenshot
    ```
 
-3. **Screenshot checklist (7 screenshots):**
+3. **Screenshot checklist (8 screenshots):**
+   - `landing.png` — Landing page with cards linking to Check-In, Flamegraph, Study Dashboard
    - `checkin-before.png` — Stress 100, CRITICAL, all bars red, issue toggles visible
    - `stress-before.png` — Stress 100, CRITICAL, with Workload issue drilldown expanded
    - `flamegraph-before.png` — 100/100 stress, 0 quick wins, 9 deferred
@@ -176,6 +178,7 @@ After seeding, open these URLs (replace base URL for Azure):
 
 | Page | URL | Expected Result |
 |------|-----|-----------------|
+| Home | `/` | Landing page with links to Check-In, Flamegraph, Study |
 | Check-In | `/checkin.html` | Enter `roryp` + `roryp/burnout-app` → Score 100, CRITICAL |
 | Flamegraph | `/flamegraph.html?repo=roryp/burnout-app&userId=roryp` | 100/100 stress, 16 issues, 0 quick wins |
 | Study | `/study.html` | Click Load Data → 5 participants, trend chart, 113+ snapshots |
@@ -189,7 +192,7 @@ After seeding, open these URLs (replace base URL for Azure):
 .\scripts\smoke-test.ps1 -BaseUrl https://your-app.azurecontainerapps.io
 ```
 
-Tests: health, seeding, all 6 stress metrics non-zero, breakdown hints/tooltips, flamegraph day plan, study snapshots, all 3 static pages return HTTP 200.
+Tests: health, seeding, all 6 stress metrics non-zero, breakdown hints/tooltips, flamegraph day plan, study snapshots, all 4 static pages return HTTP 200.
 
 ### 6. Test MCP Tools in VS Code
 

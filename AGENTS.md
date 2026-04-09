@@ -119,6 +119,7 @@ bash scripts/seed-demo.sh https://your-app.azurecontainerapps.io
 ```
 
 After seeding, open:
+- `/` → landing page with links to all pages
 - `/checkin.html` → enter `roryp` + `roryp/burnout-app` to see the full stress breakdown with hover tooltips
 - `/flamegraph.html?repo=roryp/burnout-app` → flamegraph visualization
 - `/study.html` → researcher dashboard (click **Load Data**, then click any participant to drill into their stress details)
@@ -260,7 +261,7 @@ The `POST /demo/api/seed` endpoint accepts `{"repo": "owner/repo", "issues": [..
 
 - **`SecurityConfig.java`** controls all auth. GitHub tokens are validated against the GitHub API and cached for 5 minutes.
 - Paths that require auth: `/api/**` (all API endpoints)
-- Paths that are public: `/actuator/**`, `/demo/**`, `/flamegraph.html`, `/favicon.ico`, `OPTIONS /**`
+- Paths that are public: `/actuator/**`, `/demo/**`, `/`, `/index.html`, `/flamegraph.html`, `/checkin.html`, `/study.html`, `/favicon.ico`, `OPTIONS /**`
 - CORS allows: `*.azurecontainerapps.io`, `*.vscode-cdn.net`, `vscode-webview://*`, `localhost:*`
 - For local dev, set `security.enabled=false` via system property or env var `SECURITY_ENABLED=false`
 - On Azure, the backend uses managed identity (`AZURE_IDENTITY_CLIENT_ID`) for Azure OpenAI — no API keys needed
@@ -295,6 +296,7 @@ The `POST /demo/api/seed` endpoint accepts `{"repo": "owner/repo", "issues": [..
 | `backend/src/.../service/ChaosMetricsService.java` | Calculates chaos score from issue patterns |
 | `backend/src/.../service/ComplianceService.java` | Analyzes compliance (labels, assignees, SLA) |
 | `backend/src/.../controller/DemoFlamegraphController.java` | Read-only demo endpoints + seed endpoint (no auth) |
+| `backend/src/main/resources/static/index.html` | Landing page with links to all demo pages |
 | `backend/src/main/resources/static/flamegraph.html` | Standalone flamegraph web app for live demos |
 | `backend/src/main/resources/static/checkin.html` | Stress check-in page (supports URL params for deep-linking) |
 | `backend/src/main/resources/static/study.html` | Researcher dashboard with clickthrough to checkin + tooltips |

@@ -448,9 +448,12 @@
     }
 
     @keyframes spin { to { transform: rotate(360deg); } }
+    .back-link { position: fixed; top: 18px; left: 24px; color: var(--text-muted); text-decoration: none; font-size: 0.85rem; display: flex; align-items: center; gap: 6px; z-index: 100; transition: color 0.2s; }
+    .back-link:hover { color: var(--accent); }
   </style>
 </head>
 <body>
+  <a class="back-link" href="/">← Home</a>
   <div class="container">
     <h1>Burnout Study Dashboard</h1>
     <p class="subtitle">Researcher view &mdash; stress score trends and participant data over time</p>

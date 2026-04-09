@@ -354,9 +354,13 @@
 
     .footer a { color: var(--accent); text-decoration: none; }
     .footer a:hover { text-decoration: underline; }
+    .back-link { position: fixed; top: 18px; left: 24px; color: var(--text-muted); text-decoration: none; font-size: 0.85rem; display: flex; align-items: center; gap: 6px; z-index: 100; transition: color 0.2s; }
+    .back-link:hover { color: var(--accent); }
   </style>
 </head>
 <body>
+
+  <a class="back-link" href="/">← Home</a>
 
   <!-- Landing page -->
   <div class="container" id="landing">

@@ -35,6 +35,10 @@ const { chromium } = require('playwright');
     }
 
     if (mode === 'before') {
+        // --- Landing page ---
+        console.log('Taking landing page screenshot...');
+        await screenshot(baseUrl + '/', 'landing.png');
+
         // --- BEFORE: Checkin ---
         console.log('Taking BEFORE checkin screenshot...');
         await screenshot(baseUrl + '/checkin.html', 'checkin-before.png', async (page) => {

@@ -24,6 +24,7 @@
 #   reorganize the workload. No hardcoded AFTER state.
 #
 # After running, open:
+#   - /                    -> landing page with links to all pages
 #   - /checkin.html         -> stress check-in (enter roryp + roryp/burnout-app)
 #   - /flamegraph.html      -> flamegraph visualization
 #   - /study.html           -> researcher dashboard (click Load Data)
@@ -138,6 +139,7 @@ Write-Host "   Stress: $($check.stressScore) ($($check.stressLevel))"
 Write-Host "   Workload=$($check.breakdown.workload) Chaos=$($check.breakdown.chaos) CtxSwitch=$($check.breakdown.contextSwitching) Clarity=$($check.breakdown.clarity) Sustained=$($check.breakdown.sustained) AfterHrs=$($check.breakdown.afterHours)"
 
 Write-Host "`n✅ Demo data seeded ($Mode)! Open these pages:" -ForegroundColor Cyan
+Write-Host "   $BaseUrl/                              -> Landing page"
 Write-Host "   $BaseUrl/checkin.html              -> Stress check-in (use: roryp / roryp/burnout-app)"
 Write-Host "   $BaseUrl/flamegraph.html?repo=roryp/burnout-app  -> Flamegraph"
 Write-Host "   $BaseUrl/study.html                -> Study dashboard (click Load Data)"

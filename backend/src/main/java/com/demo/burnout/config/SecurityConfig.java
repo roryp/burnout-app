@@ -70,7 +70,7 @@ public class SecurityConfig {
                 // Demo flamegraph (read-only, no auth - for live demos)
                 .requestMatchers("/demo/**").permitAll()
                 // Static resources (demo web app)
-                .requestMatchers("/flamegraph.html", "/study.html", "/checkin.html", "/favicon.ico").permitAll()
+                .requestMatchers("/", "/index.html", "/flamegraph.html", "/study.html", "/checkin.html", "/favicon.ico").permitAll()
                 // OPTIONS requests for CORS preflight
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 // All API endpoints require authentication
@@ -113,9 +113,10 @@ public class SecurityConfig {
                                           HttpServletResponse response, 
                                           FilterChain filterChain) throws ServletException, IOException {
                 
-                // Skip auth for health and demo endpoints
+                // Skip auth for health, demo, and static page endpoints
                 String path = request.getRequestURI();
                 if (path.startsWith("/actuator") || path.startsWith("/demo") 
+                    || path.equals("/") || path.equals("/index.html")
                     || path.equals("/flamegraph.html") || path.equals("/study.html") || path.equals("/checkin.html") || path.equals("/favicon.ico")) {
                     filterChain.doFilter(request, response);
                     return;

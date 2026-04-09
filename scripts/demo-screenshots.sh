@@ -287,6 +287,7 @@ fi
 
 echo ""
 echo "Live pages:"
+echo "  $BASE_URL/                                              → Landing Page"
 echo "  $BASE_URL/checkin.html                              → Stress Check-In"
 echo "  $BASE_URL/flamegraph.html?repo=roryp/burnout-app    → Flamegraph"
 echo "  $BASE_URL/study.html                                → Study Dashboard"

@@ -140,7 +140,7 @@ Assert "Snapshots have breakdown fields" ($snapshots[0].workloadStress -ne $null
 
 # --- Step 6: Static pages serve ---
 Write-Host "`n--- Static Pages ---" -ForegroundColor Yellow
-foreach ($page in @("checkin.html", "flamegraph.html", "study.html")) {
+foreach ($page in @("index.html", "checkin.html", "flamegraph.html", "study.html")) {
     try {
         $resp = Invoke-WebRequest -Uri "$BaseUrl/$page" -UseBasicParsing -TimeoutSec 10
         Assert "$page serves (200)" ($resp.StatusCode -eq 200)

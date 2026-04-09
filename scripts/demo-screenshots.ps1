@@ -23,6 +23,7 @@
 #   - PowerShell 7+
 #
 # Output:
+#   docs/images/demo/landing.png
 #   docs/images/demo/checkin-before.png
 #   docs/images/demo/checkin-after.png
 #   docs/images/demo/flamegraph-before.png
@@ -175,6 +176,7 @@ if ($pngs) {
 }
 
 Write-Host "`nLive pages:" -ForegroundColor Cyan
+Write-Host "  $BaseUrl/                                              -> Landing Page"
 Write-Host "  $BaseUrl/checkin.html                              -> Stress Check-In"
 Write-Host "  $BaseUrl/flamegraph.html?repo=roryp/burnout-app    -> Flamegraph"
 Write-Host "  $BaseUrl/study.html                                -> Study Dashboard"

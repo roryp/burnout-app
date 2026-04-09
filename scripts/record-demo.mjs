@@ -205,6 +205,12 @@ async function main() {
     await page.evaluate(() => document.getElementById('page-cover')?.remove());
   }
 
+  // ── Scene 0: Landing Page ──
+  console.log('Scene 0: Landing page...');
+  await page.goto(`${BASE}/`);
+  await page.waitForLoadState('networkidle');
+  await sleep(3000); // HOLD: viewer sees the landing page with all cards
+
   // ── Scene 1: BEFORE Check-in ──
   console.log('Scene 1: BEFORE check-in...');
   await page.goto(`${BASE}/checkin.html`);

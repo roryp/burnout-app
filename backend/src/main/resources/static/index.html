@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
+  <title>Burnout-as-a-Service</title>
+  <style>
+    :root {
+      --bg: #0d0d0d;
+      --bg-gradient: linear-gradient(135deg, #0d0d0d 0%, #1a1a2e 50%, #16213e 100%);
+      --text: #ffffff;
+      --text-muted: #94a3b8;
+      --card-bg: rgba(255,255,255,0.05);
+      --card-border: rgba(255,255,255,0.1);
+      --accent: #667eea;
+      --accent2: #764ba2;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-gradient);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .container {
+      max-width: 720px;
+      width: 100%;
+      padding: 24px;
+      text-align: center;
+    }
+    h1 {
+      font-size: 2.8rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f857a6 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      margin-bottom: 48px;
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+    }
+    .card {
+      background: var(--card-bg);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 32px 24px;
+      text-decoration: none;
+      color: var(--text);
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: var(--accent);
+      box-shadow: 0 8px 32px rgba(102, 126, 234, 0.15);
+    }
+    .card .icon {
+      font-size: 2.4rem;
+    }
+    .card .label {
+      font-size: 1.15rem;
+      font-weight: 700;
+    }
+    .card .desc {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Burnout-as-a-Service</h1>
+    <p class="subtitle">AI-powered developer wellbeing &mdash; detect, prevent, and recover from burnout</p>
+    <div class="cards">
+      <a class="card" href="/checkin.html">
+        <span class="icon">🩺</span>
+        <span class="label">Stress Check-In</span>
+        <span class="desc">Get your real-time stress score with a full 6-metric breakdown</span>
+      </a>
+      <a class="card" href="/flamegraph.html">
+        <span class="icon">🔥</span>
+        <span class="label">Flamegraph</span>
+        <span class="desc">Visualise workload distribution and your optimised day plan</span>
+      </a>
+      <a class="card" href="/study.html">
+        <span class="icon">📊</span>
+        <span class="label">Study Dashboard</span>
+        <span class="desc">Researcher view with participant trends and longitudinal data</span>
+      </a>
+    </div>
+  </div>
+</body>
+</html>

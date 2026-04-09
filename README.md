@@ -8,13 +8,16 @@
 
 ## See It In Action
 
-Three pages, no auth required:
+Four pages, no auth required:
 
 | Page | URL | What you see |
 |------|-----|-------------|
+| **Home** | `/` | Landing page with links to all pages |
 | **Flamegraph** | `/flamegraph.html?repo=roryp/burnout-app` | 3-3-3 day plan, stress score, per-issue heat |
 | **Check-In** | `/checkin.html` | Stress breakdown with self-report slider |
 | **Study Dashboard** | `/study.html` | Trend chart, 5 participants, raw data table |
+
+![Landing Page](docs/images/demo/landing.png)
 
 ### Before / After
 
