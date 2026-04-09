@@ -1,0 +1,39 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { width: 1280px; height: 720px; font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #0f172a 0%, #1a2744 100%); color: #e2e8f0; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 100px; }
+.stage { font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: 3px; color: #2dd4bf; margin-bottom: 10px; }
+h1 { font-size: 46px; font-weight: 800; margin-bottom: 50px; }
+.points { display: flex; flex-direction: column; gap: 32px; width: 100%; max-width: 900px; }
+.point { display: flex; align-items: flex-start; gap: 22px; }
+.icon { font-size: 34px; flex-shrink: 0; width: 48px; text-align: center; margin-top: 2px; }
+.text strong { font-size: 22px; font-weight: 700; display: block; margin-bottom: 4px; }
+.text span { font-size: 17px; color: #94a3b8; line-height: 1.5; }
+.hl { color: #fbbf24; font-weight: 600; }
+</style></head><body>
+<div class="stage">Stage 4</div>
+<h1>Stress Score (0–100)</h1>
+<div class="points">
+  <div class="point">
+    <div class="icon">📊</div>
+    <div class="text">
+      <strong>6-Component Breakdown</strong>
+      <span>Workload (0–40) · Chaos (0–30) · Context Switching (0–15) · Clarity (0–10) · Sustained Load (0–15) · After Hours (0–10)</span>
+    </div>
+  </div>
+  <div class="point">
+    <div class="icon">🚦</div>
+    <div class="text">
+      <strong>4 Stress Levels</strong>
+      <span><span class="hl">≥ 70 CRITICAL</span> · ≥ 50 HIGH · ≥ 30 MODERATE · &lt; 30 LOW</span>
+    </div>
+  </div>
+  <div class="point">
+    <div class="icon">🔒</div>
+    <div class="text">
+      <strong>12 Capped World State Variables</strong>
+      <span>All inputs are capped (e.g. totalAssigned ≤ 15, deferred ≤ 10, mysteryMeat ≤ 10) to prevent overflow and keep scores deterministic</span>
+    </div>
+  </div>
+</div>
+</body></html>

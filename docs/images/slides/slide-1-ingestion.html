@@ -1,0 +1,38 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { width: 1280px; height: 720px; font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #0f172a 0%, #1a2744 100%); color: #e2e8f0; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 100px; }
+.stage { font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: 3px; color: #3b82f6; margin-bottom: 10px; }
+h1 { font-size: 46px; font-weight: 800; margin-bottom: 50px; }
+.points { display: flex; flex-direction: column; gap: 32px; width: 100%; max-width: 900px; }
+.point { display: flex; align-items: flex-start; gap: 22px; }
+.icon { font-size: 34px; flex-shrink: 0; width: 48px; text-align: center; margin-top: 2px; }
+.text strong { font-size: 22px; font-weight: 700; display: block; margin-bottom: 4px; }
+.text span { font-size: 17px; color: #94a3b8; line-height: 1.5; }
+</style></head><body>
+<div class="stage">Stage 1</div>
+<h1>Ingestion</h1>
+<div class="points">
+  <div class="point">
+    <div class="icon">📥</div>
+    <div class="text">
+      <strong>GitHub Issues → In-Memory Cache</strong>
+      <span>Issues synced via MCP (authenticated) or public API (rate-limited: 1 per repo per 5 min)</span>
+    </div>
+  </div>
+  <div class="point">
+    <div class="icon">📋</div>
+    <div class="text">
+      <strong>9 Fields Per Issue</strong>
+      <span>number, title, body, labels, assignees, createdAt, updatedAt, state, milestone</span>
+    </div>
+  </div>
+  <div class="point">
+    <div class="icon">🏷️</div>
+    <div class="text">
+      <strong>Demo Labels Override Real Timestamps</strong>
+      <span>demo:touched-today, demo:after-hours, demo:stale-14d — if present, real timestamps are ignored</span>
+    </div>
+  </div>
+</div>
+</body></html>

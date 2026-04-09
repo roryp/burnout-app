@@ -6,16 +6,16 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { width: 1920px; height: 1080px; font-family: 'Segoe UI', Arial, sans-serif; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color: #e2e8f0; overflow: hidden; }
 
-.header { text-align: center; padding: 18px 0 10px; }
-.header h1 { font-size: 32px; font-weight: 700; color: #f8fafc; letter-spacing: 1px; }
-.header p { font-size: 14px; color: #94a3b8; margin-top: 4px; }
+.header { text-align: center; padding: 14px 0 8px; }
+.header h1 { font-size: 30px; font-weight: 700; color: #f8fafc; letter-spacing: 1px; }
+.header p { font-size: 13px; color: #94a3b8; margin-top: 3px; }
 
-.grid { display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 16px; padding: 0 24px 20px; height: calc(100% - 80px); }
+.grid { display: grid; grid-template-columns: 1fr 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 14px; padding: 0 20px 16px; height: calc(100% - 68px); }
 
 .card { background: rgba(30, 41, 59, 0.9); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; }
-.card-header { padding: 10px 16px; font-size: 15px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; display: flex; align-items: center; gap: 10px; }
-.card-header .num { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; font-size: 14px; font-weight: 800; flex-shrink: 0; }
-.card-body { padding: 8px 16px 12px; font-size: 12.5px; line-height: 1.55; flex: 1; overflow: hidden; }
+.card-header { padding: 8px 14px; font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; display: flex; align-items: center; gap: 10px; }
+.card-header .num { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; font-size: 13px; font-weight: 800; flex-shrink: 0; }
+.card-body { padding: 6px 14px 10px; font-size: 11.5px; line-height: 1.5; flex: 1; overflow: hidden; }
 
 /* Stage colors */
 .s1 .card-header { background: #1d4ed8; } .s1 .num { background: #3b82f6; color: #fff; }
@@ -25,30 +25,28 @@ body { width: 1920px; height: 1080px; font-family: 'Segoe UI', Arial, sans-serif
 .s5 .card-header { background: #be123c; } .s5 .num { background: #fb7185; color: #1e293b; }
 .s6 .card-header { background: #4338ca; } .s6 .num { background: #818cf8; color: #fff; }
 
-.card-body h3 { font-size: 13px; color: #60a5fa; margin: 6px 0 3px; font-weight: 600; }
+.card-body h3 { font-size: 12px; color: #60a5fa; margin: 5px 0 2px; font-weight: 600; }
 .card-body h3:first-child { margin-top: 0; }
-.card-body .mono { font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 11.5px; background: rgba(15, 23, 42, 0.6); padding: 4px 8px; border-radius: 4px; margin: 3px 0; display: block; line-height: 1.5; color: #a5f3fc; }
-.card-body .kv { display: flex; gap: 6px; margin: 2px 0; }
-.card-body .kv .k { color: #94a3b8; min-width: 100px; flex-shrink: 0; }
+.card-body .mono { font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 11px; background: rgba(15, 23, 42, 0.6); padding: 3px 7px; border-radius: 4px; margin: 2px 0; display: block; line-height: 1.45; color: #a5f3fc; }
+.card-body .kv { display: flex; gap: 6px; margin: 1px 0; }
+.card-body .kv .k { color: #94a3b8; min-width: 90px; flex-shrink: 0; }
 .card-body .kv .v { color: #e2e8f0; font-weight: 500; }
-.card-body ul { margin: 2px 0 2px 16px; }
+.card-body ul { margin: 2px 0 2px 14px; }
 .card-body li { margin: 1px 0; }
-.tag { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 11px; font-weight: 600; margin: 1px 2px; }
+.tag { display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 10px; font-weight: 600; margin: 1px 1px; }
 .tag-crit { background: #dc2626; color: #fff; }
 .tag-warn { background: #d97706; color: #fff; }
 .tag-info { background: #2563eb; color: #fff; }
 .tag-green { background: #16a34a; color: #fff; }
 .highlight { color: #fbbf24; font-weight: 600; }
 .dim { color: #64748b; }
-.arrow-row { display: flex; align-items: center; justify-content: center; gap: 0; height: 14px; margin: 0; }
-.arrow-row span { color: #475569; font-size: 24px; line-height: 1; }
 </style>
 </head>
 <body>
 
 <div class="header">
   <h1>Burnout-as-a-Service &mdash; Algorithm Pipeline</h1>
-  <p>Deterministic services compute all metrics &bull; AI agents only explain &amp; act, never decide &bull; Every agent has a fallback path</p>
+  <p>Deterministic services compute all metrics &bull; AI agents only explain &amp; act, never decide &bull; Every agent has a fallback path &bull; Timezone-aware after-hours detection</p>
 </div>
 
 <div class="grid">
@@ -57,20 +55,24 @@ body { width: 1920px; height: 1080px; font-family: 'Segoe UI', Arial, sans-serif
   <div class="card s1">
     <div class="card-header"><div class="num">1</div>INGESTION</div>
     <div class="card-body">
-      <h3>Issue Record (Java record)</h3>
-      <span class="mono">number, title, body, labels, assignees,<br/>createdAt, updatedAt, state, milestone</span>
-      <div style="font-size:11px; color:#94a3b8; margin-top:2px;">Nested: Label(name) &bull; Assignee(login) &bull; Milestone(title, dueOn)</div>
+      <h3>Issue Record (Java record, camelCase)</h3>
+      <span class="mono">number, title, body, labels[], assignees[],<br/>createdAt, updatedAt, state, milestone</span>
+      <div style="font-size:10px; color:#94a3b8; margin-top:1px;">Nested: Label(name) &bull; Assignee(login) &bull; Milestone(title, dueOn)</div>
 
-      <h3>IssueCache</h3>
+      <h3>IssueCache (in-memory, versioned)</h3>
       <div class="kv"><span class="k">Storage</span><span class="v">ConcurrentHashMap&lt;String, CachedIssues&gt;</span></div>
-      <div class="kv"><span class="k">Versioned</span><span class="v">ConcurrentHashMap&lt;String, AtomicLong&gt;</span></div>
+      <div class="kv"><span class="k">Versions</span><span class="v">ConcurrentHashMap&lt;String, AtomicLong&gt;</span></div>
+      <div style="font-size:10px; color:#94a3b8;">Lost on restart &mdash; re-seed via /demo/api/seed or re-sync via MCP</div>
 
       <h3>Data Sources</h3>
       <ul>
-        <li><strong>MCP sync</strong> &mdash; authenticated via GitHub token</li>
-        <li><strong>Public API</strong> &mdash; rate limit: 1 per repo per 5 min</li>
-        <li><strong>Seed endpoint</strong> &mdash; POST /demo/api/seed (no auth)</li>
+        <li><strong>MCP sync</strong> &mdash; authenticated via GitHub Bearer token, schema v1</li>
+        <li><strong>Public API</strong> &mdash; /demo/api/sync, rate limit: 1 per repo per <span class="highlight">5 min</span></li>
+        <li><strong>Seed endpoint</strong> &mdash; POST /demo/api/seed (no auth, camelCase fields)</li>
       </ul>
+
+      <h3>SyntheticTimeResolver (demo label override)</h3>
+      <span class="mono">demo:touched-today &bull; demo:after-hours &bull; demo:stale-14d &bull; demo:friday<br/><span class="highlight">Golden rule:</span> if ANY demo:* label exists → never consult real timestamps</span>
     </div>
   </div>
 
@@ -80,17 +82,20 @@ body { width: 1920px; height: 1080px; font-family: 'Segoe UI', Arial, sans-serif
     <div class="card-body">
       <h3>IssueClassifierService &mdash; 4 Buckets (first match wins)</h3>
       <ul>
-        <li><span class="tag tag-crit">DEEP_WORK</span> priority:critical/high, architecture, security, hours&gt;2, epic/feature regex</li>
-        <li><span class="tag tag-warn">QUICK_WIN</span> good-first-issue, quick-win, trivial; hours&lt;0.5 + clear scope; enhancement + body&lt;500</li>
-        <li><span class="tag tag-info">MAINTENANCE</span> dependencies, documentation, triage, chore, refactor, tech-debt, ci, devops</li>
+        <li><span class="tag tag-crit">DEEP_WORK</span> priority:critical/high, architecture, security, deep-work, hours&gt;2, epic/feature regex</li>
+        <li><span class="tag tag-warn">QUICK_WIN</span> good-first-issue, quick-win, low-hanging-fruit, trivial; hours&lt;0.5 + clear scope; enhancement + body&lt;500</li>
+        <li><span class="tag tag-info">MAINTENANCE</span> dependencies, documentation, triage, chore, refactor, tech-debt, ci, devops, maintenance</li>
         <li><span class="tag tag-green">DEFERRED</span> default fallback</li>
       </ul>
 
-      <h3>Hour Estimation (label-based)</h3>
-      <span class="mono">size:s / small → 0.5h &nbsp;|&nbsp; size:m / medium → 2h<br/>size:l / large → 4h &nbsp;|&nbsp; size:xl → 8h<br/>Body heuristic: &lt;100ch→0.5 &nbsp; &lt;500ch→2 &nbsp; ≥500ch→4 &nbsp; default→2</span>
+      <h3>Hour Estimation (label → body heuristic)</h3>
+      <span class="mono">estimate:Nh → N &nbsp;|&nbsp; size:s/small → 0.5 &nbsp;|&nbsp; size:m/medium → 2<br/>size:l/large → 4 &nbsp;|&nbsp; size:xl → 8<br/>Body: &lt;100ch→0.5 &nbsp; &lt;500ch→2 &nbsp; ≥500ch→4 &nbsp; default→2</span>
 
-      <h3>DayStructure Constants</h3>
-      <span class="mono">MAX_DEEP_WORK = 1 &nbsp;|&nbsp; MAX_QUICK_WINS = 3 &nbsp;|&nbsp; MAX_MAINTENANCE = 3<br/>MAX_ACTIVE = 1 + 3 + 3 = <span class="highlight">7</span></span>
+      <h3>Clear Scope Detection</h3>
+      <span class="mono">body contains: "- [ ]" | "acceptance criteria" | "done when" | "steps:" | "expected:"</span>
+
+      <h3>DayStructure (3-3-3 Framework)</h3>
+      <span class="mono">MAX_DEEP_WORK = 1 &nbsp;|&nbsp; MAX_QUICK_WINS = 3 &nbsp;|&nbsp; MAX_MAINTENANCE = 3<br/>MAX_ACTIVE = 1 + 3 + 3 = <span class="highlight">7</span> &nbsp;|&nbsp; Remaining → DEFERRED</span>
     </div>
   </div>
 
@@ -99,87 +104,86 @@ body { width: 1920px; height: 1080px; font-family: 'Segoe UI', Arial, sans-serif
     <div class="card-header"><div class="num">3</div>METRICS &amp; COMPLIANCE</div>
     <div class="card-body">
       <h3>ChaosMetricsService &mdash; score 0&ndash;10 (5 &times; 2 pts)</h3>
-      <span class="mono">mysteryMeat <span class="highlight">≥ 3</span> → +2 &nbsp;|&nbsp; urgent <span class="highlight">≥ 3</span> → +2<br/>touched <span class="highlight">≥ 6</span> (60 min window) → +2<br/>afterHoursActivity → +2 &nbsp;|&nbsp; labels <span class="highlight">≥ 12</span> → +2</span>
+      <span class="mono">mysteryMeat <span class="highlight">≥ 3</span> → +2 &nbsp;|&nbsp; unresolvedUrgent <span class="highlight">≥ 3</span> → +2<br/>touchedRecently <span class="highlight">≥ 6</span> (60 min window) → +2<br/>afterHoursSignal → +2 &nbsp;|&nbsp; distinctLabels <span class="highlight">≥ 12</span> → +2</span>
 
-      <h3>ChaosBucket Thresholds</h3>
-      <span class="mono">≤ 2 LOW &nbsp;|&nbsp; ≤ 5 MEDIUM &nbsp;|&nbsp; ≤ 8 HIGH &nbsp;|&nbsp; &gt; 8 CRITICAL</span>
+      <h3>ChaosBucket Thresholds (ordinal &times; 10 = stress pts)</h3>
+      <span class="mono">≤ 2 LOW<span class="dim">(0)</span> &nbsp;|&nbsp; ≤ 5 MEDIUM<span class="dim">(1)</span> &nbsp;|&nbsp; ≤ 8 HIGH<span class="dim">(2)</span> &nbsp;|&nbsp; &gt; 8 CRITICAL<span class="dim">(3)</span></span>
 
       <h3>ComplianceService &mdash; score 100 → 0 (8 violations)</h3>
-      <div style="font-size:11.5px;">
-        <span class="tag tag-crit">CRITICAL −25</span> MULTIPLE_DEEP_WORK &bull; EXCESSIVE_CONTEXT_SWITCHING(&gt;5) &bull; TOTAL_OVERLOAD(&gt;7)<br/>
-        <span class="tag tag-warn">WARNING −10</span> QUICK_WIN_OVERLOAD(&gt;3) &bull; MAINTENANCE_OVERLOAD(&gt;3) &bull; UNCLEAR_QUICK_WINS<br/>
-        <span class="tag tag-info">INFO −5</span> NO_DEEP_WORK &bull; DEFERRED_BACKLOG_GROWING(&gt;5, 14d stale)
+      <div style="font-size:11px;">
+        <span class="tag tag-crit">CRITICAL &minus;25</span> MULTIPLE_DEEP_WORK &bull; EXCESSIVE_CTX_SWITCH(&gt;5) &bull; TOTAL_OVERLOAD(&gt;7)<br/>
+        <span class="tag tag-warn">WARNING &minus;10</span> QUICK_WIN_OVERLOAD(&gt;3) &bull; MAINTENANCE_OVERLOAD(&gt;3) &bull; UNCLEAR_QUICK_WINS<br/>
+        <span class="tag tag-info">INFO &minus;5</span> NO_DEEP_WORK &bull; DEFERRED_BACKLOG_GROWING(&gt;5, 14d stale)
       </div>
 
-      <h3>CalendarService (mock)</h3>
-      <span class="mono">3 meetings &bull; 45 min total &bull; 120 min free block &bull; 2 switches &bull; 0.65 frag<br/>Deep work possible if free block <span class="highlight">≥ 90 min</span> → true</span>
+      <h3>After-Hours Detection (timezone-aware)</h3>
+      <span class="mono">Working hours: <span class="highlight">9 AM &ndash; 6 PM</span> in user's timezone (tz param)<br/>Weekends (Sat/Sun) always count as after-hours<br/>Default zone: Africa/Johannesburg (configurable via demo.clock.zone)</span>
     </div>
   </div>
 
-  <!-- STAGE 4: WORLDSTATE -->
+  <!-- STAGE 4: WORLDSTATE & STRESS -->
   <div class="card s4">
-    <div class="card-header"><div class="num">4</div>WORLDSTATE &amp; STRESS</div>
+    <div class="card-header"><div class="num">4</div>WORLDSTATE &amp; STRESS (6-Component Breakdown)</div>
     <div class="card-body">
-      <h3>18 Capped Variables (key caps)</h3>
-      <span class="mono">totalAssigned ≤ 15 &bull; deepWork ≤ 5 &bull; quickWin ≤ 5 &bull; maintenance ≤ 5<br/>deferred ≤ 10 &bull; delegated = 0 &bull; urgentUnassigned ≤ 10<br/>contradictory ≤ 5 &bull; touchedToday ≤ 10 &bull; afterHours ≤ 5<br/>stale ≤ 10 &bull; mysteryMeat ≤ 10 &bull; unclearQuickWins ≤ 5</span>
+      <h3>12 Capped Variables</h3>
+      <span class="mono">totalAssigned ≤ 15 &bull; deepWork ≤ 5 &bull; quickWin ≤ 5 &bull; maintenance ≤ 5<br/>deferred ≤ 10 &bull; urgentUnassigned ≤ 10 &bull; contradictory ≤ 5<br/>touchedToday ≤ 10 &bull; afterHours ≤ 5 &bull; stale ≤ 10<br/>mysteryMeat ≤ 10 &bull; unclearQuickWins ≤ 5</span>
 
-      <h3>Stress Score &mdash; 8 components, max 100</h3>
-      <span class="mono" style="font-size:11px; line-height:1.45;">
-1. Overload: assigned &gt; 7 → min(20, (n−7) × 4)<br/>
-2. Deep work: &gt; 1 → (n−1) × 10; == 0 &amp;&amp; total &gt; 0 → +5<br/>
-3. Chaos: bucket × 10 (LOW=0, MED=10, HIGH=20, CRIT=30)<br/>
-4. Context switch: touched &gt; 5 → min(15, (n−5) × 3)<br/>
-5. Mystery meat: min(10, n × 2)<br/>
-6. Unclear scope: min(5, n)<br/>
-7. Sustained pressure: min(15, consecutiveDays × 5)<br/>
-8. After-hours: min(10, n × 5)
+      <h3>Stress Score &mdash; 6 breakdown components, max 100</h3>
+      <span class="mono" style="font-size:10.5px; line-height:1.4;">
+<span class="highlight">Workload</span> (0&ndash;40): assigned &gt; 7 → min(20, (n&minus;7)&times;4)<br/>
+&nbsp;&nbsp;deepWork &gt; 1 → +(n&minus;1)&times;10 &nbsp;|&nbsp; deepWork == 0 &amp;&amp; total &gt; 0 → +5<br/>
+<span class="highlight">Chaos</span> (0&ndash;30): chaosBucket.ordinal &times; 10<br/>
+<span class="highlight">Context Switching</span> (0&ndash;15): touched &gt; 5 → min(15, (n&minus;5)&times;3)<br/>
+<span class="highlight">Clarity</span> (0&ndash;10): min(10, mysteryMeat &times; 2)<br/>
+<span class="highlight">Sustained</span> (0&ndash;15): min(15, consecutiveHighDays &times; 5)<br/>
+<span class="highlight">After Hours</span> (0&ndash;10): min(10, afterHoursIssues &times; 5)
       </span>
 
       <h3>Stress Levels</h3>
       <span class="mono"><span class="tag tag-crit">≥ 70 CRITICAL</span> <span class="tag tag-warn">≥ 50 HIGH</span> <span class="tag tag-info">≥ 30 MODERATE</span> <span class="tag tag-green">&lt; 30 LOW</span></span>
+
+      <h3>CalendarService (mock)</h3>
+      <span class="mono">3 meetings &bull; 45 min &bull; 120 min free block &bull; 0.65 frag<br/>Deep work possible if free block <span class="highlight">≥ 90 min</span> → true</span>
     </div>
   </div>
 
   <!-- STAGE 5: AI AGENTS -->
   <div class="card s5">
-    <div class="card-header"><div class="num">5</div>AI AGENTS</div>
+    <div class="card-header"><div class="num">5</div>AI AGENTS (LangChain4j Supervisor)</div>
     <div class="card-body">
-      <h3>LangChain4j Supervisor Pattern</h3>
-      <span class="mono">Azure OpenAI <span class="highlight">gpt-4o</span> &bull; temp 0.3 &bull; maxTokens 1024 / 512 (planner)<br/>Strategy: SUMMARY &bull; maxAgentsInvocations: 10 &bull; timeout 30s &bull; retries 2</span>
+      <h3>Azure OpenAI Configuration</h3>
+      <span class="mono">Model: <span class="highlight">gpt-4o</span> &bull; temp 0.3 &bull; chatModel: 1024 tokens &bull; planner: 512<br/>Strategy: SUMMARY &bull; maxAgentsInvocations: 10 &bull; retries: 2<br/>Memory: MessageWindowChatMemory, max <span class="highlight">10</span> messages</span>
 
       <h3>5 Sub-Agents + 9 @Tool Methods</h3>
-      <div style="font-size:11.5px; line-height:1.55;">
-        <strong>DeferAgent</strong> → deferIssue (adds: deferred, next-sprint; removes: priority:critical)<br/>
-        <strong>DelegateAgent</strong> → delegateIssue (adds: delegated, needs-owner)<br/>
-        <strong>ClassifyAgent</strong> → markAsDeepWork, classifyAsQuickWin, classifyAsMaintenance<br/>
-        <strong>ScopeAgent</strong> → addScopeNeeded (adds: needs-scope, blocked)<br/>
+      <div style="font-size:11px; line-height:1.5;">
+        <strong>DeferAgent</strong> → deferIssue <span class="dim">(+deferred, +next-sprint; &minus;priority:critical)</span><br/>
+        <strong>DelegateAgent</strong> → delegateIssue <span class="dim">(+delegated, +needs-owner)</span><br/>
+        <strong>ClassifyAgent</strong> → markAsDeepWork <span class="dim">(+deep-work, +focus)</span>, classifyAsQuickWin <span class="dim">(+quick-win, +size:S)</span>,<br/>&nbsp;&nbsp;&nbsp;classifyAsMaintenance <span class="dim">(+maintenance, +3-3-3)</span><br/>
+        <strong>ScopeAgent</strong> → addScopeNeeded <span class="dim">(+needs-scope, +blocked)</span><br/>
         <strong>WellnessAgent</strong> → suggestBreak, slowIntake, blockCalendarTime
       </div>
 
-      <h3>Support Agents &amp; Protection</h3>
-      <span class="mono">ExplainerAiService &bull; ProtectiveAiService &bull; FridayDeployAiService<br/>Stress reduction estimate: actions × 7<br/>Protection trigger: highDays <span class="highlight">≥ 2</span> OR afterHours OR stress <span class="highlight">≥ 70</span> OR assigned <span class="highlight">&gt; 10</span></span>
+      <h3>Protection Triggers &amp; Support Agents</h3>
+      <span class="mono">Protection if: highDays <span class="highlight">≥ 2</span> OR afterHours OR stress <span class="highlight">≥ 70</span> OR assigned <span class="highlight">&gt; 10</span><br/>ExplainerAiService &bull; ProtectiveAiService &bull; FridayDeployAiService<br/>Deterministic fallback when LLM unavailable (dummy key = fallback mode)</span>
     </div>
   </div>
 
   <!-- STAGE 6: OUTPUT -->
   <div class="card s6">
-    <div class="card-header"><div class="num">6</div>OUTPUT</div>
+    <div class="card-header"><div class="num">6</div>OUTPUT &amp; PERSISTENCE</div>
     <div class="card-body">
-      <h3>GitHubMutationPlan</h3>
-      <div style="font-size:12px;">Labels applied to GitHub issues via MCP &mdash; deferred, delegated, quick-win, deep-work, maintenance, needs-scope, blocked, next-sprint, 3-3-3, focus, size:S, needs-owner</div>
-
-      <h3>Rebalanced Day (3-3-3 Structure)</h3>
-      <span class="mono">1 deep-work + 3 quick-wins + 3 maintenance = 7 active max<br/>Remaining issues → DEFERRED bucket</span>
+      <h3>GitHubMutationPlan (sealed interface)</h3>
+      <span class="mono">GitHubAction: AddLabels | RemoveLabels | Comment<br/>Labels: deferred, delegated, quick-win, deep-work, maintenance,<br/>needs-scope, blocked, next-sprint, 3-3-3, focus, size:S, needs-owner</span>
 
       <h3>Friday Deploy Score (100 → 0, uses &gt; not ≥)</h3>
-      <span class="mono">chaos <span class="highlight">&gt; 5</span> → −20 &nbsp;|&nbsp; chaos <span class="highlight">&gt; 8</span> → −20 (cumulative)<br/>unresolvedUrgent &gt; 0 → −15 &nbsp;|&nbsp; afterHours → −10<br/>mysteryMeat &gt; 3 → −10 &nbsp;|&nbsp; non-compliant → −15<br/>Max deduction: −90 &nbsp;|&nbsp; Min score: 10</span>
+      <span class="mono">chaos <span class="highlight">&gt; 5</span> → &minus;20 &nbsp;|&nbsp; chaos <span class="highlight">&gt; 8</span> → &minus;20 (cumulative &minus;40)<br/>unresolvedUrgent &gt; 0 → &minus;15 &nbsp;|&nbsp; !compliant → &minus;15<br/>afterHours → &minus;10 &nbsp;|&nbsp; mysteryMeat &gt; 3 → &minus;10<br/><span class="tag tag-green">≥ 80 READY</span> <span class="tag tag-warn">≥ 50 CAUTION</span> <span class="tag tag-crit">&lt; 50 NOT_READY</span></span>
 
-      <h3>Additional Outputs</h3>
-      <ul>
-        <li><strong>Protective messages</strong> &mdash; triggered by protection formula</li>
-        <li><strong>Flamegraph</strong> &mdash; interactive visualization at /flamegraph.html</li>
-        <li><strong>Stress report</strong> &mdash; score, level, components breakdown</li>
-      </ul>
+      <h3>StressSnapshot (JPA Entity &mdash; H2 / PostgreSQL)</h3>
+      <span class="mono">userId, repo, recordedAt, stressScore, stressLevel, source,<br/>workload, chaos, contextSwitching, clarity, sustained, afterHours,<br/>selfReportedScore (0&ndash;100), selfReportedNote</span>
+      <div style="font-size:10px; color:#94a3b8; margin-top:1px;">Study seed: 14 days &times; 5 users (alice, bob, carol, dave, roryp) with baseline + drift</div>
+
+      <h3>Web Pages (all public, no auth)</h3>
+      <span class="mono">/ → Landing &nbsp;|&nbsp; /checkin.html → 6-component breakdown + self-report<br/>/flamegraph.html → 3-3-3 visualization &nbsp;|&nbsp; /study.html → trend dashboard</span>
     </div>
   </div>
 
