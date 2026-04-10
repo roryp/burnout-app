@@ -43,50 +43,52 @@ SLIDES = [
     },
     {
         "stage": "Stage 2",
-        "title": "Classification",
-        "points": [
-            ("4 Buckets — First Match Wins",
-             "DEEP_WORK → QUICK_WIN → MAINTENANCE → DEFERRED"),
-            ("Hour Estimation from Labels & Body",
-             "size:s → 0.5h, size:m → 2h, size:l → 4h, size:xl → 8h"),
-            ("3-3-3 Day Structure",
-             "1 deep work + 3 quick wins + 3 maintenance = 7 active max"),
-        ],
-        "notes": (
-            "Every issue is classified into exactly one of four buckets using a first-match-wins strategy. "
-            "Deep work catches anything with priority:critical, security, architecture, or issues estimated over two hours. "
-            "Quick wins match good-first-issue, trivial, or short tasks with clear scope. "
-            "Maintenance covers dependencies, documentation, chores, and CI. Everything else falls into deferred.\n\n"
-            "Hour estimates come from size labels first — size:s is half an hour, size:xl is a full day. "
-            "If no size label exists, the system uses a body-length heuristic: under 100 characters is half an hour, "
-            "under 500 is two hours, and longer descriptions default to four hours.\n\n"
-            "The 3-3-3 day structure is the core framework: at most one deep work item, three quick wins, "
-            "and three maintenance tasks — seven active issues maximum. "
-            "Anything beyond that is automatically deferred to protect the developer's focus."
-        ),
-    },
-    {
-        "stage": "Stage 3",
-        "title": "Metrics & Compliance",
+        "title": "Chaos Metrics",
         "points": [
             ("Chaos Score 0–10 (5 signals × 2 pts)",
              "mystery meat, urgent, context switching, after-hours, label sprawl"),
-            ("Compliance Score 100 → 0 (8 violations)",
-             "CRITICAL −25 · WARNING −10 · INFO −5"),
+            ("Runs BEFORE Classification",
+             "ChaosMetricsService.calculate() is the first call after loading issues"),
             ("Timezone-Aware After-Hours Detection",
              "Working hours: 9 AM – 6 PM; weekends always count"),
         ],
         "notes": (
+            "Chaos metrics run first — before classification and before compliance. "
             "The chaos score is a simple additive metric from zero to ten. "
             "Five boolean signals each contribute two points: three or more mystery-meat issues without descriptions, "
             "three or more unresolved urgents older than 24 hours, six or more issues touched in the last 60 minutes, "
             "any after-hours activity, and twelve or more distinct labels across all issues indicating label sprawl.\n\n"
+            "This runs before classification because the chaos score feeds into the WorldState, "
+            "which needs both chaos AND classification data to compute the stress score.\n\n"
+            "After-hours detection is fully timezone-aware. The checkin page sends the browser's timezone, "
+            "and the server uses it to determine if updates happened before 9 AM, after 6 PM, or on weekends. "
+            "For demo scenarios, the demo:after-hours label overrides real timestamps entirely."
+        ),
+    },
+    {
+        "stage": "Stage 3",
+        "title": "Classification & Compliance",
+        "points": [
+            ("4 Buckets — First Match Wins",
+             "DEEP_WORK → QUICK_WIN → MAINTENANCE → DEFERRED"),
+            ("Compliance Score 100 → 0 (8 violations)",
+             "CRITICAL −25 · WARNING −10 · INFO −5"),
+            ("3-3-3 Day Structure (classification runs twice)",
+             "1 deep work + 3 quick wins + 3 maintenance = 7 active max"),
+        ],
+        "notes": (
+            "Classification runs inside ComplianceService.analyze(), which is the second call after chaos metrics. "
+            "Every issue is sorted into exactly one of four buckets using a first-match-wins strategy. "
+            "Deep work catches anything with priority:critical, security, architecture, or issues estimated over two hours. "
+            "Quick wins match good-first-issue, trivial, or short tasks with clear scope. "
+            "Maintenance covers dependencies, documentation, chores, and CI. Everything else falls into deferred.\n\n"
             "Compliance starts at 100 and deducts points for eight violation types. "
             "Critical violations like having multiple deep work items or more than seven active issues cost 25 points each. "
             "Warnings like bucket overflow cost 10, and informational issues like a growing deferred backlog cost 5.\n\n"
-            "After-hours detection is fully timezone-aware. The checkin page sends the browser's timezone, "
-            "and the server uses it to determine if updates happened before 9 AM, after 6 PM, or on weekends. "
-            "This means a developer in New York and one in Tokyo get accurate after-hours detection for their local time."
+            "The 3-3-3 day structure is the core framework: at most one deep work item, three quick wins, "
+            "and three maintenance tasks — seven active issues maximum. "
+            "Notably, classification runs a second time inside buildDayPlan() to arrange the sorted issues. "
+            "Anything beyond the seven active slots is automatically deferred."
         ),
     },
     {
@@ -259,7 +261,7 @@ def main():
     for idx, data in enumerate(SLIDES):
         add_slide(prs, data, idx)
 
-    out = "docs/Burnout-Pipeline-v2.pptx"
+    out = "docs/Burnout-Pipeline.pptx"
     prs.save(out)
     print(f"Saved: {out}")
 

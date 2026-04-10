@@ -76,9 +76,27 @@ body { width: 1920px; height: 1080px; font-family: 'Segoe UI', Arial, sans-serif
     </div>
   </div>
 
-  <!-- STAGE 2: CLASSIFICATION -->
+  <!-- STAGE 2: CHAOS METRICS (runs FIRST in code) -->
+  <div class="card s3">
+    <div class="card-header"><div class="num">2</div>CHAOS METRICS (runs first)</div>
+    <div class="card-body">
+      <h3>ChaosMetricsService &mdash; score 0&ndash;10 (5 &times; 2 pts)</h3>
+      <span class="mono">mysteryMeat <span class="highlight">≥ 3</span> → +2 &nbsp;|&nbsp; unresolvedUrgent <span class="highlight">≥ 3</span> → +2<br/>touchedRecently <span class="highlight">≥ 6</span> (60 min window) → +2<br/>afterHoursSignal → +2 &nbsp;|&nbsp; distinctLabels <span class="highlight">≥ 12</span> → +2</span>
+
+      <h3>ChaosBucket Thresholds (ordinal &times; 10 = stress pts)</h3>
+      <span class="mono">≤ 2 LOW<span class="dim">(0)</span> &nbsp;|&nbsp; ≤ 5 MEDIUM<span class="dim">(1)</span> &nbsp;|&nbsp; ≤ 8 HIGH<span class="dim">(2)</span> &nbsp;|&nbsp; &gt; 8 CRITICAL<span class="dim">(3)</span></span>
+
+      <h3>After-Hours Detection (timezone-aware)</h3>
+      <span class="mono">Working hours: <span class="highlight">9 AM &ndash; 6 PM</span> in user's timezone (tz param)<br/>Weekends (Sat/Sun) always count as after-hours<br/>Default zone: Africa/Johannesburg (configurable via demo.clock.zone)</span>
+
+      <h3>SyntheticTimeResolver precedence</h3>
+      <span class="mono">demo:* label present → use synthetic signal, skip real timestamp<br/>No demo label → consult actual updatedAt / createdAt</span>
+    </div>
+  </div>
+
+  <!-- STAGE 3: CLASSIFICATION & COMPLIANCE (runs AFTER chaos) -->
   <div class="card s2">
-    <div class="card-header"><div class="num">2</div>CLASSIFICATION</div>
+    <div class="card-header"><div class="num">3</div>CLASSIFICATION &amp; COMPLIANCE</div>
     <div class="card-body">
       <h3>IssueClassifierService &mdash; 4 Buckets (first match wins)</h3>
       <ul>
@@ -88,27 +106,6 @@ body { width: 1920px; height: 1080px; font-family: 'Segoe UI', Arial, sans-serif
         <li><span class="tag tag-green">DEFERRED</span> default fallback</li>
       </ul>
 
-      <h3>Hour Estimation (label → body heuristic)</h3>
-      <span class="mono">estimate:Nh → N &nbsp;|&nbsp; size:s/small → 0.5 &nbsp;|&nbsp; size:m/medium → 2<br/>size:l/large → 4 &nbsp;|&nbsp; size:xl → 8<br/>Body: &lt;100ch→0.5 &nbsp; &lt;500ch→2 &nbsp; ≥500ch→4 &nbsp; default→2</span>
-
-      <h3>Clear Scope Detection</h3>
-      <span class="mono">body contains: "- [ ]" | "acceptance criteria" | "done when" | "steps:" | "expected:"</span>
-
-      <h3>DayStructure (3-3-3 Framework)</h3>
-      <span class="mono">MAX_DEEP_WORK = 1 &nbsp;|&nbsp; MAX_QUICK_WINS = 3 &nbsp;|&nbsp; MAX_MAINTENANCE = 3<br/>MAX_ACTIVE = 1 + 3 + 3 = <span class="highlight">7</span> &nbsp;|&nbsp; Remaining → DEFERRED</span>
-    </div>
-  </div>
-
-  <!-- STAGE 3: METRICS & COMPLIANCE -->
-  <div class="card s3">
-    <div class="card-header"><div class="num">3</div>METRICS &amp; COMPLIANCE</div>
-    <div class="card-body">
-      <h3>ChaosMetricsService &mdash; score 0&ndash;10 (5 &times; 2 pts)</h3>
-      <span class="mono">mysteryMeat <span class="highlight">≥ 3</span> → +2 &nbsp;|&nbsp; unresolvedUrgent <span class="highlight">≥ 3</span> → +2<br/>touchedRecently <span class="highlight">≥ 6</span> (60 min window) → +2<br/>afterHoursSignal → +2 &nbsp;|&nbsp; distinctLabels <span class="highlight">≥ 12</span> → +2</span>
-
-      <h3>ChaosBucket Thresholds (ordinal &times; 10 = stress pts)</h3>
-      <span class="mono">≤ 2 LOW<span class="dim">(0)</span> &nbsp;|&nbsp; ≤ 5 MEDIUM<span class="dim">(1)</span> &nbsp;|&nbsp; ≤ 8 HIGH<span class="dim">(2)</span> &nbsp;|&nbsp; &gt; 8 CRITICAL<span class="dim">(3)</span></span>
-
       <h3>ComplianceService &mdash; score 100 → 0 (8 violations)</h3>
       <div style="font-size:11px;">
         <span class="tag tag-crit">CRITICAL &minus;25</span> MULTIPLE_DEEP_WORK &bull; EXCESSIVE_CTX_SWITCH(&gt;5) &bull; TOTAL_OVERLOAD(&gt;7)<br/>
@@ -116,8 +113,8 @@ body { width: 1920px; height: 1080px; font-family: 'Segoe UI', Arial, sans-serif
         <span class="tag tag-info">INFO &minus;5</span> NO_DEEP_WORK &bull; DEFERRED_BACKLOG_GROWING(&gt;5, 14d stale)
       </div>
 
-      <h3>After-Hours Detection (timezone-aware)</h3>
-      <span class="mono">Working hours: <span class="highlight">9 AM &ndash; 6 PM</span> in user's timezone (tz param)<br/>Weekends (Sat/Sun) always count as after-hours<br/>Default zone: Africa/Johannesburg (configurable via demo.clock.zone)</span>
+      <h3>DayStructure (3-3-3 &mdash; classification runs again here)</h3>
+      <span class="mono">MAX_DEEP_WORK = 1 &nbsp;|&nbsp; MAX_QUICK_WINS = 3 &nbsp;|&nbsp; MAX_MAINTENANCE = 3<br/>MAX_ACTIVE = 1 + 3 + 3 = <span class="highlight">7</span> &nbsp;|&nbsp; Remaining → DEFERRED</span>
     </div>
   </div>
 
