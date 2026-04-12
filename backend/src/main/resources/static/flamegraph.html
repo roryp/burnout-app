@@ -360,7 +360,7 @@
 </head>
 <body>
 
-  <a class="back-link" href="/">← Home</a>
+  <a class="back-link" id="home-link" href="/">← Home</a>
 
   <!-- Landing page -->
   <div class="container" id="landing">
@@ -595,6 +595,7 @@
       currentData = data;
       document.getElementById('landing').style.display = 'none';
       document.getElementById('flamegraph-view').style.display = 'block';
+      document.getElementById('home-link').style.display = 'none';
       document.getElementById('repo-name').textContent = data.repo;
       document.getElementById('stress-score').textContent = data.stressScore + '/100';
       document.getElementById('friday-score').textContent = data.fridayScore + '%';
@@ -612,6 +613,7 @@
     function showLanding() {
       document.getElementById('flamegraph-view').style.display = 'none';
       document.getElementById('landing').style.display = 'block';
+      document.getElementById('home-link').style.display = 'flex';
     }
 
     function renderFlamegraph(data) {

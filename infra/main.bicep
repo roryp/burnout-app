@@ -5,13 +5,13 @@ param location string = 'swedencentral'
 param environmentName string = 'burnout'
 
 @description('Azure OpenAI model deployment name')
-param openAiDeployment string = 'gpt-4o-mini'
+param openAiDeployment string = 'gpt-4o'
 
 @description('Azure OpenAI model name')
-param openAiModelName string = 'gpt-4o-mini'
+param openAiModelName string = 'gpt-4o'
 
 @description('Azure OpenAI model version')
-param openAiModelVersion string = '2024-07-18'
+param openAiModelVersion string = '2024-11-20'
 
 @description('Azure OpenAI capacity in thousands of tokens per minute')
 param openAiCapacityK int = 100

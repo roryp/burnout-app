@@ -39,7 +39,7 @@
     },
     "openAiModelVersion": {
       "type": "string",
-      "defaultValue": "2024-08-06",
+      "defaultValue": "2025-04-14",
       "metadata": {
         "description": "Azure OpenAI model version"
       }

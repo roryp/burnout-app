@@ -5,13 +5,13 @@ param location string
 param openAiName string
 
 @description('Model deployment name')
-param deploymentName string = 'gpt-4o-mini'
+param deploymentName string = 'gpt-4o'
 
 @description('Model name to deploy')
-param modelName string = 'gpt-4o-mini'
+param modelName string = 'gpt-4o'
 
 @description('Model version')
-param modelVersion string = '2024-07-18'
+param modelVersion string = '2024-11-20'
 
 @description('Capacity in thousands of tokens per minute')
 param capacityK int = 100
