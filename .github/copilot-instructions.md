@@ -48,7 +48,7 @@ When seeding issues via `POST /demo/api/seed`:
 |------|-----|---------------|
 | Home | `/` | Landing page with links to all pages |
 | Stress Check-In | `/checkin.html` | Username: `roryp`, Repo: `roryp/burnout-app` |
-| Flamegraph | `/flamegraph.html?repo=roryp/burnout-app` | Auto-loads |
+| Flamegraph | `/flamegraph.html?repo=roryp/burnout-app&userId=roryp` | Auto-loads |
 | Study Dashboard | `/study.html` | Click **Load Data**, then click a participant |
 
 ## Build & Deploy
@@ -69,7 +69,7 @@ When asked to take screenshots, capture demo screenshots, or run the demo flow:
 
 2. **Run the full before/after flow:**
    ```powershell
-   # Option A: Automated script (captures 7 screenshots via Playwright)
+   # Option A: Automated script (captures 8 screenshots via Playwright)
    .\scripts\demo-screenshots.ps1
 
    # Option B: Manual with Playwright MCP tool in Copilot Chat
@@ -213,7 +213,7 @@ Expected: `sync_issues` fetches 32 issues, `get_stress_score` returns 10/LOW, `s
 
 ### 7. Test the Before/After Demo Flow
 
-This is the **live demo flow** — captures the full 100→14 stress reduction:
+This is the **live demo flow** — captures the full 100→10 stress reduction:
 
 ```powershell
 # Step 1: Seed chaotic state
@@ -280,3 +280,99 @@ azd env get-values | Select-String 'SERVICE_BACKEND_URI'
 | MCP tools not appearing in VS Code | MCP app not built or VS Code not reloaded | Run `cd mcp-app && npm run build`, then reload VS Code window |
 | 403 on `/api/**` endpoints | CSRF or security filter blocking | Use `/demo/api/**` endpoints (no auth) or send GitHub Bearer token |
 | Container cache empty after deploy | In-memory `IssueCache` resets on restart | Re-seed via `seed-demo.ps1` or sync via MCP |
+
+## Agent Profile: Seed → Reshape → Validate (Demo Flow)
+
+**When to use:** User says "seed, reshape, validate with playwright mcp tool" or similar.
+
+**Goal:** Execute the full 100→10 stress reduction demo with live screenshots showing before/after state.
+
+**Prerequisites:**
+- Azure deployment running (verify via `azd env get-values | Select-String 'SERVICE_BACKEND_URI'`)
+- Playwright MCP tools available in Copilot Chat
+- Network access to GitHub API (for sync)
+
+**Step 1: Seed Chaotic BEFORE State**
+```powershell
+.\scripts\seed-demo.ps1 -BaseUrl <azure-url>
+```
+- Outputs: 16 chaotic issues (100/CRITICAL), 9 checkins, 113 study snapshots
+- Verify output: `Stress: 100 (CRITICAL)`
+
+**Step 2: Validate BEFORE State (Playwright)**
+
+**2a. Check-In Page BEFORE**
+- Navigate: `/checkin.html`
+- Fill form: username=`roryp`, repo=`roryp/burnout-app`
+- Click "Check My Stress" button
+- Wait for: `CRITICAL` text appears
+- Screenshot: Capture full page (expect **100 STRESS SCORE, CRITICAL, 16 issues, Non-compliant**)
+
+**2b. Flamegraph Page BEFORE**
+- Navigate: `/flamegraph.html?repo=roryp/burnout-app&userId=roryp`
+- Wait for: `Stress Score` text appears
+- Screenshot: Capture full page (expect **100/100 stress, 10% Friday, 0 quick wins, 9 deferred**)
+
+**Step 3: Reshape (Sync + API)**
+```powershell
+# Sync real GitHub issues (replaces chaotic 16 with real 32)
+Invoke-RestMethod -Method POST -Uri "$BASE_URL/demo/api/sync?repo=roryp/burnout-app"
+
+# Reshape the day plan
+Invoke-RestMethod -Method POST -Uri "$BASE_URL/demo/api/reshape" `
+  -Headers @{"Content-Type"="application/json"} `
+  -Body '{"repo":"roryp/burnout-app","userId":"roryp"}' | ConvertTo-Json -Depth 5
+```
+- Expected: `llmUsed: true`, `afterScore: 10`, `afterLevel: LOW`, 3-3-3 structure (1 deep, 3 quick wins, 3 maintenance, 0 deferred)
+- **Note:** If rate-limited, wait 186+ seconds, then retry
+
+**Step 4: Validate AFTER State (Playwright)**
+
+**4a. Check-In Page AFTER**
+- Navigate: `/checkin.html`
+- Fill form: username=`roryp`, repo=`roryp/burnout-app`
+- Click "Check My Stress" button
+- Wait for: `LOW` text appears
+- Screenshot: Capture full page (expect **10 STRESS SCORE, LOW, 32 issues, 3-3-3 Compliant**)
+
+**4b. Flamegraph Page AFTER**
+- Navigate: `/flamegraph.html?repo=roryp/burnout-app&userId=roryp`
+- Wait for: `Stress Score` text appears
+- Screenshot: Capture full page (expect **10/100 stress, 90% Friday, 1-3-3-0 structure**)
+
+**Step 5: Validate Study Dashboard (Playwright)**
+
+- Navigate: `/study.html`
+- Click "Load Data" button
+- Wait for: `roryp` text appears (participant list loads)
+- Screenshot: Capture full page (expect **118 snapshots, 5 participants, trend chart showing roryp 95→10 drop**)
+
+**Final Output: Validation Results Table**
+
+| Step | Page | Metric | Expected | Status |
+|------|------|--------|----------|--------|
+| BEFORE | Check-In | Stress Score | 100/CRITICAL | ✅ |
+| BEFORE | Check-In | Issues | 16, Non-compliant | ✅ |
+| BEFORE | Flamegraph | Stress | 100/100 | ✅ |
+| BEFORE | Flamegraph | Friday % | 10% | ✅ |
+| BEFORE | Flamegraph | Structure | 0-0-3-9 (deferred) | ✅ |
+| API | Reshape | LLM Active | `llmUsed: true` | ✅ |
+| API | Reshape | New Score | 10/LOW | ✅ |
+| AFTER | Check-In | Stress Score | 10/LOW | ✅ |
+| AFTER | Check-In | Issues | 32, 3-3-3 Compliant | ✅ |
+| AFTER | Flamegraph | Stress | 10/100 | ✅ |
+| AFTER | Flamegraph | Friday % | 90% | ✅ |
+| AFTER | Flamegraph | Structure | 1-3-3-0 (compliant) | ✅ |
+| Study | Dashboard | Snapshots | 118+ | ✅ |
+| Study | Dashboard | Participants | 5 (alice, bob, carol, dave, roryp) | ✅ |
+| Study | Dashboard | Trend | roryp drop visible | ✅ |
+
+**Troubleshooting This Workflow**
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Seed fails | Backend not running or wrong URL | Verify `azd env get-values` shows valid `SERVICE_BACKEND_URI` |
+| Reshape returns `llmUsed: false` | LLM token expired (~1h after container start) | Run: `az containerapp revision restart --name <app> --resource-group <rg> --revision <rev>` then wait 30s |
+| Sync rate-limited | Called within 5 minutes of previous sync | Wait for `retryAfterSeconds` value, then retry |
+| Screenshots show blank/loading | Page didn't finish rendering | Increase wait time or add additional `wait_for` call |
+| Wrong stress score in flamegraph | Missing `&userId=roryp` parameter | **CRITICAL:** Always include `&userId=roryp` — without it, stress calculated across ALL users |

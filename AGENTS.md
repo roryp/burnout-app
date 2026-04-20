@@ -304,10 +304,10 @@ The `POST /demo/api/seed` endpoint accepts `{"repo": "owner/repo", "issues": [..
 | `scripts/seed-demo.sh` | Bash seed script: issues + checkins + study data in one command |
 | `scripts/seed-demo.ps1` | PowerShell seed script (same as above, for Windows) |
 | `scripts/smoke-test.ps1` | Post-deployment smoke test (26 assertions, seeds + verifies all endpoints) |
-| `scripts/demo-screenshots.ps1` | Full before/after demo screenshot capture — 3 phases: seed BEFORE, sync real issues, capture 7 screenshots |
+| `scripts/demo-screenshots.ps1` | Full before/after demo screenshot capture — 3 phases: seed BEFORE, sync real issues, capture 8 screenshots |
 | `scripts/demo-screenshots.js` | Playwright screenshot logic (called by PS1 script, supports `before`/`after`/`study` modes) |
 | `scripts/demo-screenshots.sh` | Bash version of demo screenshot script (same flow, for Linux/macOS/CI) |
-| `scripts/record-demo.mjs` | Records ~60s demo video with scene title cards and issue drilldown |
+| `scripts/record-demo.mjs` | Records ~30s demo video with scene title cards and issue drilldown |
 | `scripts/seed-issues.sh` | Creates real GitHub issues via `gh` CLI (for live repos) |
 | `mcp-app/src/index.ts` | MCP server with 4 tool definitions + 2 UI resources |
 | `mcp-app/src/config.ts` | Backend URL config (reads from `.env`) |
