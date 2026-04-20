@@ -47,3 +47,5 @@ demo-issues.json
 real-issues.json
 .playwright-mcp/
 IMAGE_GENERATION_GUIDE.md
+docs/images/demo/copilot-workflow.webm
+scripts/record-copilot-workflow.mjs
