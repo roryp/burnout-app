@@ -376,3 +376,76 @@ Invoke-RestMethod -Method POST -Uri "$BASE_URL/demo/api/reshape" `
 | Sync rate-limited | Called within 5 minutes of previous sync | Wait for `retryAfterSeconds` value, then retry |
 | Screenshots show blank/loading | Page didn't finish rendering | Increase wait time or add additional `wait_for` call |
 | Wrong stress score in flamegraph | Missing `&userId=roryp` parameter | **CRITICAL:** Always include `&userId=roryp` — without it, stress calculated across ALL users |
+
+## Agent Profile: Deploy App -> Verify (Deployment Flow)
+
+**When to use:** User says "deploy the app", "run azd up", "deploy and validate", or similar.
+
+**Goal:** Deploy burnout-app to Azure and validate the release end-to-end with health, seed, and smoke-test checks.
+
+**Prerequisites:**
+- Azure CLI + Azure Developer CLI installed
+- Authenticated Azure session (`azd auth login`)
+- Java/Maven and Node.js available for build validation
+
+**Step 1: Pre-Deploy Build Validation**
+```powershell
+cd backend
+mvn clean package -DskipTests
+mvn test
+cd ..\mcp-app
+npm install
+npm run build
+cd ..
+```
+- Expected: backend compiles, tests pass, and MCP app builds without TypeScript errors
+
+**Step 2: Deploy to Azure**
+```powershell
+azd up
+```
+- Expected: infrastructure and backend deployment complete successfully
+
+**Step 3: Discover Deployment URL + Health Check**
+```powershell
+$envLine = azd env get-values | Select-String 'SERVICE_BACKEND_URI'
+$baseUrl = ($envLine -split '"')[1]
+Invoke-RestMethod -Method GET -Uri "$baseUrl/actuator/health"
+```
+- Expected: health endpoint returns `{"status":"UP"}`
+
+**Step 4: Seed Demo Data After Deploy**
+```powershell
+.\scripts\seed-demo.ps1 -BaseUrl $baseUrl
+```
+- Expected: seed script reports issues/checkins/study snapshots created
+- Note: cache is in-memory and resets on every restart/deploy, so re-seeding is required
+
+**Step 5: Run Post-Deployment Smoke Test**
+```powershell
+.\scripts\smoke-test.ps1 -BaseUrl $baseUrl
+```
+- Expected: all assertions pass (exit code `0`)
+
+**Final Output: Deployment Validation Table**
+
+| Step | Check | Expected | Status |
+|------|-------|----------|--------|
+| Build | Backend package | `mvn clean package -DskipTests` succeeds | ✅ |
+| Test | Backend tests | `mvn test` passes | ✅ |
+| Build | MCP app | `npm run build` succeeds | ✅ |
+| Deploy | Azure provision/deploy | `azd up` completes | ✅ |
+| Verify | Health endpoint | `{"status":"UP"}` | ✅ |
+| Seed | Demo data | Seed completes successfully | ✅ |
+| Smoke | Regression checks | All smoke assertions pass | ✅ |
+
+**Troubleshooting This Workflow**
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| `azd up` fails | Not authenticated or wrong subscription | Run `azd auth login`, verify account/subscription, retry |
+| No `SERVICE_BACKEND_URI` | Environment not fully provisioned | Re-run `azd up`, then check `azd env get-values` again |
+| Health check not `UP` | App still starting or failed startup | Wait, inspect container logs, fix config, retry |
+| Smoke test fails | Seed incomplete or endpoint regression | Re-run `seed-demo.ps1`, then rerun `smoke-test.ps1` |
+| Stress metrics show zero | Seed used snake_case or stale timestamps | Use camelCase (`createdAt`, `updatedAt`) and current timestamps |
+| LLM fallback persists | Azure AD token expired in container | Restart container revision, then retry |
