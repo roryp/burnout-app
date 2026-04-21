@@ -59,7 +59,7 @@ The system flows through 6 stages — from raw GitHub issues to actionable mutat
 2. **Classification** — Each issue is sorted into one of 4 buckets (Deep Work → Quick Win → Maintenance → Deferred) using a priority-ordered, first-match label cascade.
 3. **Metrics & Compliance** — Chaos score (0–10) and compliance score (100 → 0) are calculated deterministically. No AI involved.
 4. **WorldState** — 18 capped variables feed into the stress score (0–100), computed from its weighted components.
-5. **AI Agents** — The LangChain4j Supervisor (gpt-5.2, SUMMARY strategy, max 10 invocations) coordinates 5 sub-agents with 9 `@Tool` methods, plus 3 support agents for explanation, emotional care, and deploy readiness.
+5. **AI Agents** — The LangChain4j Supervisor (Azure OpenAI `gpt-4o` by default, SUMMARY strategy, max 10 invocations) coordinates 5 sub-agents with 9 `@Tool` methods, plus 3 support agents for explanation, emotional care, and deploy readiness.
 6. **Output** — A mutation plan applied to GitHub via MCP: label changes, comments, a rebalanced 1+3+3 day, and protective messages when needed.
 
 ---
@@ -106,7 +106,7 @@ The LangChain4j **Supervisor Pattern** takes over. A planner LLM coordinates 5 s
 
 <img src="images/scene5-supervisor-pattern.png" alt="LangChain4j Supervisor Agent architecture with 5 sub-agents and mutation plan output" width="800"/>
 
-*The Supervisor pattern: planner model (gpt-5.2, SUMMARY strategy, max 10 invocations) coordinates 5 sub-agents — Defer, Delegate, Classify, Scope, Wellness — each with `@Tool` methods from `BurnoutMutationTool`. Output: a mutation plan of label additions, removals, and comments.*
+*The Supervisor pattern: planner model (Azure OpenAI `gpt-4o` by default, SUMMARY strategy, max 10 invocations) coordinates 5 sub-agents — Defer, Delegate, Classify, Scope, Wellness — each with `@Tool` methods from `BurnoutMutationTool`. Output: a mutation plan of label additions, removals, and comments.*
 
 ### Scene 6: The Flamegraph — Seeing Stress
 
@@ -155,7 +155,7 @@ This system is built on six published research frameworks. Each one maps directl
 |-----------|-------------|---------------|
 | **Maslach Burnout Inventory** [[1]](#ref-1) | 3 dimensions: exhaustion, depersonalization, reduced accomplishment | After-hours → exhaustion; mystery meat → depersonalization; no deep work → reduced accomplishment |
 | **Cognitive Load Theory** [[2]](#ref-2) | Working memory is limited; extraneous load must be minimized | 3-3-3 cap at 7 items; classification removes ambiguity load |
-| **Yerkes-Dodson Law** [[11]](#ref-11) | Performance peaks at moderate stress, drops at extremes | Stress score targets 30–50 (MODERATE) as optimal zone |
+| **Yerkes-Dodson Law** [[11]](#ref-11) | Performance peaks at moderate stress, drops at extremes | Stress score targets 30–49 (MODERATE) as optimal zone |
 | **Deep Work** [[4]](#ref-4) | Sustained focused work requires 90+ min uninterrupted blocks | Calendar fragmentation check; exactly 1 deep work item per day |
 | **Pomodoro / Time Boxing** | Short focused intervals with breaks maintain energy | Quick wins as natural break-points between deep work sessions |
 | **Plutchik's Wheel** [[5]](#ref-5) | 8 primary emotions with behavioral signatures | 4 emotions detected from GitHub signals (frustration, exhaustion, overwhelm, anxiety) |
@@ -177,6 +177,19 @@ In that sense, Burnout-as-a-Service should be read as a work-reshaping system ra
 | Ambiguous or underspecified work | Mystery meat count, unclear quick wins, issue scope gaps | ScopeAgent, compliance checks, clarity scoring |
 | Loss of protected focus time | Calendar fragmentation, deep-work feasibility | CalendarService, deep-work slot protection |
 | Sustained pressure over time | Consecutive high-stress days, after-hours activity | Stress score, protective intervention, supportive messaging |
+
+### Cognitive Accessibility Alignment
+
+The work-design pressures above overlap substantially with the conditions that inclusive-design and cognitive-accessibility guidance (WCAG 2.2 [[12]](#ref-12), W3C COGA Task Force [[13]](#ref-13)) treat as barriers — working-memory limits, unpredictable state, fragile error recovery, and inflexible pacing. Although this system was designed for burnout rather than for any specific cognitive profile, its algorithms end up expressing the same four principles that cognitive-accessibility work tends to emphasize. The mapping below is descriptive, not a conformance claim.
+
+| Cognitive accessibility principle | How the algorithm expresses it |
+|-----------------------------------|--------------------------------|
+| **Reduce cognitive load** | 3-3-3 day caps active work at 7 items (Miller); 4-bucket classification chunks work; Clarity dimension penalizes mystery meat and unclear scope; label-explosion signal flags taxonomy overhead. |
+| **Predictable & consistent** | All metrics are deterministic (same input → same output); priority-ordered first-match classification is explainable; `breakdownHints` surface *why* each number is what it is; day shape is the same every day. |
+| **Error-resistant & forgiving** | Four graceful-degradation levels keep the system working without AI; deferred work is rescheduled, not lost; mutations are plans, not force-pushes; protective intervention acts as a safety net at stress ≥ 70. |
+| **Pace control & personalization** | Calendar fragmentation auto-defers deep work rather than forcing it; after-hours detection is timezone-aware; `WellnessAgent` can slow intake and block calendar time; responses stay short to match narrowed attention under load. |
+
+The system does not diagnose, label, or accommodate any specific condition. It reshapes the shared environment — task structure, clarity, pacing, recoverability — in ways that tend to reduce friction for developers working under stress, fatigue, or other temporary or persistent cognitive load. Where this framing stops short is UI-level sensory and motor accessibility (contrast, keyboard navigation, reduced motion, ARIA semantics); those are not currently part of the algorithm or the static pages.
 
 ---
 
@@ -212,14 +225,16 @@ Before the system can structure a day, it needs to understand what kind of work 
 
 The system's central metric — a single number (0–100) that captures how much pressure a developer is under right now, grounded in Yerkes-Dodson's [[11]](#ref-11) inverted-U model (too little stress = disengaged, too much = breakdown). [WorldState.java](../backend/src/main/java/com/demo/burnout/model/WorldState.java) holds the capped variables and runs `calculateStressScore()` to produce it; [StressLevel.java](../backend/src/main/java/com/demo/burnout/model/StressLevel.java) defines the thresholds that drive protective interventions, the supervisor agent's priorities, and the flamegraph visualization. Calculated from 6 dimensions:
 
-| Dimension | Max | Formula |
-|-----------|-----|---------|
-| **Workload** | 40 | `min(20, (assigned − 7) × 4)` if > 7 issues, + `(deepWork − 1) × 10` if > 1, + `5` if deepWork = 0 |
+| Dimension | Typical Max | Formula |
+|-----------|-------------|---------|
+| **Workload** | ~25 | `min(20, (assigned − 7) × 4)` if > 7 issues, + `(deepWork − 1) × 10` if > 1, + `5` if deepWork = 0 |
 | **Chaos** | 30 | `chaosBucket.ordinal() × 10` (LOW=0, MEDIUM=10, HIGH=20, CRITICAL=30) |
 | **Context Switching** [[6]](#ref-6) | 15 | `min(15, (touchedToday − 5) × 3)` if > 5 |
 | **Clarity** | 15 | `min(10, mysteryMeat × 2)` + `min(5, unclearQuickWins)` |
 | **Sustained** [[8]](#ref-8) | 15 | `min(15, consecutiveHighDays × 5)` |
 | **After-Hours** | 10 | `min(10, afterHoursIssues × 5)` |
+
+Only the overall score is capped (at 100). The `(deepWork − 1) × 10` term has no inner cap, but deep-work counts stay small in practice, so workload rarely exceeds ~25.
 
 **Stress levels:** ≥ 70 CRITICAL, ≥ 50 HIGH, ≥ 30 MODERATE, < 30 LOW.
 
@@ -271,12 +286,16 @@ Developers don't fill out mood surveys — but their GitHub activity tells a sto
 
 The system's safety net, informed by McEwen's [[8]](#ref-8) research on allostatic load — sustained stress causes cumulative physiological damage, so early intervention matters. When **any single** signal crosses a critical threshold, [ProtectiveAiService.java](../backend/src/main/java/com/demo/burnout/agent/ProtectiveAiService.java) — a LangChain4j `@AiService` with a Plutchik-informed system prompt — generates an empathetic intervention. If the LLM is unavailable, pre-written fallbacks ensure protection never silently fails.
 
+Protection is triggered when **any** of these conditions holds:
+
 | Trigger | Threshold |
 |---------|-----------|
 | Sustained stress | consecutiveHighDays ≥ 2 |
 | Boundary erosion [[7]](#ref-7) | hasAfterHoursActivity() |
 | Acute overload | stressScore ≥ 70 |
 | Cognitive capacity | totalAssigned > 10 |
+
+Note: protection fires at **2** consecutive high days, but the fallback message that names the day count only appears at **3+** — at 2 days, the after-hours or stress-score messages below are shown instead.
 
 **Fallback messages** (when LLM unavailable):
 
@@ -485,3 +504,7 @@ Above 80 you're generally in a good position to ship 🟢. Between 50 and 79, ca
 <a id="ref-10"></a>**[10]** Miller, G. A. (1956). *The magical number seven, plus or minus two*. Psychological Review.
 
 <a id="ref-11"></a>**[11]** Yerkes, R. M., & Dodson, J. D. (1908). *The relation of strength of stimulus to rapidity of habit-formation*.
+
+<a id="ref-12"></a>**[12]** W3C (2023). *Web Content Accessibility Guidelines (WCAG) 2.2*. https://www.w3.org/TR/WCAG22/
+
+<a id="ref-13"></a>**[13]** W3C Cognitive and Learning Disabilities Accessibility Task Force (COGA) (2021). *Making Content Usable for People with Cognitive and Learning Disabilities*. https://www.w3.org/TR/coga-usable/
