@@ -1,0 +1,39 @@
+# Auto-detect text files and normalize to LF in the repo
+* text=auto eol=lf
+
+# Shell scripts must be LF (executable on Linux/macOS)
+*.sh        text eol=lf
+*.bash      text eol=lf
+
+# PowerShell scripts use CRLF
+*.ps1       text eol=crlf
+*.psm1      text eol=crlf
+
+# Windows batch files
+*.bat       text eol=crlf
+*.cmd       text eol=crlf
+
+# Common text formats
+*.md        text
+*.yml       text
+*.yaml      text
+*.json      text
+*.java      text
+*.ts        text
+*.js        text
+*.html      text
+*.css       text
+*.xml       text
+*.bicep     text
+
+# Binary files
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.webp      binary
+*.webm      binary
+*.mp4       binary
+*.jar       binary
+*.zip       binary
+*.gz        binary
