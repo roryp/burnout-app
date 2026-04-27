@@ -291,6 +291,22 @@ The scripts seed BEFORE data, capture screenshots, run reshape via the real supe
 
 GitHub token authentication — MCP app retrieves your token via `gh auth token`, passes it as a Bearer header, and the backend validates it against the GitHub API. Tokens are cached for 5 minutes. Security is enabled by default; CORS is restricted to Azure Container Apps, VS Code, and localhost.
 
+## GitHub Access: `gh` CLI vs GitHub REST API
+
+The project uses both the `gh` CLI and direct calls to the GitHub REST API, depending on whether the action is performed on behalf of an authenticated user or by the backend itself.
+
+| Component | Uses | Endpoint / Command | Purpose |
+|---|---|---|---|
+| `mcp-app/src/backend-client.ts` (token retrieval) | `gh` CLI | `gh auth token` | Get the user's GitHub token to pass as Bearer to the backend |
+| `mcp-app/src/backend-client.ts` (issue sync) | `gh` CLI | `gh issue list --repo ... --json ...` | Fetch the user's issues for the `sync_issues` MCP tool |
+| `mcp-app/src/backend-client.ts` (label mutations) | `gh` CLI | `gh issue edit <n> --repo ...` | Apply label changes during `reshape_day` |
+| `scripts/seed-issues.sh`, `scripts/setup-labels.sh` | `gh` CLI | `gh issue create`, `gh label create` | Seed real GitHub issues/labels for live repos |
+| `backend` `DemoFlamegraphController.java` (`/demo/api/sync`) | GitHub REST API | `GET https://api.github.com/repos/{repo}/issues` | Unauthenticated public sync for the demo web app (rate-limited 1/5min/repo) |
+| `backend` `SecurityConfig.java` (token validation) | GitHub REST API | `GET https://api.github.com/user` | Validate Bearer tokens from MCP / `/api/**` callers (cached 5 min) |
+| `scripts/record-demo.mjs` | GitHub REST API | `GET https://api.github.com/repos/{repo}/issues` | Cache real issues during demo video recording |
+
+Rule of thumb: the **`gh` CLI is used wherever an authenticated user action is needed** (MCP app + setup scripts), while the **GitHub REST API is called directly** when the backend needs server-to-GitHub access — public demo sync, token validation, and the demo recorder.
+
 ## Troubleshooting
 
 | Issue | Solution |
