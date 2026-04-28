@@ -41,7 +41,10 @@ Execute the complete 100→10 stress reduction demo workflow with live screensho
 
 ## Guidelines
 
-- **Always use Azure deployment** — Discover URL via `azd env get-values | Select-String 'SERVICE_BACKEND_URI'` (or read `BACKEND_URL` from the workspace `.env` if `azd` isn't logged in). Known URL: `https://burnoutdemorpza-backend.yellowwave-d1b4ff3a.swedencentral.azurecontainerapps.io`
+- **Always use Azure deployment** — Discover the URL by either:
+  1. `azd env get-values | grep SERVICE_BACKEND_URI` (when `azd` is logged in), OR
+  2. Reading `BACKEND_URL` from the workspace `.env` file (works in Codespaces without azd login)
+  Never hard-code the URL — the deployment hostname changes per `azd up`.
 - **Cross-platform scripts** — On Linux/macOS/Codespaces use `bash scripts/seed-demo.sh <url>`; on Windows use `.\scripts\seed-demo.ps1 -BaseUrl <url>`. Both seed 16 issues + 9 checkins + 113 study snapshots.
 - **Seed first** — Seeded chaotic data only lives in the in-memory `IssueCache` (lost on container restart). Always re-seed after a restart.
 - **Validate BEFORE checkin** — Navigate `/checkin.html`, enter `roryp` / `roryp/burnout-app`, wait for `CRITICAL` text, screenshot. Or hit `POST /demo/api/checkin` directly with `{"userId":"roryp","repo":"roryp/burnout-app","tz":"UTC"}`.
@@ -60,7 +63,7 @@ Execute the complete 100→10 stress reduction demo workflow with live screensho
 **User:** "seed, reshape, validate with playwright mcp tool"
 
 **You:**
-1. Run `.\scripts\seed-demo.ps1 -BaseUrl https://burnoutdemorpza-backend.yellowwave-d1b4ff3a.swedencentral.azurecontainerapps.io` → Outputs: `Stress: 100 (CRITICAL)`, 16 issues, 113 snapshots
+1. Resolve `$BASE_URL` (from `azd env get-values` or `.env` `BACKEND_URL`), then run `bash scripts/seed-demo.sh $BASE_URL` (or `.\scripts\seed-demo.ps1 -BaseUrl $BASE_URL`) → Outputs: `Stress: 100 (CRITICAL)`, 16 issues, 113 snapshots
 2. Navigate checkin.html BEFORE, fill roryp/roryp/burnout-app, wait for CRITICAL, screenshot → **100/CRITICAL, Non-compliant**
 3. Navigate flamegraph.html BEFORE with userId param, wait for Stress Score, screenshot → **100/100, 10% Friday, 9 deferred**
 4. POST sync → 32 issues synced; POST reshape → `llmUsed: true`, `afterScore: 10`, `afterLevel: LOW`
@@ -94,12 +97,12 @@ Execute the complete 100→10 stress reduction demo workflow with live screensho
 | Issue | Root Cause | Fix |
 |-------|-----------|-----|
 | Backend not responding | Wrong URL or deployment not running | Run `azd env get-values \| Select-String 'SERVICE_BACKEND_URI'`; or read `BACKEND_URL` from workspace `.env` |
-| Reshape returns `llmUsed: false` | LLM token expired (~1h after container restart) — fallback only emits a plan, won't mutate cache | Sub: **`java`** (NOT "CA Global Demos"). Run: `az containerapp revision list --subscription java -n burnoutdemorpza-backend -g rg-burnoutdemorpza --query "[?properties.active].name \| [0]" -o tsv` then `az containerapp revision restart --subscription java -n burnoutdemorpza-backend -g rg-burnoutdemorpza --revision <rev>`. Wait ~30s for warmup. |
+| Reshape returns `llmUsed: false` | LLM token expired (~1h after container restart) — fallback only emits a plan, won't mutate cache | Discover app/RG/sub: `az account list -o table` then `az containerapp list --query "[?contains(name,'burnout')].{name:name,rg:resourceGroup}" -o tsv` (try each subscription). Then: `REV=$(az containerapp revision list --subscription <sub> -n <app> -g <rg> --query "[?properties.active].name | [0]" -o tsv) && az containerapp revision restart --subscription <sub> -n <app> -g <rg> --revision $REV`. Wait ~30s for warmup. |
 | `az containerapp` extension fails to install | `python3 -m pip` missing in devcontainer | `sudo apt-get install -y python3-pip` first, then `az extension add --name containerapp` |
 | MCP tools return demo data (`isDemo: true`) | `backend-client.ts` cleared `GITHUB_TOKEN` env then ran `gh auth token` — fails in Codespaces (no keyring) | Already patched — token resolution now: gh keyring → `GITHUB_TOKEN`/`GH_TOKEN` env fallback. Rebuild via `cd mcp-app && npm run build`, then restart MCP server in Copilot Chat. |
 | MCP `sync_issues` errors with "gh auth login" | Same Codespaces token issue inside `gh issue list` call | Already patched — falls back to ambient `GITHUB_TOKEN` if keyring lookup fails. Rebuild + restart MCP server. |
 | Sync rate-limited | Called within 5 minutes of previous sync | Check response `retryAfterSeconds`, wait that long, then retry. The 32 real issues remain cached even if a follow-up sync rate-limits. |
-| Reshape on seeded chaos returns `before=after=100` | Seeded data alone can't be reshaped — only sync flips the cache | Always run `POST /demo/api/sync?repo=roryp/burnout-app` BEFORE `POST /demo/api/reshape` to replace seeded issues with real ones. |
+| Reshape on seeded chaos returns `before=after=100` | Seeded data alone can't be reshaped — only sync flips the cache | Always run `POST $BASE_URL/demo/api/sync?repo=roryp/burnout-app` BEFORE `POST $BASE_URL/demo/api/reshape` to replace seeded issues with real ones. |
 | Wrong flamegraph stress score | Missing `&userId=roryp` parameter | **CRITICAL:** Always include `&userId=roryp` — without it, stress filters to ALL users |
 | Screenshots blank/loading | Page didn't fully render | Increase wait timeout or add extra `wait_for` text check before screenshot |
 | Container cache empty | Cache reset after restart | Re-seed via `seed-demo.sh`/`seed-demo.ps1` to repopulate IssueCache |

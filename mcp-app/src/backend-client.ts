@@ -53,17 +53,30 @@ async function getGitHubToken(): Promise<string> {
   const { promisify } = await import('util');
   const execAsync = promisify(exec);
 
+  // Try gh CLI keyring first (preferred — has full scopes)
   try {
-    // Clear GITHUB_TOKEN to force gh CLI to use keyring token with full scopes
     const env = { ...process.env, GITHUB_TOKEN: '' };
     const { stdout } = await execAsync('gh auth token', { env });
-    cachedToken = stdout.trim();
-    console.error('[Auth] Retrieved GitHub token from gh CLI (keyring)');
-    return cachedToken;
-  } catch (error) {
-    console.error('[Auth] Failed to get GitHub token. Make sure gh CLI is authenticated.');
-    throw new Error('Not authenticated with GitHub. Run: gh auth login');
+    const token = stdout.trim();
+    if (token) {
+      cachedToken = token;
+      console.error('[Auth] Retrieved GitHub token from gh CLI (keyring)');
+      return cachedToken;
+    }
+  } catch {
+    // fall through to env var (e.g. Codespaces GITHUB_TOKEN)
   }
+
+  // Fallback: GITHUB_TOKEN env var (Codespaces, CI, etc.)
+  const envToken = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+  if (envToken) {
+    cachedToken = envToken;
+    console.error('[Auth] Retrieved GitHub token from environment variable');
+    return cachedToken;
+  }
+
+  console.error('[Auth] No GitHub token found. Run: gh auth login');
+  throw new Error('Not authenticated with GitHub. Run: gh auth login');
 }
 
 export async function callBackend<T>(endpoint: string, options?: RequestInit): Promise<T> {
@@ -99,8 +112,14 @@ async function executeMutations(repo: string, actions: GitHubAction[]): Promise<
   const { promisify } = await import('util');
   const execAsync = promisify(exec);
   
-  // Clear GITHUB_TOKEN to use keyring token with full scopes
-  const env = { ...process.env, GITHUB_TOKEN: '' };
+  // Prefer keyring token (full scopes); fall back to env (Codespaces GITHUB_TOKEN)
+  // Test the keyring once — if it fails, use the ambient env so gh can use GITHUB_TOKEN/GH_TOKEN
+  let env: NodeJS.ProcessEnv = { ...process.env, GITHUB_TOKEN: '' };
+  try {
+    await execAsync('gh auth token', { env });
+  } catch {
+    env = { ...process.env };
+  }
   
   for (const action of actions) {
     try {
@@ -195,12 +214,23 @@ export async function syncIssues(repo: string): Promise<Issue[]> {
   
   console.error(`[Sync] Fetching issues from GitHub for ${repo}...`);
   
-  // Clear GITHUB_TOKEN to force gh CLI to use keyring token with full scopes (including private repo access)
-  const env = { ...process.env, GITHUB_TOKEN: '' };
-  const { stdout, stderr } = await execAsync(
-    `gh issue list --repo ${repo} --state open --json number,title,body,labels,assignees,createdAt,updatedAt,state --limit 100`,
-    { env }
-  );
+  // Prefer keyring token (full scopes); fall back to env var (Codespaces)
+  let env = { ...process.env, GITHUB_TOKEN: '' };
+  let stdout = '';
+  let stderr = '';
+  try {
+    const r = await execAsync(
+      `gh issue list --repo ${repo} --state open --json number,title,body,labels,assignees,createdAt,updatedAt,state --limit 100`,
+      { env }
+    );
+    stdout = r.stdout; stderr = r.stderr;
+  } catch {
+    // Retry with original env (lets gh use GITHUB_TOKEN/GH_TOKEN)
+    const r = await execAsync(
+      `gh issue list --repo ${repo} --state open --json number,title,body,labels,assignees,createdAt,updatedAt,state --limit 100`
+    );
+    stdout = r.stdout; stderr = r.stderr;
+  }
   
   if (stderr) {
     console.error(`[Sync] gh CLI stderr: ${stderr}`);
