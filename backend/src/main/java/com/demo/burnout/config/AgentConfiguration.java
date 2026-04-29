@@ -4,6 +4,8 @@ import com.azure.core.credential.TokenCredential;
 import com.azure.core.credential.TokenRequestContext;
 import com.azure.identity.DefaultAzureCredentialBuilder;
 import com.demo.burnout.agent.*;
+import com.openai.credential.BearerTokenCredential;
+import com.openai.credential.Credential;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.model.chat.ChatModel;
@@ -59,21 +61,24 @@ public class AgentConfiguration {
     }
 
     /**
-     * Get Azure OpenAI access token from managed identity.
-     * This token is used as the API key when calling Azure OpenAI via the official SDK.
+     * Build a credential for the OpenAI SDK that returns a fresh access token on every
+     * request. The Azure {@link TokenCredential} caches and refreshes tokens internally
+     * (~5 min before expiry), so we never serve a stale token even though the model bean
+     * is built once at startup.
+     *
+     * If a static API key is configured (local dev / dummy creds), use that instead.
      */
-    private String getAzureOpenAiToken(TokenCredential credential) {
-        // If API key is provided, use it directly
+    private Credential buildOpenAiCredential(TokenCredential azureCredential) {
         if (apiKey != null && !apiKey.isEmpty()) {
-            log.info("Using provided API key for Azure OpenAI");
-            return apiKey;
+            log.info("Using provided API key for Azure OpenAI (static)");
+            return BearerTokenCredential.create(apiKey);
         }
-        
-        // Otherwise, get access token from managed identity
-        log.info("Getting access token from managed identity for Azure OpenAI");
-        var tokenRequest = new TokenRequestContext()
+        log.info("Using managed identity bearer token supplier for Azure OpenAI (auto-refresh)");
+        TokenRequestContext tokenRequest = new TokenRequestContext()
             .addScopes("https://cognitiveservices.azure.com/.default");
-        return credential.getToken(tokenRequest).block().getToken();
+        return BearerTokenCredential.create(
+            () -> azureCredential.getToken(tokenRequest).block().getToken()
+        );
     }
 
     /**
@@ -84,11 +89,9 @@ public class AgentConfiguration {
     @Primary
     public ChatModel azureChatModel(TokenCredential azureCredential) {
         log.info("Configuring Azure OpenAI with deployment: {} using OpenAI Official SDK", deploymentName);
-        String token = getAzureOpenAiToken(azureCredential);
-        
         return OpenAiOfficialChatModel.builder()
             .baseUrl(azureEndpoint)
-            .apiKey(token)
+            .credential(buildOpenAiCredential(azureCredential))
             .modelName(deploymentName)
             .isAzure(true)
             .maxRetries(2)
@@ -105,11 +108,9 @@ public class AgentConfiguration {
     @Bean("plannerModel")
     public ChatModel plannerModel(TokenCredential azureCredential) {
         log.info("Configuring Azure OpenAI plannerModel for Supervisor pattern");
-        String token = getAzureOpenAiToken(azureCredential);
-        
         return OpenAiOfficialChatModel.builder()
             .baseUrl(azureEndpoint)
-            .apiKey(token)
+            .credential(buildOpenAiCredential(azureCredential))
             .modelName(deploymentName)
             .isAzure(true)
             .maxRetries(2)
