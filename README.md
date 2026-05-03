@@ -224,16 +224,18 @@ The check-in compares **objective stress** (computed from GitHub signals) with *
 
 Each check-in calculates six stress dimensions from GitHub issue signals. **Hover over any metric** to see why that score was given. **Click the issue count** below any metric to expand a list of the specific GitHub issues driving that score — each issue links directly to GitHub.
 
-| Metric | What it measures | Max |
-|--------|-----------------|-----|
-| **Workload** | Too many assigned issues, multiple deep-work items | 40 |
-| **Chaos** | Label conflicts, missing assignees, scope creep | 30 |
-| **Context Switching** | Issues touched today > 5 (constant interrupts) | 15 |
-| **Clarity** | "Mystery meat" issues — no labels, no body | 10 |
-| **Sustained Load** | Consecutive high-chaos days | 15 |
-| **After Hours** | Issues updated outside 9am–6pm in your timezone (weekends included) | 10 |
+| Metric | What it measures | Scope | Max |
+|--------|-----------------|-------|-----|
+| **Workload** | Too many assigned issues, multiple deep-work items | user | 40 |
+| **Chaos** | Label conflicts, missing assignees, scope creep | **repo-wide** | 30 |
+| **Context Switching** | Issues touched today > 5 (constant interrupts) | user | 15 |
+| **Clarity** | "Mystery meat" issues — no labels, no body | user | 10 |
+| **Sustained Load** | Consecutive high-chaos days | user | 15 |
+| **After Hours** | Issues updated outside 9am–6pm in your timezone (weekends included) | user | 10 |
 
 Score is capped at 100. Levels: **LOW** (0–29), **MODERATE** (30–49), **HIGH** (50–69), **CRITICAL** (70+).
+
+> **Scope note:** **Chaos** is computed across **all open issues in the repo** (any assignee or none) — the assumption is that working in a chaotic repo is itself stressful, even when the noisy issues aren't yours. Every other metric only counts issues assigned to you.
 
 ## Study Dashboard
 
