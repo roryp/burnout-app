@@ -23,23 +23,25 @@ Four pages, no auth required:
 
 | Before (Chaotic) | After (Reshaped) |
 |:---:|:---:|
-| ![58/100 stress](docs/images/demo/flamegraph-before.png) | ![0/100 stress, 3-3-3](docs/images/demo/flamegraph-after.png) |
-| 58/100 stress (HIGH), Workload + Chaos + Context Switching firing | 0/100 stress (LOW), 100% Friday Score, ≤3-3-3 compliant |
+| ![58/100 stress](docs/images/demo/flamegraph-before.png) | ![8/100 stress, 3-3-3](docs/images/demo/flamegraph-after.png) |
+| 58/100 stress (HIGH), Workload + Chaos + Context Switching firing | 8/100 stress (LOW), 100% Friday Score, 3-3-3 compliant |
 
 ### Stress Breakdown: What Changed
 
-| Before (58/HIGH) | After (0/LOW) |
+| Before (58/HIGH) | After (8/LOW) |
 |:---:|:---:|
-| ![Stress 58 — workload + chaos red](docs/images/demo/stress-before.png) | ![Stress 0 — bars empty](docs/images/demo/stress-after.png) |
+| ![Stress 58 — workload + chaos red](docs/images/demo/stress-before.png) | ![Stress 8 — only workload remaining](docs/images/demo/stress-after.png) |
 
 | Metric | Before | After | What changed |
 |--------|--------|-------|-------------|
-| **Workload** | 12 | 0 | 10 issues piled on roryp → reshape deferred / classified them into ≤3-3-3 |
+| **Workload** | 12 | 8 | 10 issues piled on roryp → reshape deferred most into 3-3-3, leaving 1 deep-work item |
 | **Chaos** | 20 | 0 | 6 unassigned URGENTs + empty bodies + after-hours timestamps → deterministic pre-pass triaged them and defused chaos inputs |
 | **Context Switching** | 15 | 0 | 10 issues touched in the last hour → updatedAt rewritten to a stable mid-morning slot |
 | **Clarity** | 10 | 0 | Every issue had an empty body → SetBody actions added scope-pending placeholders |
 | **After Hours** | 0 | 0 | Chaos issues had 3AM / 4AM / 10PM timestamps but were unassigned, so they didn't count against roryp |
 | **Sustained** | 0 | 0 | No prior high-stress days yet (this is a fresh seed) |
+
+> **Note:** The reshape uses an LLM supervisor, so results vary slightly run-to-run. Typical: **58 → 8 (LOW)** with ~70-80 actions applied. Occasionally lands on 0 when the supervisor classifies the final remaining issue too.
 
 **How to get there:**
 
@@ -53,10 +55,10 @@ bash scripts/seed-demo.sh https://your-app.azurecontainerapps.io
 curl -X POST https://your-app.azurecontainerapps.io/demo/api/reshape \
   -H 'Content-Type: application/json' \
   -d '{"repo":"roryp/burnout-app","userId":"roryp"}'
-# → beforeScore 58, afterScore 0, actionsApplied ~80, llmUsed true
+# → beforeScore 58, afterScore 8 (typical, sometimes 0), actionsApplied ~75, llmUsed true
 
 # 3. View the result:
-#    /flamegraph.html?repo=roryp/burnout-app&userId=roryp  → 0/100 stress, ≤3-3-3 compliant
+#    /flamegraph.html?repo=roryp/burnout-app&userId=roryp  → 8/100 stress, 3-3-3 compliant
 #    /study.html → click Load Data → see roryp's drop in the trend chart
 ```
 
