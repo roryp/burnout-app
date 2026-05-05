@@ -7,8 +7,9 @@ Shipped milestones since project inception, grouped by theme.
 ## Completed Since Inception (Jan 2026 – Apr 2026)
 
 ### Core platform (Jan 2026)
-- ✅ Multi-agent architecture on **LangChain4j Supervisor Pattern** with 5 sub-agents
-  (Defer, Delegate, Classify, Scope, Wellness) plus Explainer, Protective, and
+- ✅ Multi-agent architecture on **LangChain4j Supervisor Pattern** with 6 sub-agents
+  (Triage, Defer, Delegate, Classify, Scope, Wellness) plus a deterministic pre-pass
+  (`triageUrgent` + `defuseChaosInputs`) and Explainer, Protective, and
   Friday-Deploy AI services
 - ✅ Deterministic services (IssueClassifier, ChaosMetrics, Compliance) calculate
   all metrics first — agents only explain; every agent has a deterministic fallback

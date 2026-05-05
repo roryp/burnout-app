@@ -177,10 +177,44 @@ The system has two main components:
 ### Agent hierarchy
 
 - **AgentOrchestrator** — Central coordinator that dispatches to:
-  - **BurnoutSupervisorService** — Supervisor pattern with 5 sub-agents (DeferAgent, DelegateAgent, ClassifyAgent, ScopeAgent, WellnessAgent)
+  - **BurnoutSupervisorService** — Two-phase reshape:
+    1. **Deterministic pre-pass** (no LLM): `mutationTool.triageUrgent(n)` is called for every unassigned-urgent issue, then `mutationTool.defuseChaosInputs(clock)` rewrites empty bodies and after-hours / recently-touched timestamps. This guarantees the chaos score drops regardless of which agents the LLM picks.
+    2. **LangChain4j Supervisor Pattern** with 6 sub-agents (TriageAgent, DeferAgent, DelegateAgent, ClassifyAgent, ScopeAgent, WellnessAgent) capped at `maxAgentsInvocations: 15`, `SupervisorResponseStrategy.SUMMARY`. The supervisor is told the unassigned-urgent issues are already triaged and to leave them alone.
   - **ExplainerAiService** — Explains action plans in human-friendly language
   - **ProtectiveAiService** — Detects emotional signals and provides protective interventions
   - **FridayDeployAiService** — Assesses Friday deploy readiness
+
+### GitHub mutation actions
+
+[`GitHubAction`](backend/src/main/java/com/demo/burnout/goap/GitHubAction.java) is a sealed interface permitting six records:
+
+| Action | Emitted by | Effect |
+|--------|------------|--------|
+| `AddLabels(issueNumber, labels)` | All `@Tool` methods | Add GitHub labels |
+| `RemoveLabels(issueNumber, labels)` | `deferIssue`, `delegateIssue`, `triageUrgent` | Strip labels |
+| `Comment(issueNumber, text)` | All `@Tool` methods | Post a comment |
+| `Unassign(issueNumber, login)` | `deferIssue`, `delegateIssue` | Remove an assignee |
+| `SetBody(issueNumber, body)` | `defuseChaosInputs` | Replace an empty body with a scope-pending placeholder (kills mystery-meat) |
+| `SetUpdatedAt(issueNumber, instant)` | `defuseChaosInputs` | Normalise `updatedAt` to a stable mid-morning slot in the clock zone (kills after-hours + touched-today) |
+
+[`DemoFlamegraphController.applyMutationsToIssues`](backend/src/main/java/com/demo/burnout/controller/DemoFlamegraphController.java) applies the full plan to the in-memory `IssueCache`.
+
+### `BurnoutMutationTool` `@Tool` methods (10 total)
+
+| Tool | Purpose |
+|------|---------|
+| `deferIssue` | Defer to next sprint (adds `deferred,next-sprint`, removes priority/urgent labels, unassigns) |
+| `delegateIssue` | Reassign to balance load (adds `delegated,needs-owner`, unassigns) |
+| `classifyAsQuickWin` | Mark as a quick-win in the 3-3-3 plan |
+| `classifyAsMaintenance` | Mark as maintenance in the 3-3-3 plan |
+| `markAsDeepWork` | Mark today's single deep-work item |
+| `addScopeNeeded` | Flag an issue as needing scope (adds `needs-scope,blocked`) |
+| `triageUrgent` | Strip `urgent` / `priority:critical` / `priority:high` from an unassigned issue (adds `triaged,backlog`) — **also called directly from the deterministic pre-pass** |
+| `suggestBreak` | Recommend a 10–15 minute break |
+| `slowIntake` | Recommend reducing new-issue intake |
+| `blockCalendarTime` | Recommend blocking 2-hour focus time |
+
+`defuseChaosInputs(Clock)` is a public method on `BurnoutMutationTool` but **not** annotated `@Tool` — it is only invoked by `BurnoutSupervisorService` from the deterministic pre-pass.
 
 ### MCP tools
 
@@ -201,7 +235,7 @@ The system has two main components:
 | GET | `/demo/api/flamegraph?repo=...&userId=...` | No | Read-only flamegraph data for pre-synced repos |
 | GET | `/demo/api/repos` | No | List repos currently synced in memory |
 | POST | `/demo/api/sync?repo=owner/repo` | No | Sync issues from GitHub public API (rate-limited: 1 per repo per 5 min) |
-| POST | `/demo/api/reshape` | No | Run reshape (supervisor agent) and apply mutations to IssueCache |
+| POST | `/demo/api/reshape` | No | Run reshape (deterministic pre-pass + LangChain4j supervisor) and apply mutations to IssueCache |
 | POST | `/demo/api/checkin` | No | Stress check-in — accepts optional `tz` param (e.g. `America/New_York`) for timezone-aware after-hours detection. Returns `breakdown`, `breakdownHints`, `breakdownIssues`, and `timezone` |
 
 ### Demo web app
@@ -286,9 +320,10 @@ The `POST /demo/api/seed` endpoint accepts `{"repo": "owner/repo", "issues": [..
 | `backend/src/.../agent/ExplainerAiService.java` | Plan explanation agent |
 | `backend/src/.../agent/ProtectiveAiService.java` | Emotional support agent |
 | `backend/src/.../agent/FridayDeployAiService.java` | Deploy readiness agent |
-| `backend/src/.../agent/supervisor/BurnoutAgents.java` | 5 sub-agent interfaces with `@Agent` annotations |
-| `backend/src/.../agent/supervisor/BurnoutSupervisorService.java` | Supervisor pattern orchestration |
-| `backend/src/.../agent/supervisor/BurnoutMutationTool.java` | GitHub mutation tools (`@Tool` methods) |
+| `backend/src/.../agent/supervisor/BurnoutAgents.java` | 6 sub-agent interfaces with `@Agent` annotations (Triage, Defer, Delegate, Classify, Scope, Wellness) |
+| `backend/src/.../agent/supervisor/BurnoutSupervisorService.java` | Two-phase reshape: deterministic pre-pass (`triageUrgent` + `defuseChaosInputs`) then LangChain4j supervisor (`maxAgentsInvocations: 15`, SUMMARY strategy) |
+| `backend/src/.../agent/supervisor/BurnoutMutationTool.java` | 10 `@Tool` methods + `defuseChaosInputs(Clock)` (called only from the pre-pass) |
+| `backend/src/.../goap/GitHubAction.java` | Sealed interface, 6 records: `AddLabels`, `RemoveLabels`, `Comment`, `Unassign`, `SetBody`, `SetUpdatedAt` |
 | `backend/src/.../config/AgentConfiguration.java` | LangChain4j + Azure OpenAI wiring |
 | `backend/src/.../config/SecurityConfig.java` | Spring Security: GitHub token validation, permitAll paths, CORS |
 | `backend/src/.../service/IssueCache.java` | In-memory `ConcurrentHashMap` cache for synced issues |
