@@ -33,7 +33,13 @@ public class BurnoutMutationTool {
         }
         
         pendingActions.add(new GitHubAction.AddLabels(issueNumber, List.of("deferred", "next-sprint")));
-        pendingActions.add(new GitHubAction.RemoveLabels(issueNumber, List.of("priority:critical")));
+        pendingActions.add(new GitHubAction.RemoveLabels(issueNumber,
+            List.of("priority:critical", "priority:high", "urgent")));
+        if (issue.assignees() != null) {
+            for (var a : issue.assignees()) {
+                pendingActions.add(new GitHubAction.Unassign(issueNumber, a.login()));
+            }
+        }
         pendingActions.add(new GitHubAction.Comment(issueNumber, 
             "🛡️ Deferred to protect your focus. Revisit next sprint."));
         
@@ -48,6 +54,12 @@ public class BurnoutMutationTool {
         }
         
         pendingActions.add(new GitHubAction.AddLabels(issueNumber, List.of("delegated", "needs-owner")));
+        pendingActions.add(new GitHubAction.RemoveLabels(issueNumber, List.of("urgent")));
+        if (issue.assignees() != null) {
+            for (var a : issue.assignees()) {
+                pendingActions.add(new GitHubAction.Unassign(issueNumber, a.login()));
+            }
+        }
         pendingActions.add(new GitHubAction.Comment(issueNumber, 
             "🤝 Marked for delegation to balance workload."));
         

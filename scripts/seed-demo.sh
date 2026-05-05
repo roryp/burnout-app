@@ -72,24 +72,64 @@ AH1=$(date -u +%Y-%m-%dT03:00:00Z)
 AH2=$(date -u +%Y-%m-%dT04:00:00Z)
 AH3=$(date -u +%Y-%m-%dT22:00:00Z)
 
-ISSUES="[
-    {\"number\":1,\"title\":\"Critical auth bypass in OAuth flow\",\"body\":\"\",\"labels\":[{\"name\":\"priority:critical\"},{\"name\":\"security\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$WEEK_AGO\",\"updatedAt\":\"$R1\",\"state\":\"open\"},
-    {\"number\":2,\"title\":\"Refactor agent orchestration layer\",\"body\":\"\",\"labels\":[{\"name\":\"architecture\"},{\"name\":\"deep-work\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$WEEK_AGO\",\"updatedAt\":\"$R2\",\"state\":\"open\"},
-    {\"number\":3,\"title\":\"Implement new feature flags system\",\"body\":\"\",\"labels\":[{\"name\":\"epic\"},{\"name\":\"feature\"},{\"name\":\"priority:critical\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$MONTH_AGO\",\"updatedAt\":\"$R3\",\"state\":\"open\"},
-    {\"number\":4,\"title\":\"URGENT: Production memory leak\",\"body\":\"\",\"labels\":[{\"name\":\"urgent\"},{\"name\":\"bug\"}],\"assignees\":[],\"createdAt\":\"$TWO_WEEKS\",\"updatedAt\":\"$AH1\",\"state\":\"open\"},
-    {\"number\":5,\"title\":\"URGENT: API rate limiting broken\",\"body\":\"\",\"labels\":[{\"name\":\"urgent\"},{\"name\":\"bug\"}],\"assignees\":[],\"createdAt\":\"$WEEK_AGO\",\"updatedAt\":\"$AH2\",\"state\":\"open\"},
-    {\"number\":6,\"title\":\"URGENT: Database connection pool exhaustion\",\"body\":\"\",\"labels\":[{\"name\":\"urgent\"},{\"name\":\"priority:critical\"}],\"assignees\":[],\"createdAt\":\"$MONTH_AGO\",\"updatedAt\":\"$AH3\",\"state\":\"open\"},
-    {\"number\":7,\"title\":\"Fix typo in README\",\"body\":\"\",\"labels\":[{\"name\":\"good-first-issue\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$WEEK_AGO\",\"updatedAt\":\"$R4\",\"state\":\"open\"},
-    {\"number\":8,\"title\":\"Update Spring Boot to 3.5.11\",\"body\":\"\",\"labels\":[{\"name\":\"dependencies\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$WEEK_AGO\",\"updatedAt\":\"$R5\",\"state\":\"open\"},
-    {\"number\":9,\"title\":\"Something unclear\",\"body\":\"\",\"labels\":[{\"name\":\"bug\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$MONTH_AGO\",\"updatedAt\":\"$R6\",\"state\":\"open\"},
-    {\"number\":10,\"title\":\"Another vague issue\",\"body\":\"\",\"labels\":[{\"name\":\"bug\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$MONTH_AGO\",\"updatedAt\":\"$R7\",\"state\":\"open\"},
-    {\"number\":11,\"title\":\"CI pipeline failing intermittently\",\"body\":\"\",\"labels\":[{\"name\":\"ci\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$WEEK_AGO\",\"updatedAt\":\"$R8\",\"state\":\"open\"},
-    {\"number\":12,\"title\":\"Write API documentation\",\"body\":\"\",\"labels\":[{\"name\":\"documentation\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$TWO_WEEKS\",\"updatedAt\":\"$R9\",\"state\":\"open\"},
-    {\"number\":13,\"title\":\"Add dark mode toggle\",\"body\":\"\",\"labels\":[{\"name\":\"enhancement\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$WEEK_AGO\",\"updatedAt\":\"$R10\",\"state\":\"open\"},
-    {\"number\":14,\"title\":\"Fix CORS headers on demo endpoints\",\"body\":\"\",\"labels\":[{\"name\":\"bug\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$WEEK_AGO\",\"updatedAt\":\"$AH1\",\"state\":\"open\"},
-    {\"number\":15,\"title\":\"Stale tracking issue from last quarter\",\"body\":\"\",\"labels\":[{\"name\":\"triage\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$MONTH_AGO\",\"updatedAt\":\"$AH2\",\"state\":\"open\"},
-    {\"number\":16,\"title\":\"Upgrade Node.js to v22\",\"body\":\"\",\"labels\":[{\"name\":\"dependencies\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$TWO_WEEKS\",\"updatedAt\":\"$AH3\",\"state\":\"open\"}
-]"
+# --- Fetch REAL issues from GitHub, then overlay chaos metadata ---
+# Real titles, numbers, and labels are preserved. Bodies, assignees, and
+# updatedAt timestamps are rewritten so stress metrics light up.
+GH_AUTH=()
+if [ -n "${GITHUB_TOKEN:-}" ]; then
+    GH_AUTH=(-H "Authorization: Bearer $GITHUB_TOKEN")
+fi
+RAW_ISSUES=$(curl -sf "${GH_AUTH[@]}" \
+    "https://api.github.com/repos/$REPO/issues?state=open&per_page=30" || echo "")
+
+if [ -z "$RAW_ISSUES" ] || [ "$(echo "$RAW_ISSUES" | jq 'type' 2>/dev/null)" != '"array"' ]; then
+    echo "⚠️  GitHub fetch failed (rate limit or network). Falling back to synthetic titles." >&2
+    RAW_ISSUES='[]'
+fi
+
+# Build chaos overlay via jq:
+#   - Take up to 16 issues, drop pull_requests
+#   - First 6 → unassigned URGENT + after-hours timestamps
+#   - Rest → assigned to roryp + last-60-min staggered timestamps
+#   - All bodies blanked (Clarity), camelCase fields
+ISSUES=$(echo "$RAW_ISSUES" | jq \
+    --arg ah1 "$AH1" --arg ah2 "$AH2" --arg ah3 "$AH3" \
+    --arg r1 "$R1" --arg r2 "$R2" --arg r3 "$R3" --arg r4 "$R4" --arg r5 "$R5" \
+    --arg r6 "$R6" --arg r7 "$R7" --arg r8 "$R8" --arg r9 "$R9" --arg r10 "$R10" \
+    --arg week "$WEEK_AGO" --arg month "$MONTH_AGO" '
+    [ .[] | select(.pull_request | not) ] | .[0:16] |
+    [ to_entries[] | .key as $i | .value |
+        ($i < 6) as $is_urgent |
+        [$ah1,$ah2,$ah3,$ah1,$ah2,$ah3] as $ah |
+        [$r1,$r2,$r3,$r4,$r5,$r6,$r7,$r8,$r9,$r10] as $recent |
+        {
+            number: .number,
+            title: .title,
+            body: "",
+            labels: (
+                [ .labels[]? | {name: .name} ] +
+                (if $is_urgent then [{name:"urgent"},{name:"priority:critical"}] else [] end)
+            ),
+            assignees: (if $is_urgent then [] else [{login:"roryp"}] end),
+            createdAt: (if $is_urgent then $month else $week end),
+            updatedAt: (if $is_urgent then $ah[$i % 3] else $recent[($i - 6) % 10] end),
+            state: "open"
+        }
+    ]
+')
+
+ISSUE_COUNT=$(echo "$ISSUES" | jq 'length')
+if [ "$ISSUE_COUNT" -lt 4 ]; then
+    echo "⚠️  Only $ISSUE_COUNT real issues fetched — chaos overlay needs ≥4. Falling back to synthetic." >&2
+    ISSUES="[
+        {\"number\":1,\"title\":\"Critical auth bypass in OAuth flow\",\"body\":\"\",\"labels\":[{\"name\":\"priority:critical\"},{\"name\":\"security\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$WEEK_AGO\",\"updatedAt\":\"$R1\",\"state\":\"open\"},
+        {\"number\":2,\"title\":\"URGENT: Production memory leak\",\"body\":\"\",\"labels\":[{\"name\":\"urgent\"},{\"name\":\"bug\"}],\"assignees\":[],\"createdAt\":\"$TWO_WEEKS\",\"updatedAt\":\"$AH1\",\"state\":\"open\"},
+        {\"number\":3,\"title\":\"URGENT: Database connection pool exhaustion\",\"body\":\"\",\"labels\":[{\"name\":\"urgent\"},{\"name\":\"priority:critical\"}],\"assignees\":[],\"createdAt\":\"$MONTH_AGO\",\"updatedAt\":\"$AH3\",\"state\":\"open\"},
+        {\"number\":4,\"title\":\"Fix typo in README\",\"body\":\"\",\"labels\":[{\"name\":\"good-first-issue\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$WEEK_AGO\",\"updatedAt\":\"$R4\",\"state\":\"open\"}
+    ]"
+else
+    echo "  ↳ Fetched $ISSUE_COUNT real issues from GitHub; applied chaos overlay."
+fi
 
 # --- Step 1: Seed chaotic issues ---
 curl -s -X POST "$BASE_URL/demo/api/seed" \

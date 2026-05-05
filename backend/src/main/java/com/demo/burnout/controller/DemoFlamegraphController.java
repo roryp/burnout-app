@@ -337,12 +337,18 @@ public class DemoFlamegraphController {
     private List<Issue> applyMutationsToIssues(List<Issue> issues, GitHubMutationPlan plan) {
         // Build a map of issue number -> mutable label list
         var labelMap = new ConcurrentHashMap<Integer, List<String>>();
+        var assigneeMap = new ConcurrentHashMap<Integer, List<Issue.Assignee>>();
         for (Issue issue : issues) {
             List<String> labels = new ArrayList<>();
             if (issue.labels() != null) {
                 issue.labels().forEach(l -> labels.add(l.name()));
             }
             labelMap.put(issue.number(), labels);
+            List<Issue.Assignee> assignees = new ArrayList<>();
+            if (issue.assignees() != null) {
+                assignees.addAll(issue.assignees());
+            }
+            assigneeMap.put(issue.number(), assignees);
         }
 
         // Apply each action
@@ -356,6 +362,11 @@ public class DemoFlamegraphController {
                 }
             } else if (action instanceof GitHubAction.RemoveLabels remove) {
                 labels.removeAll(remove.labels());
+            } else if (action instanceof GitHubAction.Unassign un) {
+                List<Issue.Assignee> assignees = assigneeMap.get(action.issueNumber());
+                if (assignees != null) {
+                    assignees.removeIf(a -> a.login().equals(un.login()));
+                }
             }
             // Comments don't change issue data
         }
@@ -363,10 +374,12 @@ public class DemoFlamegraphController {
         // Rebuild issues with updated labels
         return issues.stream().map(issue -> {
             List<String> newLabels = labelMap.get(issue.number());
+            List<Issue.Assignee> newAssignees = assigneeMap.get(issue.number());
             return new Issue(
                 issue.number(), issue.title(), issue.body(),
                 newLabels.stream().map(Issue.Label::new).toList(),
-                issue.assignees(), issue.createdAt(), issue.updatedAt(),
+                newAssignees,
+                issue.createdAt(), issue.updatedAt(),
                 issue.state(), issue.milestone()
             );
         }).toList();

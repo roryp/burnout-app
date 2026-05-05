@@ -8,7 +8,8 @@ import java.util.List;
 public sealed interface GitHubAction permits 
     GitHubAction.AddLabels, 
     GitHubAction.RemoveLabels, 
-    GitHubAction.Comment {
+    GitHubAction.Comment,
+    GitHubAction.Unassign {
     
     int issueNumber();
     String type();
@@ -23,5 +24,9 @@ public sealed interface GitHubAction permits
 
     record Comment(int issueNumber, String body) implements GitHubAction {
         @Override public String type() { return "Comment"; }
+    }
+
+    record Unassign(int issueNumber, String login) implements GitHubAction {
+        @Override public String type() { return "Unassign"; }
     }
 }
