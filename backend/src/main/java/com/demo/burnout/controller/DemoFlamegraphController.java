@@ -338,6 +338,8 @@ public class DemoFlamegraphController {
         // Build a map of issue number -> mutable label list
         var labelMap = new ConcurrentHashMap<Integer, List<String>>();
         var assigneeMap = new ConcurrentHashMap<Integer, List<Issue.Assignee>>();
+        var bodyMap = new ConcurrentHashMap<Integer, String>();
+        var updatedAtMap = new ConcurrentHashMap<Integer, Instant>();
         for (Issue issue : issues) {
             List<String> labels = new ArrayList<>();
             if (issue.labels() != null) {
@@ -349,6 +351,8 @@ public class DemoFlamegraphController {
                 assignees.addAll(issue.assignees());
             }
             assigneeMap.put(issue.number(), assignees);
+            if (issue.body() != null) bodyMap.put(issue.number(), issue.body());
+            if (issue.updatedAt() != null) updatedAtMap.put(issue.number(), issue.updatedAt());
         }
 
         // Apply each action
@@ -367,6 +371,10 @@ public class DemoFlamegraphController {
                 if (assignees != null) {
                     assignees.removeIf(a -> a.login().equals(un.login()));
                 }
+            } else if (action instanceof GitHubAction.SetBody sb) {
+                bodyMap.put(sb.issueNumber(), sb.body());
+            } else if (action instanceof GitHubAction.SetUpdatedAt sua) {
+                updatedAtMap.put(sua.issueNumber(), sua.updatedAt());
             }
             // Comments don't change issue data
         }
@@ -375,11 +383,13 @@ public class DemoFlamegraphController {
         return issues.stream().map(issue -> {
             List<String> newLabels = labelMap.get(issue.number());
             List<Issue.Assignee> newAssignees = assigneeMap.get(issue.number());
+            String newBody = bodyMap.getOrDefault(issue.number(), issue.body());
+            Instant newUpdatedAt = updatedAtMap.getOrDefault(issue.number(), issue.updatedAt());
             return new Issue(
-                issue.number(), issue.title(), issue.body(),
+                issue.number(), issue.title(), newBody,
                 newLabels.stream().map(Issue.Label::new).toList(),
                 newAssignees,
-                issue.createdAt(), issue.updatedAt(),
+                issue.createdAt(), newUpdatedAt,
                 issue.state(), issue.milestone()
             );
         }).toList();

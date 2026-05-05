@@ -6,6 +6,12 @@ import com.demo.burnout.model.Issue;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -136,6 +142,67 @@ public class BurnoutMutationTool {
             "🧹 Triaged: removed urgent flags. Reprioritize when an owner picks it up."));
 
         return "Triaged urgent issue #" + issueNumber + " (" + issue.title() + ")";
+    }
+
+    /**
+     * Deterministic chaos defuser. Not exposed as an @Tool — the supervisor
+     * service calls this directly before invoking the LLM so chaos inputs
+     * (mystery-meat bodies, after-hours timestamps, recent-touch storms)
+     * are neutralised regardless of which agents the LLM picks.
+     *
+     * For each issue that contributes to a chaos factor it emits:
+     *   - SetBody if the body is empty (kills "mystery meat")
+     *   - SetUpdatedAt to a stable mid-morning slot N hours ago in the
+     *     given clock's zone if the current updatedAt is after-hours or
+     *     within the recent-touch window (kills afterHours + touched)
+     *
+     * Returns the number of issues defused.
+     */
+    public int defuseChaosInputs(Clock clock) {
+        if (clock == null) {
+            return 0;
+        }
+        Instant now = clock.instant();
+        Instant recentCutoff = now.minus(Duration.ofMinutes(60));
+        ZonedDateTime nowZ = now.atZone(clock.getZone());
+        // Anchor the normalised timestamp at "yesterday 10:30 local time" — far
+        // enough back to be outside the 60-minute recent-touch window and
+        // safely inside 9–18 working hours so afterHours stops firing.
+        LocalDate anchor = nowZ.toLocalDate().minusDays(1);
+        Instant normalised = anchor.atTime(LocalTime.of(10, 30))
+            .atZone(clock.getZone())
+            .toInstant();
+
+        int defused = 0;
+        for (Issue issue : issues) {
+            boolean changed = false;
+            if (issue.body() == null || issue.body().isBlank()) {
+                pendingActions.add(new GitHubAction.SetBody(
+                    issue.number(),
+                    "Auto-defused by reshape: scope and acceptance criteria pending review."));
+                changed = true;
+            }
+            if (issue.updatedAt() != null) {
+                boolean afterHours = isAfterHours(issue.updatedAt(), clock);
+                boolean recentlyTouched = issue.updatedAt().isAfter(recentCutoff);
+                if (afterHours || recentlyTouched) {
+                    pendingActions.add(new GitHubAction.SetUpdatedAt(issue.number(), normalised));
+                    changed = true;
+                }
+            }
+            if (changed) defused++;
+        }
+        return defused;
+    }
+
+    private static boolean isAfterHours(Instant ts, Clock clock) {
+        ZonedDateTime z = ts.atZone(clock.getZone());
+        java.time.DayOfWeek dow = z.getDayOfWeek();
+        if (dow == java.time.DayOfWeek.SATURDAY || dow == java.time.DayOfWeek.SUNDAY) {
+            return true;
+        }
+        int hour = z.getHour();
+        return hour < 9 || hour >= 18;
     }
 
     @Tool("Suggest the developer take a break to reduce stress. Use when stress score is high (>70) or after-hours activity detected.")
