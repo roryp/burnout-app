@@ -23,38 +23,40 @@ Four pages, no auth required:
 
 | Before (Chaotic) | After (Reshaped) |
 |:---:|:---:|
-| ![58/100 stress](docs/images/demo/flamegraph-before.png) | ![8/100 stress, 3-3-3](docs/images/demo/flamegraph-after.png) |
-| 58/100 stress (HIGH), Workload + Chaos firing | 8/100 stress (LOW), 100% Friday Score, 1-3-3-0 compliant |
+| ![58/100 stress](docs/images/demo/flamegraph-before.png) | ![0/100 stress, 3-3-3](docs/images/demo/flamegraph-after.png) |
+| 58/100 stress (HIGH), Workload + Chaos + Context Switching firing | 0/100 stress (LOW), 100% Friday Score, ≤3-3-3 compliant |
 
 ### Stress Breakdown: What Changed
 
-| Before (58/HIGH) | After (8/LOW) |
+| Before (58/HIGH) | After (0/LOW) |
 |:---:|:---:|
-| ![Stress 58 — workload + chaos red](docs/images/demo/stress-before.png) | ![Stress 8 — bars nearly empty](docs/images/demo/stress-after.png) |
+| ![Stress 58 — workload + chaos red](docs/images/demo/stress-before.png) | ![Stress 0 — bars empty](docs/images/demo/stress-after.png) |
 
 | Metric | Before | After | What changed |
 |--------|--------|-------|-------------|
-| **Workload** | 18 | 0 | 10 issues piled on roryp → reshape deferred / classified them into 1-3-3-0 |
+| **Workload** | 12 | 0 | 10 issues piled on roryp → reshape deferred / classified them into ≤3-3-3 |
 | **Chaos** | 20 | 0 | 6 unassigned URGENTs + empty bodies + after-hours timestamps → deterministic pre-pass triaged them and defused chaos inputs |
-| **Context Switching** | 5 | 0 | 10 issues updated in the last hour → updatedAt rewritten to a stable mid-morning slot |
-| **Clarity** | 5 | 0 | Every issue had an empty body → SetBody actions added scope-pending placeholders |
-| **After Hours** | 5 | 0 | Updates at 3AM / 4AM / 10PM → SetUpdatedAt actions normalised them to business hours |
-| **Sustained** | 5 | 8 | Recent high-stress checkins still in the trailing window |
+| **Context Switching** | 15 | 0 | 10 issues touched in the last hour → updatedAt rewritten to a stable mid-morning slot |
+| **Clarity** | 10 | 0 | Every issue had an empty body → SetBody actions added scope-pending placeholders |
+| **After Hours** | 0 | 0 | Chaos issues had 3AM / 4AM / 10PM timestamps but were unassigned, so they didn't count against roryp |
+| **Sustained** | 0 | 0 | No prior high-stress days yet (this is a fresh seed) |
 
 **How to get there:**
 
 ```bash
 # 1. Seed chaotic issues (real GitHub titles + chaos overlay → stress 58 / HIGH)
 bash scripts/seed-demo.sh https://your-app.azurecontainerapps.io
+# or PowerShell:
+.\scripts\seed-demo.ps1 -BaseUrl https://your-app.azurecontainerapps.io
 
 # 2. Reshape — runs the deterministic pre-pass + LangChain4j supervisor:
 curl -X POST https://your-app.azurecontainerapps.io/demo/api/reshape \
   -H 'Content-Type: application/json' \
   -d '{"repo":"roryp/burnout-app","userId":"roryp"}'
-# → beforeScore 58, afterScore 8, actionsApplied ~75, llmUsed true
+# → beforeScore 58, afterScore 0, actionsApplied ~80, llmUsed true
 
 # 3. View the result:
-#    /flamegraph.html?repo=roryp/burnout-app&userId=roryp  → 8/100 stress
+#    /flamegraph.html?repo=roryp/burnout-app&userId=roryp  → 0/100 stress, ≤3-3-3 compliant
 #    /study.html → click Load Data → see roryp's drop in the trend chart
 ```
 
