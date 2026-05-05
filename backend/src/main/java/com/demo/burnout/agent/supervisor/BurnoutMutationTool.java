@@ -122,6 +122,22 @@ public class BurnoutMutationTool {
         return "Flagged issue #" + issueNumber + " (" + issue.title() + ") as needing scope";
     }
 
+    @Tool("Triage an unassigned urgent issue. Strips the 'urgent' and 'priority:critical' labels and routes it to the backlog so it stops generating chaos. Use for any issue tagged 'urgent' that has no assignee. Pass the issue number.")
+    public String triageUrgent(@P("The GitHub issue number to triage") int issueNumber) {
+        Issue issue = findIssue(issueNumber);
+        if (issue == null) {
+            return "Issue #" + issueNumber + " not found";
+        }
+
+        pendingActions.add(new GitHubAction.RemoveLabels(issueNumber,
+            List.of("urgent", "priority:critical", "priority:high")));
+        pendingActions.add(new GitHubAction.AddLabels(issueNumber, List.of("triaged", "backlog")));
+        pendingActions.add(new GitHubAction.Comment(issueNumber,
+            "🧹 Triaged: removed urgent flags. Reprioritize when an owner picks it up."));
+
+        return "Triaged urgent issue #" + issueNumber + " (" + issue.title() + ")";
+    }
+
     @Tool("Suggest the developer take a break to reduce stress. Use when stress score is high (>70) or after-hours activity detected.")
     public String suggestBreak() {
         return "🧘 Break suggested. Step away from the keyboard for 10-15 minutes. Stress recovery is essential for sustainable productivity.";

@@ -124,19 +124,34 @@ public class BurnoutSupervisorService {
                 .tools(mutationTool)
                 .build();
 
+            BurnoutAgents.TriageAgent triageAgent = AgenticServices
+                .agentBuilder(BurnoutAgents.TriageAgent.class)
+                .chatModel(chatModel)
+                .tools(mutationTool)
+                .build();
+
             // Build supervisor using AgenticServices.supervisorBuilder() with sub-agents
             // The supervisor uses plannerModel to decide which sub-agents to invoke
             SupervisorAgent supervisor = AgenticServices.supervisorBuilder()
                 .chatModel(plannerModel)
-                .subAgents(deferAgent, delegateAgent, classifyAgent, scopeAgent, wellnessAgent)
+                .subAgents(deferAgent, delegateAgent, classifyAgent, scopeAgent, wellnessAgent, triageAgent)
                 .responseStrategy(SupervisorResponseStrategy.SUMMARY)
-                .maxAgentsInvocations(10)
+                .maxAgentsInvocations(15)
                 .build();
 
             log.info("Invoking Supervisor to orchestrate burnout prevention agents");
 
             // Format issues for the supervisor prompt
             String issueList = formatIssueList(issues, userId);
+
+            long unassignedUrgent = issues.stream()
+                .filter(i -> i.assignees() == null || i.assignees().isEmpty())
+                .filter(i -> i.labels() != null && i.labels().stream().anyMatch(l ->
+                    l.name() != null && (
+                        l.name().equalsIgnoreCase("urgent") ||
+                        l.name().equalsIgnoreCase("priority:critical") ||
+                        l.name().equalsIgnoreCase("priority:high"))))
+                .count();
 
             // Build the supervisor request with full context
             String supervisorRequest = String.format("""
@@ -152,6 +167,7 @@ public class BurnoutSupervisorService {
                 - Chaos Score: %.1f/10
                 - After Hours Activity: %s
                 - Mystery Meat Issues: %d
+                - Unassigned Urgent Issues: %d (these inflate chaos — triage them with TriageAgent)
                 
                 Available Issues:
                 %s
@@ -162,8 +178,11 @@ public class BurnoutSupervisorService {
                 3. Protect the developer's focus time
                 4. Flag unclear issues for scope clarification
                 5. Recommend wellness actions if stress is high
+                6. **Triage every unassigned urgent issue** so the chaos score drops
                 
-                Use the available agents to accomplish these goals.
+                Use the available agents to accomplish these goals. If unassigned
+                urgent issues exist, call TriageAgent for each one BEFORE deferring
+                or classifying — chaos must come down first.
                 """,
                 state.calculateStressScore(),
                 state.getStressLevel().name(),
@@ -175,6 +194,7 @@ public class BurnoutSupervisorService {
                 chaos.score(),
                 state.hasAfterHoursActivity(),
                 state.mysteryMeatCount(),
+                unassignedUrgent,
                 issueList
             );
             
