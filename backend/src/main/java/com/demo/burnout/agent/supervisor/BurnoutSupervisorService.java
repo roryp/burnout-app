@@ -144,14 +144,18 @@ public class BurnoutSupervisorService {
             // Format issues for the supervisor prompt
             String issueList = formatIssueList(issues, userId);
 
-            long unassignedUrgent = issues.stream()
+            List<Integer> unassignedUrgentNumbers = issues.stream()
                 .filter(i -> i.assignees() == null || i.assignees().isEmpty())
                 .filter(i -> i.labels() != null && i.labels().stream().anyMatch(l ->
                     l.name() != null && (
                         l.name().equalsIgnoreCase("urgent") ||
                         l.name().equalsIgnoreCase("priority:critical") ||
                         l.name().equalsIgnoreCase("priority:high"))))
-                .count();
+                .map(Issue::number)
+                .toList();
+            String unassignedUrgentList = unassignedUrgentNumbers.isEmpty()
+                ? "(none)"
+                : unassignedUrgentNumbers.stream().map(n -> "#" + n).collect(java.util.stream.Collectors.joining(", "));
 
             // Build the supervisor request with full context
             String supervisorRequest = String.format("""
@@ -167,22 +171,27 @@ public class BurnoutSupervisorService {
                 - Chaos Score: %.1f/10
                 - After Hours Activity: %s
                 - Mystery Meat Issues: %d
-                - Unassigned Urgent Issues: %d (these inflate chaos — triage them with TriageAgent)
+                - Unassigned Urgent Issues: %d  →  %s
                 
                 Available Issues:
                 %s
                 
-                Goals:
+                MANDATORY FIRST STEP — Chaos Reduction:
+                Before any defer/classify/scope work, call TriageAgent ONCE for
+                EACH of these unassigned urgent issue numbers: %s.
+                Skip this step only if the list is "(none)". Do not defer or
+                classify these issues — triage strips their urgent flags.
+                
+                Then accomplish:
                 1. Reduce stress score below 50
                 2. Achieve 3-3-3 compliance (1 deep work, 3 quick wins, 3 maintenance)
                 3. Protect the developer's focus time
                 4. Flag unclear issues for scope clarification
                 5. Recommend wellness actions if stress is high
-                6. **Triage every unassigned urgent issue** so the chaos score drops
                 
-                Use the available agents to accomplish these goals. If unassigned
-                urgent issues exist, call TriageAgent for each one BEFORE deferring
-                or classifying — chaos must come down first.
+                Use the available agents in this order: TriageAgent (for the list
+                above) → ClassifyAgent (build 3-3-3) → DeferAgent (overflow) →
+                ScopeAgent (mystery meat) → WellnessAgent (if stress > 70).
                 """,
                 state.calculateStressScore(),
                 state.getStressLevel().name(),
@@ -194,8 +203,10 @@ public class BurnoutSupervisorService {
                 chaos.score(),
                 state.hasAfterHoursActivity(),
                 state.mysteryMeatCount(),
-                unassignedUrgent,
-                issueList
+                unassignedUrgentNumbers.size(),
+                unassignedUrgentList,
+                issueList,
+                unassignedUrgentList
             );
             
             // Supervisor autonomously plans and executes via sub-agents
