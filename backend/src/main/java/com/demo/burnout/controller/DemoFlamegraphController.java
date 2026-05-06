@@ -293,6 +293,20 @@ public class DemoFlamegraphController {
 
         // Apply mutations to the IssueCache (in-memory) instead of GitHub
         List<Issue> mutatedIssues = applyMutationsToIssues(issues, mutationPlan);
+
+        // Deterministic 1-3-3-0 compliance enforcer — runs AFTER the
+        // supervisor LLM. Promotes DEFERRED-classified items to fill
+        // underfilled quickWins/maintenance slots, then defers any true
+        // overflow off the user's plate (unassign + label deferred,
+        // next-sprint). Guarantees the day plan ends up 1-3-3-0
+        // compliant regardless of LLM placement quirks.
+        List<GitHubAction> complianceActions = enforce333Compliance(mutatedIssues, userId);
+        int complianceActionCount = complianceActions.size();
+        if (!complianceActions.isEmpty()) {
+            log.info("1-3-3-0 compliance enforcer: emitting {} additional action(s)", complianceActionCount);
+            GitHubMutationPlan compliancePlan = new GitHubMutationPlan(repo, complianceActions);
+            mutatedIssues = applyMutationsToIssues(mutatedIssues, compliancePlan);
+        }
         issueCache.put(repo, mutatedIssues, Instant.now(clock));
 
         // Recalculate stress after mutations
@@ -320,17 +334,20 @@ public class DemoFlamegraphController {
         int triagedCount = supervisorResult.deterministicTriageCount();
         int defusedCount = supervisorResult.deterministicDefuseCount();
         int prePassActions = triagedCount + defusedCount;
-        int totalActions = mutationPlan.actions().size();
+        int totalActions = mutationPlan.actions().size() + complianceActionCount;
         int drop = beforeScore - afterScore;
         String dropPart = drop > 0
             ? String.format("drop of %d points", drop)
             : drop == 0 ? "no change" : String.format("rose by %d points", -drop);
+        String compliancePart = complianceActionCount > 0
+            ? String.format(" + %d compliance action(s) to enforce 1-3-3-0", complianceActionCount)
+            : "";
         String outcomeFooter = String.format(
-            "%n%n**📈 Outcome:** stress %d/100 (%s) → %d/100 (%s), %s. %d action(s) applied (%d from deterministic pre-pass: %d triage + %d defuse).",
+            "%n%n**📈 Outcome:** stress %d/100 (%s) → %d/100 (%s), %s. %d action(s) applied (%d from deterministic pre-pass: %d triage + %d defuse%s).",
             beforeScore, state.getStressLevel().name(),
             afterScore, afterState.getStressLevel().name(),
             dropPart,
-            totalActions, prePassActions, triagedCount, defusedCount);
+            totalActions, prePassActions, triagedCount, defusedCount, compliancePart);
         String groundedExplanation = (llmExplanation == null ? "" : llmExplanation) + outcomeFooter;
 
         // Use a LinkedHashMap because Map.of caps at 10 entries and we want
@@ -349,6 +366,7 @@ public class DemoFlamegraphController {
         // the LLM does nothing.
         body.put("deterministicTriageCount", triagedCount);
         body.put("deterministicDefuseCount", defusedCount);
+        body.put("complianceActionCount", complianceActionCount);
         // After-hours visibility before vs. after the reshape (issues whose
         // updatedAt falls outside 9 AM–6 PM in the active timezone).
         body.put("afterHoursBefore", state.issuesUpdatedAfterHours());
@@ -430,6 +448,97 @@ public class DemoFlamegraphController {
     }
 
     // --- day plan logic (same as ReshapeController, read-only) ---
+
+    /**
+     * Deterministic 1-3-3-0 compliance enforcer. Runs AFTER the LLM
+     * supervisor and AFTER the supervisor's mutation plan has been
+     * applied to the issue list.
+     *
+     * Goal: produce a day plan with exactly 1 deep work, 3 quick
+     * wins, 3 maintenance, and 0 deferred — i.e. overflow gets pushed
+     * off the developer's plate (unassigned + labelled deferred,
+     * next-sprint).
+     *
+     * Strategy:
+     *   1. Bucket the user's currently-assigned open issues using the
+     *      classifier.
+     *   2. Promote the highest-priority items from the DEFERRED bucket
+     *      to fill any underfilled QUICK_WIN / MAINTENANCE slots by
+     *      adding the corresponding label.
+     *   3. Defer all true overflow (anything beyond 1 deep + 3 quick +
+     *      3 maintenance) off the user's plate by emitting AddLabels
+     *      (deferred,next-sprint) + Unassign + a short comment.
+     *
+     * Returns the additional GitHubAction list (may be empty when the
+     * day plan is already 1-3-3-0 compliant).
+     */
+    private List<GitHubAction> enforce333Compliance(List<Issue> mutatedIssues, String userId) {
+        Comparator<Issue> order = Comparator
+            .comparing((Issue i) -> getPriorityWeight(i))
+            .thenComparing(Issue::updatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+            .thenComparing(Issue::number);
+
+        Map<Classification, List<Issue>> buckets = mutatedIssues.stream()
+            .filter(i -> "open".equalsIgnoreCase(i.state()))
+            .filter(i -> i.assignees() != null && i.assignees().stream()
+                .anyMatch(a -> a.login().equalsIgnoreCase(userId)))
+            .collect(Collectors.groupingBy(classifier::classify));
+
+        List<Issue> deepWorkPool = new ArrayList<>(
+            buckets.getOrDefault(Classification.DEEP_WORK, List.of()));
+        List<Issue> quickWinPool = new ArrayList<>(
+            buckets.getOrDefault(Classification.QUICK_WIN, List.of()));
+        List<Issue> maintenancePool = new ArrayList<>(
+            buckets.getOrDefault(Classification.MAINTENANCE, List.of()));
+        List<Issue> deferredPool = new ArrayList<>(
+            buckets.getOrDefault(Classification.DEFERRED, List.of()));
+
+        deepWorkPool.sort(order);
+        quickWinPool.sort(order);
+        maintenancePool.sort(order);
+        deferredPool.sort(order);
+
+        List<GitHubAction> actions = new ArrayList<>();
+
+        // Promote DEFERRED → QUICK_WIN until we have 3 quick wins
+        while (quickWinPool.size() < 3 && !deferredPool.isEmpty()) {
+            Issue promoted = deferredPool.remove(0);
+            actions.add(new GitHubAction.AddLabels(promoted.number(), List.of("quick-win")));
+            quickWinPool.add(promoted);
+        }
+        // Promote DEFERRED → MAINTENANCE until we have 3 maintenance
+        while (maintenancePool.size() < 3 && !deferredPool.isEmpty()) {
+            Issue promoted = deferredPool.remove(0);
+            actions.add(new GitHubAction.AddLabels(promoted.number(), List.of("maintenance")));
+            maintenancePool.add(promoted);
+        }
+
+        // True overflow = anything beyond 1+3+3 plus all leftover deferred.
+        // Stable sort means the lowest-priority entries trail their pool.
+        List<Issue> overflow = new ArrayList<>();
+        if (deepWorkPool.size() > 1) {
+            overflow.addAll(deepWorkPool.subList(1, deepWorkPool.size()));
+        }
+        if (quickWinPool.size() > 3) {
+            overflow.addAll(quickWinPool.subList(3, quickWinPool.size()));
+        }
+        if (maintenancePool.size() > 3) {
+            overflow.addAll(maintenancePool.subList(3, maintenancePool.size()));
+        }
+        overflow.addAll(deferredPool);
+
+        for (Issue issue : overflow) {
+            actions.add(new GitHubAction.RemoveLabels(issue.number(),
+                List.of("priority:critical", "priority:high", "urgent")));
+            actions.add(new GitHubAction.AddLabels(issue.number(),
+                List.of("deferred", "next-sprint")));
+            actions.add(new GitHubAction.Unassign(issue.number(), userId));
+            actions.add(new GitHubAction.Comment(issue.number(),
+                "📅 Compliance defer: overflow beyond today's 1-3-3-0 plan. Reprioritize next sprint."));
+        }
+
+        return actions;
+    }
 
     private DayStructure buildDayPlan(List<Issue> issues, String userId) {
         Comparator<Issue> order = Comparator
