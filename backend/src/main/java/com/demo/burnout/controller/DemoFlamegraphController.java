@@ -311,21 +311,33 @@ public class DemoFlamegraphController {
 
         DayStructure afterPlan = buildDayPlan(mutatedIssues, userId);
 
-        return ResponseEntity.ok(Map.of(
-            "status", "reshaped",
-            "beforeScore", beforeScore,
-            "afterScore", afterScore,
-            "afterLevel", afterState.getStressLevel().name(),
-            "actionsApplied", mutationPlan.actions().size(),
-            "explanation", supervisorResult.explanation(),
-            "llmUsed", supervisorResult.llmUsed(),
-            "dayPlan", Map.of(
-                "deepWork", afterPlan.deepWork() != null ? afterPlan.deepWork().number() : 0,
-                "quickWins", afterPlan.quickWins().stream().map(Issue::number).toList(),
-                "maintenance", afterPlan.maintenance().stream().map(Issue::number).toList(),
-                "deferred", afterPlan.deferred().stream().map(Issue::number).toList()
-            )
+        // Use a LinkedHashMap because Map.of caps at 10 entries and we want
+        // the deterministic pre-pass + after-hours numbers visible to callers
+        // alongside the existing fields.
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("status", "reshaped");
+        body.put("beforeScore", beforeScore);
+        body.put("afterScore", afterScore);
+        body.put("afterLevel", afterState.getStressLevel().name());
+        body.put("actionsApplied", mutationPlan.actions().size());
+        body.put("explanation", supervisorResult.explanation());
+        body.put("llmUsed", supervisorResult.llmUsed());
+        // Deterministic pre-pass counts — surfaced so the user can see the
+        // chaos drop driven by triageUrgent + defuseChaosInputs even when
+        // the LLM does nothing.
+        body.put("deterministicTriageCount", supervisorResult.deterministicTriageCount());
+        body.put("deterministicDefuseCount", supervisorResult.deterministicDefuseCount());
+        // After-hours visibility before vs. after the reshape (issues whose
+        // updatedAt falls outside 9 AM–6 PM in the active timezone).
+        body.put("afterHoursBefore", state.issuesUpdatedAfterHours());
+        body.put("afterHoursAfter", afterState.issuesUpdatedAfterHours());
+        body.put("dayPlan", Map.of(
+            "deepWork", afterPlan.deepWork() != null ? afterPlan.deepWork().number() : 0,
+            "quickWins", afterPlan.quickWins().stream().map(Issue::number).toList(),
+            "maintenance", afterPlan.maintenance().stream().map(Issue::number).toList(),
+            "deferred", afterPlan.deferred().stream().map(Issue::number).toList()
         ));
+        return ResponseEntity.ok(body);
     }
 
     public record ReshapeRequest(String repo, String userId) {}

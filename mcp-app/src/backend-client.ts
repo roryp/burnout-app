@@ -79,6 +79,12 @@ export interface ReshapeResponse {
   protectiveTriggered?: boolean;
   protectiveMessage?: string;
   llmEnabled?: boolean;
+  /** Number of unassigned-urgent issues that the deterministic pre-pass triaged before the LLM ran. */
+  deterministicTriageCount?: number;
+  /** Number of issues whose body or updatedAt was normalised by the deterministic chaos defuser. */
+  deterministicDefuseCount?: number;
+  /** Issues with updatedAt outside 9 AM–6 PM in the active timezone (or weekends). */
+  afterHoursIssues?: number;
 }
 
 export interface StressResponse {

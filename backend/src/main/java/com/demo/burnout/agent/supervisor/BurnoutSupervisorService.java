@@ -59,15 +59,23 @@ public class BurnoutSupervisorService {
 
     /**
      * Result of supervisor invocation containing explanation and mutation plan.
+     *
+     * {@code deterministicTriageCount} and {@code deterministicDefuseCount}
+     * report how many issues the always-on deterministic pre-pass touched
+     * before (and regardless of) the LLM supervisor running. They are
+     * surfaced separately so callers can show the user what actually drove
+     * the stress drop — pre-pass vs. LLM agents.
      */
     public record SupervisorResult(
         String explanation,
         GitHubMutationPlan mutationPlan,
         int estimatedStressScore,
-        boolean llmUsed
+        boolean llmUsed,
+        int deterministicTriageCount,
+        int deterministicDefuseCount
     ) {
         public static SupervisorResult fallback(String message, int stressScore) {
-            return new SupervisorResult(message, GitHubMutationPlan.empty(), stressScore, false);
+            return new SupervisorResult(message, GitHubMutationPlan.empty(), stressScore, false, 0, 0);
         }
     }
 
@@ -85,16 +93,61 @@ public class BurnoutSupervisorService {
             String userId,
             String repo,
             ChaosMetrics chaos) {
-        
+
+        // Create the mutation tool with access to issues. The deterministic
+        // pre-pass below runs against this tool BEFORE we check whether the
+        // LLM is available — that way we always get the chaos-defusing
+        // mutations into the plan even if the LLM is dummy/down.
+        BurnoutMutationTool mutationTool = new BurnoutMutationTool(issues, repo);
+
+        // Identify unassigned-urgent issues that need deterministic triage.
+        List<Integer> unassignedUrgentNumbers = issues.stream()
+            .filter(i -> i.assignees() == null || i.assignees().isEmpty())
+            .filter(i -> i.labels() != null && i.labels().stream().anyMatch(l ->
+                l.name() != null && (
+                    l.name().equalsIgnoreCase("urgent") ||
+                    l.name().equalsIgnoreCase("priority:critical") ||
+                    l.name().equalsIgnoreCase("priority:high"))))
+            .map(Issue::number)
+            .toList();
+        String unassignedUrgentList = unassignedUrgentNumbers.isEmpty()
+            ? "(none)"
+            : unassignedUrgentNumbers.stream().map(n -> "#" + n).collect(Collectors.joining(", "));
+
+        // DETERMINISTIC PRE-PASS — strip chaos-inducing urgent labels from
+        // unassigned issues directly. The supervisor LLM was unreliable at
+        // calling TriageAgent for every issue; doing it here guarantees the
+        // chaos score drops on every reshape regardless of LLM behavior.
+        for (int n : unassignedUrgentNumbers) {
+            mutationTool.triageUrgent(n);
+        }
+        int triagedCount = unassignedUrgentNumbers.size();
+        log.info("Deterministic triage pre-pass: triaged {} unassigned urgent issue(s): {}",
+            triagedCount, unassignedUrgentList);
+
+        // DETERMINISTIC CHAOS DEFUSER — fill empty bodies and normalise
+        // after-hours / recently-touched timestamps. The chaos score is
+        // bucketed (LOW≤2, MEDIUM≤5, HIGH≤8, CRITICAL>8) and uses binary
+        // factors (mysteryMeat≥3, urgent≥3, touched≥6, afterHours,
+        // labels≥12), so partial improvement does not show up. Defusing
+        // every contributor is what actually moves the bucket.
+        int defusedCount = mutationTool.defuseChaosInputs(clock);
+        log.info("Deterministic chaos defuser: normalised body/updatedAt on {} issue(s)", defusedCount);
+
+        // Pre-pass note prepended to whatever explanation we end up with —
+        // this is how the user finds out the deterministic phase ran.
+        String prePassNote = String.format(
+            "**🧹 Deterministic pre-pass:** triaged %d unassigned-urgent issue(s)%s and defused %d chaos input(s) (empty bodies / after-hours timestamps) before the LLM was invoked.%n",
+            triagedCount,
+            unassignedUrgentNumbers.isEmpty() ? "" : " (" + unassignedUrgentList + ")",
+            defusedCount);
+
         if (!llmEnabled) {
-            log.warn("LLM not enabled, returning fallback response");
-            return generateFallbackResult(state);
+            log.warn("LLM not enabled; returning fallback result with deterministic pre-pass mutations only");
+            return generateFallbackResult(state, mutationTool, triagedCount, defusedCount, prePassNote);
         }
 
         try {
-            // Create the mutation tool with access to issues
-            BurnoutMutationTool mutationTool = new BurnoutMutationTool(issues, repo);
-            
             log.info("Building Supervisor pattern for user {} in repo {}", userId, repo);
 
             // Build sub-agents using AgenticServices.agentBuilder() with tools
@@ -148,38 +201,6 @@ public class BurnoutSupervisorService {
             // Format issues for the supervisor prompt
             String issueList = formatIssueList(issues, userId);
 
-            List<Integer> unassignedUrgentNumbers = issues.stream()
-                .filter(i -> i.assignees() == null || i.assignees().isEmpty())
-                .filter(i -> i.labels() != null && i.labels().stream().anyMatch(l ->
-                    l.name() != null && (
-                        l.name().equalsIgnoreCase("urgent") ||
-                        l.name().equalsIgnoreCase("priority:critical") ||
-                        l.name().equalsIgnoreCase("priority:high"))))
-                .map(Issue::number)
-                .toList();
-            String unassignedUrgentList = unassignedUrgentNumbers.isEmpty()
-                ? "(none)"
-                : unassignedUrgentNumbers.stream().map(n -> "#" + n).collect(java.util.stream.Collectors.joining(", "));
-
-            // DETERMINISTIC PRE-PASS — strip chaos-inducing urgent labels from
-            // unassigned issues directly. The supervisor LLM was unreliable at
-            // calling TriageAgent for every issue; doing it here guarantees the
-            // chaos score drops on every reshape regardless of LLM behavior.
-            for (int n : unassignedUrgentNumbers) {
-                mutationTool.triageUrgent(n);
-            }
-            log.info("Deterministic triage pre-pass: triaged {} unassigned urgent issue(s): {}",
-                unassignedUrgentNumbers.size(), unassignedUrgentList);
-
-            // DETERMINISTIC CHAOS DEFUSER — fill empty bodies and normalise
-            // after-hours / recently-touched timestamps. The chaos score is
-            // bucketed (LOW≤2, MEDIUM≤5, HIGH≤8, CRITICAL>8) and uses binary
-            // factors (mysteryMeat≥3, urgent≥3, touched≥6, afterHours,
-            // labels≥12), so partial improvement does not show up. Defusing
-            // every contributor is what actually moves the bucket.
-            int defused = mutationTool.defuseChaosInputs(clock);
-            log.info("Deterministic chaos defuser: normalised body/updatedAt on {} issue(s)", defused);
-
             // Build the supervisor request with full context
             String supervisorRequest = String.format("""
                 Analyze and rebalance this developer's workload to reduce stress.
@@ -228,21 +249,24 @@ public class BurnoutSupervisorService {
             );
             
             // Supervisor autonomously plans and executes via sub-agents
-            String explanation = supervisor.invoke(supervisorRequest);
+            String llmExplanation = supervisor.invoke(supervisorRequest);
+            String explanation = prePassNote + "\n" + llmExplanation;
             
             // Get the mutation plan from the tool (accumulated from all sub-agent calls)
             GitHubMutationPlan mutationPlan = mutationTool.getMutationPlan();
             
-            log.info("Supervisor completed. Actions planned: {}", mutationPlan.actions().size());
+            log.info("Supervisor completed. Actions planned: {} ({} from deterministic pre-pass)",
+                mutationPlan.actions().size(), triagedCount + defusedCount);
             
             // Estimate new stress score based on actions taken
             int estimatedStress = estimateReducedStress(state, mutationPlan);
             
-            return new SupervisorResult(explanation, mutationPlan, estimatedStress, true);
+            return new SupervisorResult(explanation, mutationPlan, estimatedStress, true,
+                triagedCount, defusedCount);
             
         } catch (Exception e) {
-            log.error("Supervisor invocation failed: {}", e.getMessage(), e);
-            return generateFallbackResult(state);
+            log.error("Supervisor invocation failed: {} — returning fallback with pre-pass mutations", e.getMessage(), e);
+            return generateFallbackResult(state, mutationTool, triagedCount, defusedCount, prePassNote);
         }
     }
 
@@ -278,12 +302,19 @@ public class BurnoutSupervisorService {
     }
 
     /**
-     * Generate fallback result when LLM is unavailable.
+     * Generate fallback result when LLM is unavailable or fails. Always
+     * returns the deterministic pre-pass mutations and counts so the
+     * caller can still report what happened.
      */
-    private SupervisorResult generateFallbackResult(WorldState state) {
+    private SupervisorResult generateFallbackResult(WorldState state,
+                                                     BurnoutMutationTool mutationTool,
+                                                     int triagedCount,
+                                                     int defusedCount,
+                                                     String prePassNote) {
         int stress = state.calculateStressScore();
         StringBuilder sb = new StringBuilder();
-        
+        sb.append(prePassNote).append('\n');
+
         if (stress >= 70) {
             sb.append("🔴 **Critical stress detected.** ");
         } else if (stress >= 50) {
@@ -292,7 +323,7 @@ public class BurnoutSupervisorService {
             sb.append("🟢 **Stress levels manageable.** ");
         }
         sb.append("Current stress score: ").append(stress).append("/100\n\n");
-        
+
         if (!state.is333Compliant()) {
             sb.append("⚠️ Your workload exceeds the 3-3-3 structure. ");
             sb.append("You have ").append(state.deepWorkCount()).append(" deep work items (max 1), ");
@@ -301,10 +332,13 @@ public class BurnoutSupervisorService {
         } else {
             sb.append("✅ You're within the 3-3-3 structure. Good balance!\n\n");
         }
-        
-        sb.append("*LLM agents unavailable - using deterministic fallback*");
-        
-        return SupervisorResult.fallback(sb.toString(), stress);
+
+        sb.append("*LLM agents unavailable — using deterministic fallback. Pre-pass mutations still applied.*");
+
+        GitHubMutationPlan plan = mutationTool.getMutationPlan();
+        int estimatedStress = estimateReducedStress(state, plan);
+        return new SupervisorResult(sb.toString(), plan, estimatedStress, false,
+            triagedCount, defusedCount);
     }
 
     public boolean isLlmEnabled() {

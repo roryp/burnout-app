@@ -272,6 +272,15 @@ server.tool(
     const beforeLevel = data.stressLevel ?? levelFromScore(before);
     const afterLevel = levelFromScore(after);
     const llmTag = data.llmEnabled === false ? ' *(deterministic fallback — LLM unavailable)*' : '';
+    const triaged = data.deterministicTriageCount ?? 0;
+    const defused = data.deterministicDefuseCount ?? 0;
+    const afterHours = data.afterHoursIssues ?? 0;
+    const prePassLine = (triaged > 0 || defused > 0)
+      ? `🧹 **Deterministic pre-pass**: triaged ${triaged} unassigned-urgent · defused ${defused} chaos input(s)`
+      : '';
+    const afterHoursLine = afterHours > 0
+      ? `🌙 **After-hours issues (before reshape)**: ${afterHours}`
+      : '';
 
     const summary = [
       `## 📊 Reshape Complete — ${repo}${llmTag}`,
@@ -279,6 +288,8 @@ server.tool(
       `${stressIndicator(before)} **Before**: ${before}/100 (${beforeLevel})`,
       `${stressIndicator(after)} **After**:  ${after}/100 (${afterLevel})`,
       drop > 0 ? `📉 **Drop**: -${drop} points` : '',
+      prePassLine,
+      afterHoursLine,
       '',
       data.dayPlan.deepWork
         ? `🎯 **Deep Work**: #${data.dayPlan.deepWork.number} - ${data.dayPlan.deepWork.title}`
@@ -317,6 +328,9 @@ server.tool(
         mutations: data.actionPlan?.actions || [],
         mutationOutcome: outcome,
         llmEnabled: data.llmEnabled !== false,
+        deterministicTriageCount: triaged,
+        deterministicDefuseCount: defused,
+        afterHoursIssues: afterHours,
         isDemo,
       },
       _meta: {

@@ -105,6 +105,9 @@ public class ReshapeController {
             protectiveResponse.triggered(),
             protectiveResponse.message(),
             supervisorResult.llmUsed(),
+            supervisorResult.deterministicTriageCount(),
+            supervisorResult.deterministicDefuseCount(),
+            state.issuesUpdatedAfterHours(),
             ReshapeResponse.SCHEMA_VERSION
         );
     }
@@ -182,16 +185,21 @@ public class ReshapeController {
         boolean protectiveTriggered,
         String protectiveMessage,
         boolean llmEnabled,
+        int deterministicTriageCount,
+        int deterministicDefuseCount,
+        int afterHoursIssues,
         int schemaVersion
     ) {
-        public static final int SCHEMA_VERSION = 2;
-        
+        public static final int SCHEMA_VERSION = 3;
+
         public static ReshapeResponse notSynced() {
             return new ReshapeResponse(
                 "not_synced", null, GitHubMutationPlan.empty(), List.of(),
                 ChaosMetrics.notSynced(), ComplianceReport.notSynced(),
-                -1, StressLevel.LOW, -1, -1, 
-                "Issues not synced", false, "", false, SCHEMA_VERSION
+                -1, StressLevel.LOW, -1, -1,
+                "Issues not synced", false, "", false,
+                0, 0, 0,
+                SCHEMA_VERSION
             );
         }
     }
