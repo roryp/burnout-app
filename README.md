@@ -2,7 +2,7 @@
 
 **AI-powered burnout prevention** for developers — a Java backend (LangChain4j Supervisor Pattern) + MCP App that analyzes your GitHub issues, detects stress signals, and organizes your day using the **3-3-3 structure**: 1 deep work, 3 quick wins, 3 maintenance. See the [Psychology & Science deep-dive](docs/PSYCHOLOGY.md) for the research and algorithms behind every feature.
 
-![Burnout Flamegraph - 3-3-3 Day Structure](docs/burnout-flamegraph.png)
+![Burnout Flamegraph - 3-3-3 Day Structure](docs/images/demo/flamegraph-after.png)
 
 **Live demo:** [https://aka.ms/burnout-app](https://aka.ms/burnout-app) — enter any public repo and see its burnout flamegraph instantly.
 
