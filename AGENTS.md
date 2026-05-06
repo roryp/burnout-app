@@ -177,12 +177,30 @@ The system has two main components:
 ### Agent hierarchy
 
 - **AgentOrchestrator** — Central coordinator that dispatches to:
-  - **BurnoutSupervisorService** — Two-phase reshape:
-    1. **Deterministic pre-pass** (no LLM): `mutationTool.triageUrgent(n)` is called for every unassigned-urgent issue, then `mutationTool.defuseChaosInputs(clock)` rewrites empty bodies and after-hours / recently-touched timestamps. This guarantees the chaos score drops regardless of which agents the LLM picks.
-    2. **LangChain4j Supervisor Pattern** with 6 sub-agents (TriageAgent, DeferAgent, DelegateAgent, ClassifyAgent, ScopeAgent, WellnessAgent) capped at `maxAgentsInvocations: 15`, `SupervisorResponseStrategy.SUMMARY`. The supervisor is told the unassigned-urgent issues are already triaged and to leave them alone.
+  - **BurnoutSupervisorService** — Three-phase reshape:
+    1. **Deterministic pre-pass** (no LLM, ALWAYS runs even when LLM is unavailable): `mutationTool.triageUrgent(n)` is called for every unassigned-urgent issue, then `mutationTool.defuseChaosInputs(clock)` rewrites empty bodies and after-hours / recently-touched timestamps. This guarantees the chaos score drops regardless of which agents the LLM picks (or even when no LLM runs at all). The pre-pass counts are returned on `SupervisorResult` as `deterministicTriageCount` and `deterministicDefuseCount`, and the explanation text is prepended with a "🧹 Deterministic pre-pass:" line listing the triaged issue numbers.
+    2. **LangChain4j Supervisor Pattern** with 6 sub-agents (TriageAgent, DeferAgent, DelegateAgent, ClassifyAgent, ScopeAgent, WellnessAgent) capped at `maxAgentsInvocations: 15`, `SupervisorResponseStrategy.SUMMARY`. The supervisor is told the unassigned-urgent issues are already triaged and to leave them alone, AND is forbidden from quoting absolute stress numbers in its summary (the prompt explains the system computes the AFTER score itself).
+    3. **Deterministic 1-3-3-0 enforcer** (no LLM, only in `/demo/api/reshape`): after the LLM's mutations are applied, `enforce333Compliance(...)` promotes deferred-classified items into underfilled quickWin/maintenance slots and pushes true overflow off the user's plate (unassign + `deferred,next-sprint` + comment). Guarantees the day plan ends up exactly 1-3-3-0 even when the LLM under-fills. Surfaced as `complianceActionCount` in the response.
   - **ExplainerAiService** — Explains action plans in human-friendly language
   - **ProtectiveAiService** — Detects emotional signals and provides protective interventions
   - **FridayDeployAiService** — Assesses Friday deploy readiness
+
+### Reshape response fields
+
+Both `/api/reshape` and `/demo/api/reshape` surface deterministic-phase visibility on top of the LLM output:
+
+| Field | Source | Meaning |
+|---|---|---|
+| `beforeScore` / `afterScore` | recomputed | Stress score before vs. after all mutations |
+| `actionsApplied` | total | Pre-pass + LLM + (demo only) compliance actions, summed |
+| `deterministicTriageCount` | pre-pass | Unassigned-urgent issues whose `urgent` / `priority:*` labels were stripped |
+| `deterministicDefuseCount` | pre-pass | Issues whose body or `updatedAt` was normalised |
+| `complianceActionCount` (demo only) | enforcer | Mutations emitted by the 1-3-3-0 enforcer (0 when the LLM lands compliance on its own) |
+| `afterHoursBefore` / `afterHoursAfter` (demo) · `afterHoursIssues` (api) | WorldState | Issues with `updatedAt` outside 9 AM–6 PM in the active timezone |
+| `llmUsed` | flag | `true` when the supervisor LLM ran; `false` means deterministic-only fallback (token expired or LLM down) |
+| `explanation` | composed | LLM prose **bookended** by deterministic content: a "🧹 Deterministic pre-pass:" header listing triaged issue numbers, then the LLM summary, then a "📈 Outcome:" footer with the real measured stress drop. The supervisor is prompt-blocked from quoting absolute stress numbers, so the footer is the source of truth |
+
+`/api/reshape` increments `SCHEMA_VERSION` to `3` for the new fields.
 
 ### GitHub mutation actions
 
@@ -235,7 +253,7 @@ The system has two main components:
 | GET | `/demo/api/flamegraph?repo=...&userId=...` | No | Read-only flamegraph data for pre-synced repos |
 | GET | `/demo/api/repos` | No | List repos currently synced in memory |
 | POST | `/demo/api/sync?repo=owner/repo` | No | Sync issues from GitHub public API (rate-limited: 1 per repo per 5 min) |
-| POST | `/demo/api/reshape` | No | Run reshape (deterministic pre-pass + LangChain4j supervisor) and apply mutations to IssueCache |
+| POST | `/demo/api/reshape` | No | Run reshape (deterministic pre-pass + LangChain4j supervisor + deterministic 1-3-3-0 enforcer) and apply mutations to IssueCache. Response includes `deterministicTriageCount`, `deterministicDefuseCount`, `complianceActionCount`, `afterHoursBefore`, `afterHoursAfter` |
 | POST | `/demo/api/checkin` | No | Stress check-in — accepts optional `tz` param (e.g. `America/New_York`) for timezone-aware after-hours detection. Returns `breakdown`, `breakdownHints`, `breakdownIssues`, and `timezone` |
 
 ### Demo web app
@@ -321,7 +339,7 @@ The `POST /demo/api/seed` endpoint accepts `{"repo": "owner/repo", "issues": [..
 | `backend/src/.../agent/ProtectiveAiService.java` | Emotional support agent |
 | `backend/src/.../agent/FridayDeployAiService.java` | Deploy readiness agent |
 | `backend/src/.../agent/supervisor/BurnoutAgents.java` | 6 sub-agent interfaces with `@Agent` annotations (Triage, Defer, Delegate, Classify, Scope, Wellness) |
-| `backend/src/.../agent/supervisor/BurnoutSupervisorService.java` | Two-phase reshape: deterministic pre-pass (`triageUrgent` + `defuseChaosInputs`) then LangChain4j supervisor (`maxAgentsInvocations: 15`, SUMMARY strategy) |
+| `backend/src/.../agent/supervisor/BurnoutSupervisorService.java` | Three-phase reshape: deterministic pre-pass (`triageUrgent` + `defuseChaosInputs`) — always runs even when LLM is down — then LangChain4j supervisor (`maxAgentsInvocations: 15`, SUMMARY strategy, prompt-blocked from quoting absolute stress numbers). Returns `SupervisorResult(explanation, mutationPlan, estimatedStressScore, llmUsed, deterministicTriageCount, deterministicDefuseCount)` |
 | `backend/src/.../agent/supervisor/BurnoutMutationTool.java` | 10 `@Tool` methods + `defuseChaosInputs(Clock)` (called only from the pre-pass) |
 | `backend/src/.../goap/GitHubAction.java` | Sealed interface, 6 records: `AddLabels`, `RemoveLabels`, `Comment`, `Unassign`, `SetBody`, `SetUpdatedAt` |
 | `backend/src/.../config/AgentConfiguration.java` | LangChain4j + Azure OpenAI wiring |
@@ -330,7 +348,8 @@ The `POST /demo/api/seed` endpoint accepts `{"repo": "owner/repo", "issues": [..
 | `backend/src/.../service/IssueClassifierService.java` | Classifies issues into DEEP_WORK, QUICK_WIN, MAINTENANCE, DEFERRED |
 | `backend/src/.../service/ChaosMetricsService.java` | Calculates chaos score from issue patterns |
 | `backend/src/.../service/ComplianceService.java` | Analyzes compliance (labels, assignees, SLA) |
-| `backend/src/.../controller/DemoFlamegraphController.java` | Read-only demo endpoints + seed endpoint (no auth) |
+| `backend/src/.../controller/DemoFlamegraphController.java` | Read-only demo endpoints + seed endpoint (no auth) + `enforce333Compliance` post-pass that guarantees the day plan ends 1-3-3-0 |
+| `backend/src/.../controller/ReshapeController.java` | `/api/reshape` (auth) — `ReshapeResponse` (SCHEMA_VERSION=3) includes `deterministicTriageCount`, `deterministicDefuseCount`, `afterHoursIssues` |
 | `backend/src/main/resources/static/index.html` | Landing page with links to all demo pages |
 | `backend/src/main/resources/static/flamegraph.html` | Standalone flamegraph web app for live demos |
 | `backend/src/main/resources/static/checkin.html` | Stress check-in page (supports URL params for deep-linking) |

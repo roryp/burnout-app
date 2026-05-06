@@ -76,7 +76,7 @@ curl -X POST https://your-app.azurecontainerapps.io/demo/api/reshape \
 
 ## How It Works
 
-Reshape runs in two phases. **Phase 1** is a deterministic pre-pass that fires before the LLM ever wakes up — it triages every unassigned-urgent issue and defuses chaos inputs (empty bodies, after-hours timestamps, recent-touch storms) so the chaos score is guaranteed to drop. **Phase 2** is a **Supervisor LLM** (Azure OpenAI) coordinating 6 specialized sub-agents (`maxAgentsInvocations: 15`) that finish the rebalancing and apply GitHub labels:
+Reshape runs in three phases. **Phase 1** is a deterministic pre-pass that fires before the LLM ever wakes up — it triages every unassigned-urgent issue and defuses chaos inputs (empty bodies, after-hours timestamps, recent-touch storms) so the chaos score is guaranteed to drop, even when the LLM is offline. **Phase 2** is a **Supervisor LLM** (Azure OpenAI) coordinating 6 specialized sub-agents (`maxAgentsInvocations: 15`) that classify the remaining issues and apply GitHub labels. **Phase 3** is a deterministic 1-3-3-0 enforcer that runs after the LLM, promoting deferred items into underfilled quickWin/maintenance slots and pushing overflow off the user's plate so the day plan ends up exactly **1-3-3-0** every time:
 
 | Agent | Action | Labels Applied |
 |-------|--------|---------------|
@@ -87,7 +87,7 @@ Reshape runs in two phases. **Phase 1** is a deterministic pre-pass that fires b
 | **ScopeAgent** | Flag vague issues | `needs-scope`, `blocked` |
 | **WellnessAgent** | Recommend breaks & boundaries | *(advisory only)* |
 
-Deterministic services compute all metrics (chaos score, compliance, stress). The pre-pass guarantees a chaos drop even if the LLM picks the wrong agent. AI agents only explain and act — they never decide.
+Deterministic services compute all metrics (chaos score, compliance, stress). The pre-pass guarantees a chaos drop even if the LLM picks the wrong agent. The post-pass guarantees 1-3-3-0 even if the LLM under-fills. AI agents only explain and classify — they never decide. The reshape response surfaces `deterministicTriageCount`, `deterministicDefuseCount`, and `complianceActionCount` so callers can see exactly what each phase contributed, and the `explanation` field is bookended by deterministic prose (a "🧹 Deterministic pre-pass:" header and a "📈 Outcome:" footer with the real measured stress drop) — the LLM is prompt-blocked from quoting absolute stress numbers, so the footer is always the source of truth.
 
 The reshape returns a [`GitHubMutationPlan`](backend/src/main/java/com/demo/burnout/goap/GitHubMutationPlan.java) of six action types: `AddLabels`, `RemoveLabels`, `Comment`, `Unassign`, `SetBody`, and `SetUpdatedAt`.
 

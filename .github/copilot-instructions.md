@@ -109,6 +109,8 @@ When asked to take screenshots, capture demo screenshots, or run the demo flow:
 - The `/demo/api/seed` endpoint deserializes directly into `Issue` — so it needs **camelCase**
 - Deterministic services calculate all metrics first; AI agents only explain — they never make decisions
 - Every AI agent must have a deterministic fallback when the LLM is unavailable
+- **Reshape is three phases, not two**: (1) deterministic pre-pass `triageUrgent` + `defuseChaosInputs` runs **before** the LLM and **always runs even when the LLM is down/disabled**, (2) LangChain4j supervisor with 6 sub-agents, (3) deterministic 1-3-3-0 enforcer (`/demo/api/reshape` only) runs **after** the LLM and promotes deferred items to fill underfilled buckets / pushes overflow off the user's plate. Counts surface as `deterministicTriageCount`, `deterministicDefuseCount`, `complianceActionCount`.
+- **The supervisor LLM is prompt-blocked from quoting absolute stress numbers** in its summary. Both reshape controllers append a deterministic "📈 Outcome:" footer to `explanation` after `afterScore` is recomputed, so the prose surfaced to the user is grounded in measured truth — even if the LLM regresses, the footer is the source of truth.
 - **After-hours is timezone-aware**: The checkin page auto-detects the browser timezone and sends it as `tz` in the request body. Working hours are 9 AM–6 PM in the user's timezone; weekends always count as after-hours. All three after-hours implementations (ChaosMetricsService, WorldState, SyntheticTimeResolver) use the same 9 AM–6 PM + weekends rule.
 
 ## Testing the App (Comprehensive Guide)
@@ -323,9 +325,7 @@ Invoke-RestMethod -Method POST -Uri "$BASE_URL/demo/api/reshape" `
   -Headers @{"Content-Type"="application/json"} `
   -Body '{"repo":"roryp/burnout-app","userId":"roryp"}' | ConvertTo-Json -Depth 5
 ```
-- Expected: `llmUsed: true`, `beforeScore: ~58`, `afterScore: ~8`, `afterLevel: LOW`, `actionsApplied: ~75`, 1-3-3-0 structure (1 deep, 3 quick wins, 3 maintenance, 0 deferred)
-
-**Step 4: Validate AFTER State (Playwright)**
+- Expected: `llmUsed: true`, `beforeScore: ~58`, `afterScore: ~8`, `afterLevel: LOW`, `actionsApplied: ~75`, 1-3-3-0 structure (1 deep, 3 quick wins, 3 maintenance, 0 deferred)**Step 4: Validate AFTER State (Playwright)**
 
 **4a. Check-In Page AFTER**
 - Navigate: `/checkin.html`
