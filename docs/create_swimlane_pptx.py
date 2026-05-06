@@ -1,4 +1,10 @@
-"""Clean swimlane PPTX — labels only, all detail in speaker notes."""
+"""Clean swimlane PPTX — labels only, all detail in speaker notes.
+
+Reflects the current two-phase reshape architecture:
+  Lane 1 (DETERMINISTIC METRICS): Ingestion → Chaos → Classify+Comply → Stress (BEFORE)
+  Lane 2 (RESHAPE): Pre-pass (triageUrgent + defuseChaosInputs) → Supervisor + 6 sub-agents → Mutations
+  Lane 3 (OUTPUT): Apply Mutations → Recalculate → Friday Score → Persist
+"""
 from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.dml.color import RGBColor
@@ -16,7 +22,9 @@ C_INGEST = RGBColor(0x3B, 0x82, 0xF6)
 C_CHAOS  = RGBColor(0xF5, 0x9E, 0x0B)
 C_CLASS  = RGBColor(0xA7, 0x8B, 0xFA)
 C_STRESS = RGBColor(0x2D, 0xD4, 0xBF)
+C_PREPASS = RGBColor(0x2D, 0xD4, 0xBF)   # teal — same family as deterministic
 C_AGENT  = RGBColor(0xFB, 0x71, 0x85)
+C_MUTATE = RGBColor(0xEC, 0x4C, 0x6F)
 C_OUTPUT = RGBColor(0x81, 0x8C, 0xF8)
 C_LOOP   = RGBColor(0xF5, 0x9E, 0x0B)
 
@@ -45,7 +53,7 @@ def rbox(slide, l, t, w, h, c):
     s.adjustments[0] = 0.15
 
 
-def txt(slide, l, t, w, h, text, size=14, color=WHITE, bold=False):
+def txt(slide, l, t, w, h, text, size=14, color=WHITE, bold=False, align=PP_ALIGN.CENTER):
     tb = slide.shapes.add_textbox(l, t, w, h)
     tf = tb.text_frame
     tf.word_wrap = True
@@ -55,7 +63,7 @@ def txt(slide, l, t, w, h, text, size=14, color=WHITE, bold=False):
     p.font.color.rgb = color
     p.font.bold = bold
     p.font.name = "Segoe UI"
-    p.alignment = PP_ALIGN.CENTER
+    p.alignment = align
     p.space_before = Pt(0)
     p.space_after = Pt(0)
 
@@ -88,23 +96,26 @@ def main():
 
     # Lane geometry
     lx = Inches(2.3); lw = Inches(10.5)
-    y1 = Inches(1.2); h1 = Inches(1.55)
-    y2 = Inches(3.0); h2 = Inches(1.35)
-    y3 = Inches(4.6); h3 = Inches(1.35)
+    y1 = Inches(1.1); h1 = Inches(1.5)
+    y2 = Inches(2.85); h2 = Inches(1.85)
+    y3 = Inches(4.95); h3 = Inches(1.3)
 
     for y, h in [(y1, h1), (y2, h2), (y3, h3)]:
         lane_bg(slide, lx, y, lw, h)
 
     # Lane labels
     lbl_x = Inches(0.2); lbl_w = Inches(1.9)
-    txt(slide, lbl_x, y1 + Inches(0.5), lbl_w, Inches(0.3), "DETERMINISTIC", 14, C_STRESS, True)
-    txt(slide, lbl_x, y2 + Inches(0.35), lbl_w, Inches(0.3), "AI AGENTS", 14, C_AGENT, True)
-    txt(slide, lbl_x, y2 + Inches(0.65), lbl_w, Inches(0.25), "(reshape only)", 11, MUTED)
-    txt(slide, lbl_x, y3 + Inches(0.45), lbl_w, Inches(0.3), "OUTPUT", 14, C_OUTPUT, True)
+    txt(slide, lbl_x, y1 + Inches(0.45), lbl_w, Inches(0.3), "DETERMINISTIC", 14, C_STRESS, True)
+    txt(slide, lbl_x, y1 + Inches(0.75), lbl_w, Inches(0.25), "(metrics)", 11, MUTED)
+
+    txt(slide, lbl_x, y2 + Inches(0.55), lbl_w, Inches(0.3), "RESHAPE", 14, C_AGENT, True)
+    txt(slide, lbl_x, y2 + Inches(0.85), lbl_w, Inches(0.25), "(pre-pass + AI)", 11, MUTED)
+
+    txt(slide, lbl_x, y3 + Inches(0.4), lbl_w, Inches(0.3), "OUTPUT", 14, C_OUTPUT, True)
 
     # ── Lane 1 boxes ──
     bw = Inches(2.15); bh = Inches(0.85)
-    by = y1 + Inches(0.35); gap = Inches(0.45)
+    by = y1 + Inches(0.32); gap = Inches(0.45)
     x1 = lx + Inches(0.3)
     x2 = x1 + bw + gap
     x3 = x2 + bw + gap
@@ -122,25 +133,74 @@ def main():
     for x in [x1, x2, x3]:
         harrow(slide, x + bw + Inches(0.05), by + bh / 2 - Inches(0.1), gap - Inches(0.1))
 
-    # Arrow down
-    darrow(slide, x4 + bw / 2 - Inches(0.1), by + bh + Inches(0.05), y2 - by - bh + Inches(0.25))
+    # Arrow down into Lane 2
+    darrow(slide, x4 + bw / 2 - Inches(0.1), by + bh + Inches(0.05),
+           y2 - by - bh + Inches(0.25))
 
-    # ── Lane 2 box ──
-    ai_bw = Inches(4.5); ai_bh = Inches(0.85)
-    ai_x = lx + (lw - ai_bw) / 2
-    ai_y = y2 + Inches(0.25)
+    # ── Lane 2 boxes (NEW: two-phase reshape) ──
+    # Phase 1: deterministic pre-pass (teal, two stacked tool calls)
+    # Phase 2: supervisor + 6 sub-agents (red)
+    # Phase 3: label mutations (red-pink)
+    p1w = Inches(2.9); p1h = Inches(1.35)
+    p2w = Inches(3.6); p2h = Inches(1.35)
+    p3w = Inches(2.4); p3h = Inches(1.35)
+    pgap = Inches(0.3)
 
-    rbox(slide, ai_x, ai_y, ai_bw, ai_bh, C_AGENT)
-    txt(slide, ai_x, ai_y + Inches(0.22), ai_bw, Inches(0.4),
-        "Supervisor → Sub-Agents → Label Mutations", 17, WHITE, True)
+    total_w = p1w + p2w + p3w + 2 * pgap
+    px1 = lx + (lw - total_w) / 2
+    px2 = px1 + p1w + pgap
+    px3 = px2 + p2w + pgap
+    py = y2 + Inches(0.3)
 
-    # Arrow down
-    darrow(slide, ai_x + ai_bw / 2 - Inches(0.1), ai_y + ai_bh + Inches(0.05),
-           y3 - ai_y - ai_bh + Inches(0.2))
+    # Phase 1 — deterministic pre-pass
+    rbox(slide, px1, py, p1w, p1h, C_PREPASS)
+    txt(slide, px1, py + Inches(0.10), p1w, Inches(0.30),
+        "DETERMINISTIC PRE-PASS", 11, C_PREPASS, True)
+    txt(slide, px1, py + Inches(0.42), p1w, Inches(0.35),
+        "triageUrgent(n)", 14, WHITE, True)
+    txt(slide, px1, py + Inches(0.75), p1w, Inches(0.35),
+        "defuseChaosInputs(clock)", 14, WHITE, True)
+    txt(slide, px1, py + Inches(1.05), p1w, Inches(0.25),
+        "no LLM — guarantees drop", 10, MUTED)
+
+    # Phase 2 — supervisor + 6 sub-agents
+    rbox(slide, px2, py, p2w, p2h, C_AGENT)
+    txt(slide, px2, py + Inches(0.10), p2w, Inches(0.30),
+        "LANGCHAIN4J SUPERVISOR", 11, C_AGENT, True)
+    txt(slide, px2, py + Inches(0.42), p2w, Inches(0.35),
+        "6 Sub-Agents", 15, WHITE, True)
+    txt(slide, px2, py + Inches(0.74), p2w, Inches(0.30),
+        "Triage · Defer · Delegate", 11, MUTED)
+    txt(slide, px2, py + Inches(0.93), p2w, Inches(0.30),
+        "Classify · Scope · Wellness", 11, MUTED)
+    txt(slide, px2, py + Inches(1.10), p2w, Inches(0.22),
+        "max 15 invocations · SUMMARY", 9, MUTED)
+
+    # Phase 3 — label mutations
+    rbox(slide, px3, py, p3w, p3h, C_MUTATE)
+    txt(slide, px3, py + Inches(0.10), p3w, Inches(0.30),
+        "@Tool METHODS", 11, C_MUTATE, True)
+    txt(slide, px3, py + Inches(0.42), p3w, Inches(0.35),
+        "Label Mutations", 14, WHITE, True)
+    txt(slide, px3, py + Inches(0.74), p3w, Inches(0.30),
+        "AddLabels · RemoveLabels", 10, MUTED)
+    txt(slide, px3, py + Inches(0.92), p3w, Inches(0.30),
+        "Comment · Unassign", 10, MUTED)
+    txt(slide, px3, py + Inches(1.08), p3w, Inches(0.25),
+        "SetBody · SetUpdatedAt", 10, MUTED)
+
+    # Arrows between phases in Lane 2
+    arrow_y = py + p1h / 2 - Inches(0.1)
+    harrow(slide, px1 + p1w + Inches(0.02), arrow_y, pgap - Inches(0.04))
+    harrow(slide, px2 + p2w + Inches(0.02), arrow_y, pgap - Inches(0.04))
+
+    # Arrow down into Lane 3 (centered on phase 3)
+    darrow(slide, px3 + p3w / 2 - Inches(0.1), py + p3h + Inches(0.02),
+           y3 - py - p3h + Inches(0.18))
 
     # ── Lane 3 boxes ──
     obw = Inches(2.2); obh = Inches(0.85)
-    oy = y3 + Inches(0.25); ogap = Inches(0.38)
+    oy = y3 + Inches(0.22); ogap = Inches(0.38)
     ox1 = lx + Inches(0.3)
     ox2 = ox1 + obw + ogap
     ox3 = ox2 + obw + ogap
@@ -159,41 +219,61 @@ def main():
         harrow(slide, ox + obw + Inches(0.02), oy + obh / 2 - Inches(0.1), ogap - Inches(0.04))
 
     # Tagline
-    txt(slide, 0, Inches(6.35), SW, Inches(0.3),
-        "Deterministic first  →  AI acts  →  Recalculate  →  Persist", 13, DIM)
+    txt(slide, 0, Inches(6.45), SW, Inches(0.3),
+        "Deterministic metrics  →  Pre-pass guarantees the drop  →  AI rebalances  →  Recalculate  →  Persist",
+        12, DIM)
 
     # ── Speaker notes ──
     slide.notes_slide.notes_text_frame.text = (
-        "DETERMINISTIC LANE\n"
-        "1. Ingestion — Issues loaded from in-memory cache (populated by seed, sync, or MCP).\n"
-        "2. Chaos Metrics — Runs FIRST. Five boolean signals each worth 2 points: "
+        "DETERMINISTIC LANE — metrics calculated on every checkin / flamegraph / reshape\n"
+        "1. Ingestion — Issues loaded from in-memory IssueCache (populated by /demo/api/seed, "
+        "/demo/api/sync, or MCP sync_issues).\n"
+        "2. Chaos Metrics — ChaosMetricsService runs FIRST. Five binary signals each worth 2 points: "
         "mystery meat ≥ 3, urgent ≥ 3, context switching ≥ 6, after-hours, label sprawl ≥ 12. Score 0–10.\n"
-        "3. Classify + Comply — Runs SECOND. IssueClassifierService sorts issues into "
-        "DEEP_WORK / QUICK_WIN / MAINTENANCE / DEFERRED (first match wins). "
+        "3. Classify + Comply — IssueClassifierService sorts issues into "
+        "DEEP_WORK / QUICK_WIN / MAINTENANCE / DEFERRED (first-match-wins). "
         "ComplianceService checks 8 violation rules (score 100 → 0). "
-        "3-3-3 day plan built here too (classification runs twice).\n"
+        "3-3-3 day plan built here.\n"
         "4. Stress Score — WorldState aggregates chaos + classification into 12 capped variables. "
         "Six components summed: Workload (0–40), Chaos (0–30), Context Switching (0–15), "
         "Clarity (0–10), Sustained (0–15), After Hours (0–10). Total capped at 100. "
         "This is the BEFORE score.\n\n"
-        "AI AGENTS LANE (reshape only — checkin and flamegraph skip this)\n"
-        "5. Supervisor receives the fully-calculated WorldState and orchestrates 5 sub-agents. "
-        "ClassifyAgent RECLASSIFIES issues by adding labels (quick-win, deep-work, maintenance). "
-        "DeferAgent adds deferred + next-sprint. DelegateAgent adds delegated + needs-owner. "
-        "ScopeAgent adds needs-scope + blocked. WellnessAgent suggests breaks. "
-        "Every agent has a deterministic fallback when LLM is unavailable.\n\n"
+        "RESHAPE LANE — only runs on POST /demo/api/reshape (and MCP reshape_day)\n"
+        "5a. DETERMINISTIC PRE-PASS — runs in BurnoutSupervisorService BEFORE any LLM call:\n"
+        "    • triageUrgent(n) is invoked directly for every unassigned-urgent issue, stripping "
+        "      `urgent` / `priority:critical` / `priority:high` and adding `triaged,backlog`.\n"
+        "    • defuseChaosInputs(clock) replaces empty bodies with a scope-pending placeholder "
+        "      and normalises after-hours / touched-today timestamps to 10:00 in the demo clock zone.\n"
+        "    These two calls guarantee the chaos score drops on every reshape, regardless of which "
+        "    sub-agents the LLM picks. The supervisor is told the unassigned-urgent issues are "
+        "    already triaged and to leave them alone.\n"
+        "5b. LANGCHAIN4J SUPERVISOR — AgenticServices.supervisorBuilder() with maxAgentsInvocations=15 "
+        "    and SupervisorResponseStrategy.SUMMARY. Six sub-agents are registered:\n"
+        "    • TriageAgent (final cleanup if pre-pass missed anything)\n"
+        "    • DeferAgent (defer + next-sprint, unassign)\n"
+        "    • DelegateAgent (delegate + needs-owner, unassign)\n"
+        "    • ClassifyAgent (quick-win / deep-work / maintenance labels for the 3-3-3 plan)\n"
+        "    • ScopeAgent (needs-scope + blocked)\n"
+        "    • WellnessAgent (suggestBreak, slowIntake, blockCalendarTime)\n"
+        "    Every agent has a deterministic fallback if the LLM is unavailable.\n"
+        "5c. LABEL MUTATIONS — Each @Tool method on BurnoutMutationTool emits records from the "
+        "    sealed GitHubAction interface: AddLabels, RemoveLabels, Comment, Unassign, SetBody, "
+        "    SetUpdatedAt. Mutations are buffered, not applied directly to GitHub.\n\n"
         "OUTPUT LANE\n"
-        "6a. Apply Mutations — Agent's label changes written to IssueCache (not GitHub directly).\n"
-        "6b. Recalculate — The ENTIRE deterministic pipeline reruns on mutated issues. "
-        "Chaos recalculated, classification re-runs with new labels → different buckets, "
-        "new stress score computed. This is the AFTER score (how 100→10 happens).\n"
+        "6a. Apply Mutations — DemoFlamegraphController.applyMutationsToIssues writes the buffered "
+        "    label/body/timestamp changes to the in-memory IssueCache (not to GitHub).\n"
+        "6b. Recalculate — The ENTIRE deterministic pipeline reruns on the mutated issues. "
+        "    Chaos drops (urgent stripped, bodies filled, timestamps normalised), classification "
+        "    re-buckets with the new labels, new stress score is computed. This is the AFTER score "
+        "    (~58 → ~8 in the demo).\n"
         "6c. Friday Score — Deploy readiness: READY ≥ 80, CAUTION ≥ 50, NOT_READY < 50.\n"
         "6d. Persist Snapshot — JPA StressSnapshot with all 6 components + optional self-report. "
-        "Powers the Study Dashboard trend charts."
+        "    Powers the Study Dashboard trend charts."
     )
 
-    prs.save("docs/Burnout-Swimlanes.pptx")
-    print("Saved: docs/Burnout-Swimlanes.pptx")
+    out = "docs/Burnout-Swimlanes.pptx"
+    prs.save(out)
+    print(f"Saved: {out}")
 
 
 if __name__ == "__main__":

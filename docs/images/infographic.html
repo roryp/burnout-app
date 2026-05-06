@@ -46,7 +46,7 @@ body { width: 1920px; height: 1080px; font-family: 'Segoe UI', Arial, sans-serif
 
 <div class="header">
   <h1>Burnout-as-a-Service &mdash; Algorithm Pipeline</h1>
-  <p>Deterministic services compute all metrics &bull; AI agents only explain &amp; act, never decide &bull; Every agent has a fallback path &bull; Timezone-aware after-hours detection</p>
+  <p>Deterministic services compute all metrics &bull; Pre-pass guarantees the drop &bull; AI agents only rebalance &amp; explain, never decide &bull; Every agent has a fallback &bull; Timezone-aware after-hours</p>
 </div>
 
 <div class="grid">
@@ -144,24 +144,28 @@ body { width: 1920px; height: 1080px; font-family: 'Segoe UI', Arial, sans-serif
     </div>
   </div>
 
-  <!-- STAGE 5: AI AGENTS -->
+  <!-- STAGE 5: RESHAPE (deterministic pre-pass + AI) -->
   <div class="card s5">
-    <div class="card-header"><div class="num">5</div>AI AGENTS (LangChain4j Supervisor)</div>
+    <div class="card-header"><div class="num">5</div>RESHAPE — Pre-pass + LangChain4j Supervisor</div>
     <div class="card-body">
-      <h3>Azure OpenAI Configuration</h3>
-      <span class="mono">Model: <span class="highlight">gpt-4o</span> &bull; temp 0.3 &bull; chatModel: 1024 tokens &bull; planner: 512<br/>Strategy: SUMMARY &bull; maxAgentsInvocations: 10 &bull; retries: 2<br/>Memory: MessageWindowChatMemory, max <span class="highlight">10</span> messages</span>
+      <h3>Deterministic Pre-pass (no LLM — guarantees the drop)</h3>
+      <span class="mono" style="font-size:10.5px;"><span class="highlight">triageUrgent(n)</span> for every unassigned-urgent issue<br/>&nbsp;&nbsp;−urgent · −priority:critical · −priority:high · +triaged,backlog<br/><span class="highlight">defuseChaosInputs(clock)</span> — SetBody (fills empty)<br/>&nbsp;&nbsp;+ SetUpdatedAt (normalises after-hours / touched-today → 10:00)</span>
 
-      <h3>5 Sub-Agents + 9 @Tool Methods</h3>
-      <div style="font-size:11px; line-height:1.5;">
-        <strong>DeferAgent</strong> → deferIssue <span class="dim">(+deferred, +next-sprint; &minus;priority:critical)</span><br/>
-        <strong>DelegateAgent</strong> → delegateIssue <span class="dim">(+delegated, +needs-owner)</span><br/>
-        <strong>ClassifyAgent</strong> → markAsDeepWork <span class="dim">(+deep-work, +focus)</span>, classifyAsQuickWin <span class="dim">(+quick-win, +size:S)</span>,<br/>&nbsp;&nbsp;&nbsp;classifyAsMaintenance <span class="dim">(+maintenance, +3-3-3)</span><br/>
+      <h3>Azure OpenAI Configuration</h3>
+      <span class="mono">Model: <span class="highlight">gpt-4o</span> &bull; temp 0.3 &bull; chatModel: 1024 tokens &bull; planner: 512<br/>Strategy: SUMMARY &bull; maxAgentsInvocations: <span class="highlight">15</span> &bull; retries: 2<br/>Memory: MessageWindowChatMemory, max <span class="highlight">10</span> messages</span>
+
+      <h3>6 Sub-Agents + 10 @Tool Methods</h3>
+      <div style="font-size:10.5px; line-height:1.45;">
+        <strong>TriageAgent</strong> → triageUrgent <span class="dim">(LLM cleanup if pre-pass missed any)</span><br/>
+        <strong>DeferAgent</strong> → deferIssue <span class="dim">(+deferred, +next-sprint; unassign)</span><br/>
+        <strong>DelegateAgent</strong> → delegateIssue <span class="dim">(+delegated, +needs-owner; unassign)</span><br/>
+        <strong>ClassifyAgent</strong> → markAsDeepWork, classifyAsQuickWin, classifyAsMaintenance<br/>
         <strong>ScopeAgent</strong> → addScopeNeeded <span class="dim">(+needs-scope, +blocked)</span><br/>
         <strong>WellnessAgent</strong> → suggestBreak, slowIntake, blockCalendarTime
       </div>
 
       <h3>Protection Triggers &amp; Support Agents</h3>
-      <span class="mono">Protection if: highDays <span class="highlight">≥ 2</span> OR afterHours OR stress <span class="highlight">≥ 70</span> OR assigned <span class="highlight">&gt; 10</span><br/>ExplainerAiService &bull; ProtectiveAiService &bull; FridayDeployAiService<br/>Deterministic fallback when LLM unavailable (dummy key = fallback mode)</span>
+      <span class="mono" style="font-size:10.5px;">Protection if: highDays <span class="highlight">≥ 2</span> OR afterHours OR stress <span class="highlight">≥ 70</span> OR assigned <span class="highlight">&gt; 10</span><br/>ExplainerAiService &bull; ProtectiveAiService &bull; FridayDeployAiService<br/>Deterministic fallback when LLM unavailable (dummy key = fallback mode)</span>
     </div>
   </div>
 
@@ -169,8 +173,8 @@ body { width: 1920px; height: 1080px; font-family: 'Segoe UI', Arial, sans-serif
   <div class="card s6">
     <div class="card-header"><div class="num">6</div>OUTPUT &amp; PERSISTENCE</div>
     <div class="card-body">
-      <h3>GitHubMutationPlan (sealed interface)</h3>
-      <span class="mono">GitHubAction: AddLabels | RemoveLabels | Comment<br/>Labels: deferred, delegated, quick-win, deep-work, maintenance,<br/>needs-scope, blocked, next-sprint, 3-3-3, focus, size:S, needs-owner</span>
+      <h3>GitHubMutationPlan (sealed interface, 6 records)</h3>
+      <span class="mono" style="font-size:10.5px;">GitHubAction: AddLabels &bull; RemoveLabels &bull; Comment<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&bull; Unassign &bull; SetBody &bull; SetUpdatedAt<br/>Apply &rarr; IssueCache, then RECALCULATE entire pipeline (AFTER score)</span>
 
       <h3>Friday Deploy Score (100 → 0, uses &gt; not ≥)</h3>
       <span class="mono">chaos <span class="highlight">&gt; 5</span> → &minus;20 &nbsp;|&nbsp; chaos <span class="highlight">&gt; 8</span> → &minus;20 (cumulative &minus;40)<br/>unresolvedUrgent &gt; 0 → &minus;15 &nbsp;|&nbsp; !compliant → &minus;15<br/>afterHours → &minus;10 &nbsp;|&nbsp; mysteryMeat &gt; 3 → &minus;10<br/><span class="tag tag-green">≥ 80 READY</span> <span class="tag tag-warn">≥ 50 CAUTION</span> <span class="tag tag-crit">&lt; 50 NOT_READY</span></span>

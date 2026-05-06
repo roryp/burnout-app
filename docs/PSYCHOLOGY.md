@@ -41,9 +41,9 @@
 
 ## System Sequence Diagram
 
-Four phases — sync, analyze, reshape, protect — across six components. Deterministic services do all the measuring; AI only explains and acts.
+Four phases — **sync**, **analyze**, **reshape** (deterministic pre-pass + AI), and **apply / recalculate / output** — across six actors. Deterministic services do all the measuring; the pre-pass guarantees the chaos drop; AI only rebalances and explains.
 
-<img src="images/sequence-diagram.png" alt="Sequence diagram showing 4 phases: Sync (GitHub → MCP → Backend → IssueCache), Analyze (classify + metrics → WorldState → stress score), Reshape (WorldState → deterministic pre-pass → Supervisor → 6 sub-agents → mutation plan), Protect & Output (protective check → flamegraph + interventions → GitHub)" width="100%"/>
+<img src="images/sequence-diagram.png" alt="Sequence diagram showing 4 phases across 6 actors (GitHub, MCP App, Backend, Deterministic Services, WorldState, AI Supervisor): 1·Sync (GitHub → MCP → Backend → IssueCache), 2·Analyze (classify + measure → 12 capped variables → Stress 0–100 BEFORE), 3·Reshape (deterministic pre-pass: triageUrgent + defuseChaosInputs, then Supervisor → 6 sub-agents → @Tool mutations), 4·Apply, Recalculate, Output (apply mutations to IssueCache → recalculate stress AFTER → protective check + Friday score → MCP applies labels & comments to GitHub)" width="100%"/>
 
 ---
 
@@ -51,7 +51,7 @@ Four phases — sync, analyze, reshape, protect — across six components. Deter
 
 The system flows through 6 stages — from raw GitHub issues to actionable mutations. Every algorithm is deterministic except the AI agents, which always have a fallback path.
 
-<img src="images/algorithm-pipeline.png" alt="Widescreen infographic showing the 6-stage algorithm pipeline: Ingestion, Classification, Metrics and Compliance, WorldState, AI Agents, and Output — with formulas, thresholds, and connections between all components" width="100%"/>
+<img src="images/algorithm-pipeline.png" alt="Widescreen infographic showing the 6-stage algorithm pipeline: Ingestion, Chaos Metrics, Classification & Compliance, WorldState (12 capped variables → stress 0–100), Reshape (deterministic pre-pass with triageUrgent + defuseChaosInputs, then LangChain4j Supervisor with 6 sub-agents and 10 @Tool methods, max 15 invocations), and Output (apply mutations → recalculate → Friday score → persist) — with formulas, thresholds, and connections between all components" width="100%"/>
 
 **The six stages:**
 

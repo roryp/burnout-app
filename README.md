@@ -93,7 +93,7 @@ The reshape returns a [`GitHubMutationPlan`](backend/src/main/java/com/demo/burn
 
 ## Algorithm Pipeline
 
-<img src="docs/images/algorithm-pipeline.png" alt="6-stage algorithm pipeline: Ingestion → Classification → Metrics → WorldState → AI Agents → Output" width="100%"/>
+<img src="docs/images/algorithm-pipeline.png" alt="6-stage algorithm pipeline: Ingestion → Chaos Metrics → Classification → WorldState → Reshape (deterministic pre-pass + LangChain4j Supervisor with 6 sub-agents) → Output" width="100%"/>
 
 > **Full technical deep-dive:** [docs/PSYCHOLOGY.md](docs/PSYCHOLOGY.md) — formulas, thresholds, and the psychology behind every algorithm.
 
