@@ -311,6 +311,28 @@ public class DemoFlamegraphController {
 
         DayStructure afterPlan = buildDayPlan(mutatedIssues, userId);
 
+        // Authoritative outcome footer appended to the LLM explanation.
+        // The supervisor LLM only sees the BEFORE state, so any absolute
+        // stress number it writes is stale. We append the real numbers
+        // here so the prose surfaced to the user is always grounded in
+        // post-mutation truth, regardless of LLM behaviour.
+        String llmExplanation = supervisorResult.explanation();
+        int triagedCount = supervisorResult.deterministicTriageCount();
+        int defusedCount = supervisorResult.deterministicDefuseCount();
+        int prePassActions = triagedCount + defusedCount;
+        int totalActions = mutationPlan.actions().size();
+        int drop = beforeScore - afterScore;
+        String dropPart = drop > 0
+            ? String.format("drop of %d points", drop)
+            : drop == 0 ? "no change" : String.format("rose by %d points", -drop);
+        String outcomeFooter = String.format(
+            "%n%n**📈 Outcome:** stress %d/100 (%s) → %d/100 (%s), %s. %d action(s) applied (%d from deterministic pre-pass: %d triage + %d defuse).",
+            beforeScore, state.getStressLevel().name(),
+            afterScore, afterState.getStressLevel().name(),
+            dropPart,
+            totalActions, prePassActions, triagedCount, defusedCount);
+        String groundedExplanation = (llmExplanation == null ? "" : llmExplanation) + outcomeFooter;
+
         // Use a LinkedHashMap because Map.of caps at 10 entries and we want
         // the deterministic pre-pass + after-hours numbers visible to callers
         // alongside the existing fields.
@@ -319,14 +341,14 @@ public class DemoFlamegraphController {
         body.put("beforeScore", beforeScore);
         body.put("afterScore", afterScore);
         body.put("afterLevel", afterState.getStressLevel().name());
-        body.put("actionsApplied", mutationPlan.actions().size());
-        body.put("explanation", supervisorResult.explanation());
+        body.put("actionsApplied", totalActions);
+        body.put("explanation", groundedExplanation);
         body.put("llmUsed", supervisorResult.llmUsed());
         // Deterministic pre-pass counts — surfaced so the user can see the
         // chaos drop driven by triageUrgent + defuseChaosInputs even when
         // the LLM does nothing.
-        body.put("deterministicTriageCount", supervisorResult.deterministicTriageCount());
-        body.put("deterministicDefuseCount", supervisorResult.deterministicDefuseCount());
+        body.put("deterministicTriageCount", triagedCount);
+        body.put("deterministicDefuseCount", defusedCount);
         // After-hours visibility before vs. after the reshape (issues whose
         // updatedAt falls outside 9 AM–6 PM in the active timezone).
         body.put("afterHoursBefore", state.issuesUpdatedAfterHours());

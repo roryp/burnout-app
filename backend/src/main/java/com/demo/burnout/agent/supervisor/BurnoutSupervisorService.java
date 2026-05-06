@@ -205,7 +205,7 @@ public class BurnoutSupervisorService {
             String supervisorRequest = String.format("""
                 Analyze and rebalance this developer's workload to reduce stress.
                 
-                Current State:
+                Current State (BEFORE any reshape mutations):
                 - Stress Score: %d/100 (%s)
                 - Total Assigned: %d issues
                 - Deep Work: %d (need exactly 1)
@@ -233,6 +233,17 @@ public class BurnoutSupervisorService {
                 Use the available agents in this order: ClassifyAgent (build
                 3-3-3) → DeferAgent (overflow beyond 3-3-3) → ScopeAgent
                 (mystery meat) → WellnessAgent (if stress > 70).
+                
+                IMPORTANT — output rules for your final summary:
+                * Do NOT quote any specific stress score number. The numbers
+                  shown above are the BEFORE state; the system computes and
+                  appends the AFTER score itself, so any absolute number
+                  you write will be wrong by the time the user sees it.
+                * Describe the ACTIONS you took (classify, defer, scope,
+                  wellness) and their qualitative effect (e.g. "reduced",
+                  "balanced", "deferred overflow"). Avoid claims like
+                  "stress remains at 58/100" or "stress is now 30".
+                * Keep it to 2–3 short sentences.
                 """,
                 state.calculateStressScore(),
                 state.getStressLevel().name(),
