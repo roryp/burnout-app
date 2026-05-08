@@ -33,6 +33,8 @@ import java.util.stream.Collectors;
  * - ClassifyAgent: Organizes issues for 3-3-3 compliance
  * - ScopeAgent: Flags unclear issues needing definition
  * - WellnessAgent: Provides stress reduction recommendations
+ *   (gated by the supervisor prompt: only invoked when stress >= 50,
+ *   i.e. StressLevel.HIGH or CRITICAL)
  */
 @Service
 public class BurnoutSupervisorService {
@@ -228,11 +230,11 @@ public class BurnoutSupervisorService {
                 2. Achieve 3-3-3 compliance (1 deep work, 3 quick wins, 3 maintenance)
                 3. Protect the developer's focus time
                 4. Flag unclear issues for scope clarification
-                5. Recommend wellness actions if stress is high
+                5. Recommend wellness actions only if stress >= 50 (HIGH or CRITICAL)
                 
                 Use the available agents in this order: ClassifyAgent (build
                 3-3-3) → DeferAgent (overflow beyond 3-3-3) → ScopeAgent
-                (mystery meat) → WellnessAgent (if stress > 70).
+                (mystery meat) → WellnessAgent (if stress >= 50).
                 
                 IMPORTANT — output rules for your final summary:
                 * Do NOT quote any specific stress score number. The numbers

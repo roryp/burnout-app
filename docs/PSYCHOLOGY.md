@@ -356,9 +356,9 @@ Deterministic services calculate all metrics first. AI agents only explain, reco
 | **DelegateAgent** | Redistribute across team | `delegateIssue()` |
 | **ClassifyAgent** | Organize into 3-3-3 | `markAsDeepWork()`, `classifyAsQuickWin()`, `classifyAsMaintenance()` |
 | **ScopeAgent** | Flag unclear issues | `addScopeNeeded()` |
-| **WellnessAgent** | Recommend self-care | `suggestBreak()`, `slowIntake()`, `blockCalendarTime()` |
+| **WellnessAgent** | Recommend self-care (only when stress ≥ 50, i.e. HIGH or CRITICAL) | `suggestBreak()`, `slowIntake()`, `blockCalendarTime()` |
 
-`triageUrgent()` is also invoked directly from the deterministic pre-pass, so the chaos signal disappears even if the LLM never calls TriageAgent. `defuseChaosInputs(Clock)` is a non-`@Tool` method on `BurnoutMutationTool` that the supervisor service runs before the LLM — it emits `SetBody` and `SetUpdatedAt` actions to kill the mystery-meat, after-hours, and touched-today factors.
+`triageUrgent()` is also invoked directly from the deterministic pre-pass, so the chaos signal disappears even if the LLM never calls TriageAgent. `defuseChaosInputs(Clock)` is a non-`@Tool` method on `BurnoutMutationTool` that the supervisor service runs before the LLM — it emits `SetBody` and `SetUpdatedAt` actions to kill the mystery-meat, after-hours, and touched-today factors. The supervisor prompt only routes work to `WellnessAgent` when stress ≥ 50, so MODERATE/LOW reshapes stay focused on classification and deferral and don't burn LLM invocations on advisory wellness comments.
 
 ### 3 AI Personas
 
