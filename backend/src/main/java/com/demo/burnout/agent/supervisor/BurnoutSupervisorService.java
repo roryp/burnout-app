@@ -284,13 +284,41 @@ public class BurnoutSupervisorService {
             // verbatim recommendation strings so Copilot Chat, the demo
             // pages, and the MCP reshape_day response all show what was
             // actually recommended.
+            //
+            // We also compose a "Triggered by:" line listing the BEFORE
+            // signals that crossed the wellness gating thresholds (stress
+            // >= 50, after-hours activity, recent context-switch storm)
+            // so the audience can see WHY the WellnessAgent fired —
+            // making it explicit that the system noticed after-hours work
+            // and high stress, not just that some advice popped up.
             List<String> wellnessRecs = mutationTool.getWellnessRecommendations();
-            String wellnessBlock = wellnessRecs.isEmpty()
-                ? ""
-                : "\n\n**🧘 Wellness recommendation"
-                  + (wellnessRecs.size() == 1 ? "" : "s")
-                  + ":**\n"
-                  + wellnessRecs.stream().map(r -> "- " + r).collect(Collectors.joining("\n"));
+            String wellnessBlock = "";
+            if (!wellnessRecs.isEmpty()) {
+                int beforeStress = state.calculateStressScore();
+                int afterHoursCount = state.issuesUpdatedAfterHours();
+                int touchedToday = state.issuesTouchedToday();
+                List<String> triggers = new java.util.ArrayList<>();
+                if (beforeStress >= 50) {
+                    triggers.add(String.format("stress %d/100 (%s)",
+                        beforeStress, state.getStressLevel().name()));
+                }
+                if (afterHoursCount > 0) {
+                    triggers.add(String.format("%d issue%s updated after hours (outside 9 AM–6 PM)",
+                        afterHoursCount, afterHoursCount == 1 ? "" : "s"));
+                }
+                if (touchedToday >= 6) {
+                    triggers.add(String.format("%d issues touched in the recent window (context-switch storm)",
+                        touchedToday));
+                }
+                String triggerLine = triggers.isEmpty()
+                    ? ""
+                    : "_Triggered by: " + String.join("; ", triggers) + "._\n";
+                wellnessBlock = "\n\n**🧘 Wellness recommendation"
+                    + (wellnessRecs.size() == 1 ? "" : "s")
+                    + ":**\n"
+                    + triggerLine
+                    + wellnessRecs.stream().map(r -> "- " + r).collect(Collectors.joining("\n"));
+            }
 
             String explanation = prePassNote + "\n" + llmExplanation + wellnessBlock;
 
