@@ -310,6 +310,13 @@ server.tool(
       data.protectiveTriggered && data.protectiveMessage
         ? `\n💚 **Protective**: ${data.protectiveMessage}`
         : '',
+      // Surface the full agent explanation (deterministic pre-pass header,
+      // LLM summary, wellness recommendation block, and outcome footer)
+      // so the audience sees what the supervisor + WellnessAgent actually
+      // recommended — not just a stress score.
+      data.agentExplanation
+        ? `\n---\n${data.agentExplanation}`
+        : '',
     ].filter(Boolean).join('\n');
 
     return {

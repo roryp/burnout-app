@@ -272,11 +272,27 @@ public class BurnoutSupervisorService {
             
             // Supervisor autonomously plans and executes via sub-agents
             String llmExplanation = supervisor.invoke(supervisorRequest);
-            String explanation = prePassNote + "\n" + llmExplanation;
-            
+
             // Get the mutation plan from the tool (accumulated from all sub-agent calls)
             GitHubMutationPlan mutationPlan = mutationTool.getMutationPlan();
             int wellnessInvocations = mutationTool.getWellnessInvocationCount();
+
+            // The supervisor LLM tends to summarise wellness as a single
+            // vague phrase ("recommended wellness actions") so the actual
+            // emoji + text the WellnessAgent emitted (e.g. "🧘 Step away
+            // for 10-15 minutes") never reaches the user. Inject the
+            // verbatim recommendation strings so Copilot Chat, the demo
+            // pages, and the MCP reshape_day response all show what was
+            // actually recommended.
+            List<String> wellnessRecs = mutationTool.getWellnessRecommendations();
+            String wellnessBlock = wellnessRecs.isEmpty()
+                ? ""
+                : "\n\n**🧘 Wellness recommendation"
+                  + (wellnessRecs.size() == 1 ? "" : "s")
+                  + ":**\n"
+                  + wellnessRecs.stream().map(r -> "- " + r).collect(Collectors.joining("\n"));
+
+            String explanation = prePassNote + "\n" + llmExplanation + wellnessBlock;
 
             log.info("Supervisor completed. Actions planned: {} ({} from deterministic pre-pass, {} wellness invocation(s))",
                 mutationPlan.actions().size(), triagedCount + defusedCount, wellnessInvocations);

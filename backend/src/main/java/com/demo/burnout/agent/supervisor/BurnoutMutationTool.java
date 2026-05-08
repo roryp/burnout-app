@@ -5,6 +5,8 @@ import com.demo.burnout.goap.GitHubMutationPlan;
 import com.demo.burnout.model.Issue;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -22,6 +24,8 @@ import java.util.List;
  */
 public class BurnoutMutationTool {
 
+    private static final Logger log = LoggerFactory.getLogger(BurnoutMutationTool.class);
+
     private final List<Issue> issues;
     private final String repo;
     private final List<GitHubAction> pendingActions = new ArrayList<>();
@@ -36,6 +40,18 @@ public class BurnoutMutationTool {
      * routed work to the wellness agent.
      */
     private int wellnessInvocationCount = 0;
+
+    /**
+     * The actual recommendation strings emitted by the wellness tools
+     * ("🧘 Step away...", "⏸️ Recommend reducing intake...", "📅 Block
+     * 2-hour focus time..."). The LLM tends to summarise wellness as a
+     * single vague phrase ("recommended wellness actions"), so we keep
+     * the verbatim strings here and the supervisor service appends them
+     * to the explanation as a bulleted block. This is what makes the
+     * wellness recommendation visible end-to-end (Copilot Chat, demo
+     * pages, MCP responses).
+     */
+    private final List<String> wellnessRecommendations = new ArrayList<>();
 
     public BurnoutMutationTool(List<Issue> issues, String repo) {
         this.issues = issues;
@@ -219,19 +235,28 @@ public class BurnoutMutationTool {
     @Tool("Suggest the developer take a break to reduce stress. Use when stress score is high (>70) or after-hours activity detected.")
     public String suggestBreak() {
         wellnessInvocationCount++;
-        return "🧘 Break suggested. Step away from the keyboard for 10-15 minutes. Stress recovery is essential for sustainable productivity.";
+        log.info("Wellness tool invoked: suggestBreak (repo={}, invocation #{})", repo, wellnessInvocationCount);
+        String message = "🧘 Break suggested. Step away from the keyboard for 10-15 minutes. Stress recovery is essential for sustainable productivity.";
+        wellnessRecommendations.add(message);
+        return message;
     }
 
     @Tool("Recommend slowing down issue intake rate. Use when there are too many new issues being assigned.")
     public String slowIntake() {
         wellnessInvocationCount++;
-        return "⏸️ Recommend reducing intake rate. Protect current work-in-progress before accepting new issues.";
+        log.info("Wellness tool invoked: slowIntake (repo={}, invocation #{})", repo, wellnessInvocationCount);
+        String message = "⏸️ Recommend reducing intake rate. Protect current work-in-progress before accepting new issues.";
+        wellnessRecommendations.add(message);
+        return message;
     }
 
     @Tool("Recommend blocking calendar time for focus. Use when context switching is high.")
     public String blockCalendarTime() {
         wellnessInvocationCount++;
-        return "📅 Recommend blocking 2-hour focus time on calendar. Reduce meeting fragmentation.";
+        log.info("Wellness tool invoked: blockCalendarTime (repo={}, invocation #{})", repo, wellnessInvocationCount);
+        String message = "📅 Recommend blocking 2-hour focus time on calendar. Reduce meeting fragmentation.";
+        wellnessRecommendations.add(message);
+        return message;
     }
 
     /**
@@ -242,6 +267,18 @@ public class BurnoutMutationTool {
      */
     public int getWellnessInvocationCount() {
         return wellnessInvocationCount;
+    }
+
+    /**
+     * Verbatim wellness recommendation strings (with emojis) emitted by
+     * suggestBreak / slowIntake / blockCalendarTime. Empty when the
+     * supervisor did not route work to WellnessAgent. Used by
+     * BurnoutSupervisorService to render a "🧘 Wellness:" bullet block in
+     * the final explanation so end users (Copilot Chat, demo pages, MCP
+     * responses) actually see what the agent recommended.
+     */
+    public List<String> getWellnessRecommendations() {
+        return List.copyOf(wellnessRecommendations);
     }
 
     /**
