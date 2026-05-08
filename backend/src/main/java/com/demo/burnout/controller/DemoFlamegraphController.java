@@ -367,6 +367,11 @@ public class DemoFlamegraphController {
         body.put("deterministicTriageCount", triagedCount);
         body.put("deterministicDefuseCount", defusedCount);
         body.put("complianceActionCount", complianceActionCount);
+        // Wellness-tool invocations from the LLM. Wellness tools are
+        // advisory-only (no GitHubActions emitted) so this is the only
+        // way to verify the supervisor's stress >= 50 gating actually
+        // routed work to WellnessAgent.
+        body.put("wellnessInvocationCount", supervisorResult.wellnessInvocationCount());
         // After-hours visibility before vs. after the reshape (issues whose
         // updatedAt falls outside 9 AM–6 PM in the active timezone).
         body.put("afterHoursBefore", state.issuesUpdatedAfterHours());

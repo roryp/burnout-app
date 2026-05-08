@@ -196,11 +196,12 @@ Both `/api/reshape` and `/demo/api/reshape` surface deterministic-phase visibili
 | `deterministicTriageCount` | pre-pass | Unassigned-urgent issues whose `urgent` / `priority:*` labels were stripped |
 | `deterministicDefuseCount` | pre-pass | Issues whose body or `updatedAt` was normalised |
 | `complianceActionCount` (demo only) | enforcer | Mutations emitted by the 1-3-3-0 enforcer (0 when the LLM lands compliance on its own) |
+| `wellnessInvocationCount` | LLM | Number of times the supervisor invoked any wellness tool (`suggestBreak` / `slowIntake` / `blockCalendarTime`). Wellness tools are advisory-only and emit no `GitHubAction`s, so this counter is the only way to verify the supervisor's `stress >= 50` gating actually routed work to `WellnessAgent`. Always 0 when `llmUsed=false` |
 | `afterHoursBefore` / `afterHoursAfter` (demo) · `afterHoursIssues` (api) | WorldState | Issues with `updatedAt` outside 9 AM–6 PM in the active timezone |
 | `llmUsed` | flag | `true` when the supervisor LLM ran; `false` means deterministic-only fallback (token expired or LLM down) |
 | `explanation` | composed | LLM prose **bookended** by deterministic content: a "🧹 Deterministic pre-pass:" header listing triaged issue numbers, then the LLM summary, then a "📈 Outcome:" footer with the real measured stress drop. The supervisor is prompt-blocked from quoting absolute stress numbers, so the footer is the source of truth |
 
-`/api/reshape` increments `SCHEMA_VERSION` to `3` for the new fields.
+`/api/reshape` increments `SCHEMA_VERSION` to `4` for the new fields.
 
 ### GitHub mutation actions
 

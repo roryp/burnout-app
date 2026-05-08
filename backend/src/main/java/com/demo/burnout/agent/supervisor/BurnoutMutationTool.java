@@ -26,6 +26,17 @@ public class BurnoutMutationTool {
     private final String repo;
     private final List<GitHubAction> pendingActions = new ArrayList<>();
 
+    /**
+     * Counts how many times the LLM-driven WellnessAgent invoked any of
+     * the wellness tools (suggestBreak / slowIntake / blockCalendarTime).
+     * Wellness tools are advisory-only — they do not push to
+     * pendingActions — so without this counter their invocations leave
+     * no trace in the reshape response. Surfaced on SupervisorResult so
+     * callers can verify the supervisor's >= 50 stress gating actually
+     * routed work to the wellness agent.
+     */
+    private int wellnessInvocationCount = 0;
+
     public BurnoutMutationTool(List<Issue> issues, String repo) {
         this.issues = issues;
         this.repo = repo;
@@ -207,17 +218,30 @@ public class BurnoutMutationTool {
 
     @Tool("Suggest the developer take a break to reduce stress. Use when stress score is high (>70) or after-hours activity detected.")
     public String suggestBreak() {
+        wellnessInvocationCount++;
         return "🧘 Break suggested. Step away from the keyboard for 10-15 minutes. Stress recovery is essential for sustainable productivity.";
     }
 
     @Tool("Recommend slowing down issue intake rate. Use when there are too many new issues being assigned.")
     public String slowIntake() {
+        wellnessInvocationCount++;
         return "⏸️ Recommend reducing intake rate. Protect current work-in-progress before accepting new issues.";
     }
 
     @Tool("Recommend blocking calendar time for focus. Use when context switching is high.")
     public String blockCalendarTime() {
+        wellnessInvocationCount++;
         return "📅 Recommend blocking 2-hour focus time on calendar. Reduce meeting fragmentation.";
+    }
+
+    /**
+     * Number of times the LLM invoked any wellness tool during this
+     * reshape. Zero when the supervisor never routed work to
+     * WellnessAgent (expected when stress &lt; 50 under the gated
+     * supervisor prompt).
+     */
+    public int getWellnessInvocationCount() {
+        return wellnessInvocationCount;
     }
 
     /**

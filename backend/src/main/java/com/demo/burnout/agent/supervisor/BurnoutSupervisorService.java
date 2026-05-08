@@ -67,6 +67,14 @@ public class BurnoutSupervisorService {
      * before (and regardless of) the LLM supervisor running. They are
      * surfaced separately so callers can show the user what actually drove
      * the stress drop — pre-pass vs. LLM agents.
+     *
+     * {@code wellnessInvocationCount} counts how many times the LLM
+     * invoked any of the wellness tools (suggestBreak / slowIntake /
+     * blockCalendarTime). Wellness tools are advisory-only and never
+     * emit GitHubActions, so without this counter their invocations
+     * leave no trace in the response. Useful for verifying the
+     * supervisor's stress &gt;= 50 gating actually routes work to the
+     * WellnessAgent. Always 0 when the LLM is disabled or fails.
      */
     public record SupervisorResult(
         String explanation,
@@ -74,10 +82,11 @@ public class BurnoutSupervisorService {
         int estimatedStressScore,
         boolean llmUsed,
         int deterministicTriageCount,
-        int deterministicDefuseCount
+        int deterministicDefuseCount,
+        int wellnessInvocationCount
     ) {
         public static SupervisorResult fallback(String message, int stressScore) {
-            return new SupervisorResult(message, GitHubMutationPlan.empty(), stressScore, false, 0, 0);
+            return new SupervisorResult(message, GitHubMutationPlan.empty(), stressScore, false, 0, 0, 0);
         }
     }
 
@@ -267,15 +276,16 @@ public class BurnoutSupervisorService {
             
             // Get the mutation plan from the tool (accumulated from all sub-agent calls)
             GitHubMutationPlan mutationPlan = mutationTool.getMutationPlan();
-            
-            log.info("Supervisor completed. Actions planned: {} ({} from deterministic pre-pass)",
-                mutationPlan.actions().size(), triagedCount + defusedCount);
-            
+            int wellnessInvocations = mutationTool.getWellnessInvocationCount();
+
+            log.info("Supervisor completed. Actions planned: {} ({} from deterministic pre-pass, {} wellness invocation(s))",
+                mutationPlan.actions().size(), triagedCount + defusedCount, wellnessInvocations);
+
             // Estimate new stress score based on actions taken
             int estimatedStress = estimateReducedStress(state, mutationPlan);
-            
+
             return new SupervisorResult(explanation, mutationPlan, estimatedStress, true,
-                triagedCount, defusedCount);
+                triagedCount, defusedCount, wellnessInvocations);
             
         } catch (Exception e) {
             log.error("Supervisor invocation failed: {} — returning fallback with pre-pass mutations", e.getMessage(), e);
@@ -351,7 +361,7 @@ public class BurnoutSupervisorService {
         GitHubMutationPlan plan = mutationTool.getMutationPlan();
         int estimatedStress = estimateReducedStress(state, plan);
         return new SupervisorResult(sb.toString(), plan, estimatedStress, false,
-            triagedCount, defusedCount);
+            triagedCount, defusedCount, mutationTool.getWellnessInvocationCount());
     }
 
     public boolean isLlmEnabled() {

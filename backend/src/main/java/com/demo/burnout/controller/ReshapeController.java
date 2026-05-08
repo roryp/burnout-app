@@ -99,6 +99,7 @@ public class ReshapeController {
         int expectedScore = supervisorResult.estimatedStressScore();
         int triagedCount = supervisorResult.deterministicTriageCount();
         int defusedCount = supervisorResult.deterministicDefuseCount();
+        int wellnessInvocations = supervisorResult.wellnessInvocationCount();
         int prePassActions = triagedCount + defusedCount;
         int totalActions = mutationPlan.actions().size();
         int drop = beforeScore - expectedScore;
@@ -131,6 +132,7 @@ public class ReshapeController {
             supervisorResult.llmUsed(),
             triagedCount,
             defusedCount,
+            wellnessInvocations,
             state.issuesUpdatedAfterHours(),
             ReshapeResponse.SCHEMA_VERSION
         );
@@ -211,10 +213,11 @@ public class ReshapeController {
         boolean llmEnabled,
         int deterministicTriageCount,
         int deterministicDefuseCount,
+        int wellnessInvocationCount,
         int afterHoursIssues,
         int schemaVersion
     ) {
-        public static final int SCHEMA_VERSION = 3;
+        public static final int SCHEMA_VERSION = 4;
 
         public static ReshapeResponse notSynced() {
             return new ReshapeResponse(
@@ -222,7 +225,7 @@ public class ReshapeController {
                 ChaosMetrics.notSynced(), ComplianceReport.notSynced(),
                 -1, StressLevel.LOW, -1, -1,
                 "Issues not synced", false, "", false,
-                0, 0, 0,
+                0, 0, 0, 0,
                 SCHEMA_VERSION
             );
         }
