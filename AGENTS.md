@@ -196,10 +196,10 @@ Both `/api/reshape` and `/demo/api/reshape` surface deterministic-phase visibili
 | `deterministicTriageCount` | pre-pass | Unassigned-urgent issues whose `urgent` / `priority:*` labels were stripped |
 | `deterministicDefuseCount` | pre-pass | Issues whose body or `updatedAt` was normalised |
 | `complianceActionCount` (demo only) | enforcer | Mutations emitted by the 1-3-3-0 enforcer (0 when the LLM lands compliance on its own) |
-| `wellnessInvocationCount` | LLM | Number of times the supervisor invoked any wellness tool (`suggestBreak` / `slowIntake` / `blockCalendarTime`). Wellness tools are advisory-only and emit no `GitHubAction`s, so this counter is the only way to verify the supervisor's `stress >= 50` gating actually routed work to `WellnessAgent`. Always 0 when `llmUsed=false` |
+| `wellnessInvocationCount` | LLM | Number of times the supervisor invoked any wellness tool (`suggestBreak` / `slowIntake` / `blockCalendarTime`). Wellness tools are advisory-only and emit no `GitHubAction`s, so this counter is the only way to verify the supervisor's `stress >= 50` gating actually routed work to `WellnessAgent`. Always 0 when `llmUsed=false`. The verbatim recommendation text is also surfaced inside `explanation` under a `**🧘 Wellness recommendation:**` block (with a `_Triggered by:_` line listing which signals — high stress, after-hours activity, context-switch storm — caused the supervisor to fire it) |
 | `afterHoursBefore` / `afterHoursAfter` (demo) · `afterHoursIssues` (api) | WorldState | Issues with `updatedAt` outside 9 AM–6 PM in the active timezone |
 | `llmUsed` | flag | `true` when the supervisor LLM ran; `false` means deterministic-only fallback (token expired or LLM down) |
-| `explanation` | composed | LLM prose **bookended** by deterministic content: a "🧹 Deterministic pre-pass:" header listing triaged issue numbers, then the LLM summary, then a "📈 Outcome:" footer with the real measured stress drop. The supervisor is prompt-blocked from quoting absolute stress numbers, so the footer is the source of truth |
+| `explanation` | composed | LLM prose **bookended** by deterministic content: a "🧹 Deterministic pre-pass:" header listing triaged issue numbers, then the LLM summary, then — if any wellness tool fired — a `**🧘 Wellness recommendation:**` block with a `_Triggered by:_` line (citing the BEFORE stress score, after-hours issue count, and/or context-switch storm size) plus the verbatim tool message, then a "📈 Outcome:" footer with the real measured stress drop. The supervisor is prompt-blocked from quoting absolute stress numbers, so the footer is the source of truth |
 
 `/api/reshape` increments `SCHEMA_VERSION` to `4` for the new fields.
 
@@ -229,9 +229,9 @@ Both `/api/reshape` and `/demo/api/reshape` surface deterministic-phase visibili
 | `markAsDeepWork` | Mark today's single deep-work item |
 | `addScopeNeeded` | Flag an issue as needing scope (adds `needs-scope,blocked`) |
 | `triageUrgent` | Strip `urgent` / `priority:critical` / `priority:high` from an unassigned issue (adds `triaged,backlog`) — **also called directly from the deterministic pre-pass** |
-| `suggestBreak` | Recommend a 10–15 minute break |
-| `slowIntake` | Recommend reducing new-issue intake |
-| `blockCalendarTime` | Recommend blocking 2-hour focus time |
+| `suggestBreak` | Recommend a 10–15 minute break (also captures verbatim text into `getWellnessRecommendations()` for the explanation block) |
+| `slowIntake` | Recommend reducing new-issue intake (verbatim text captured) |
+| `blockCalendarTime` | Recommend blocking 2-hour focus time (verbatim text captured) |
 
 `defuseChaosInputs(Clock)` is a public method on `BurnoutMutationTool` but **not** annotated `@Tool` — it is only invoked by `BurnoutSupervisorService` from the deterministic pre-pass.
 
@@ -340,8 +340,8 @@ The `POST /demo/api/seed` endpoint accepts `{"repo": "owner/repo", "issues": [..
 | `backend/src/.../agent/ProtectiveAiService.java` | Emotional support agent |
 | `backend/src/.../agent/FridayDeployAiService.java` | Deploy readiness agent |
 | `backend/src/.../agent/supervisor/BurnoutAgents.java` | 6 sub-agent interfaces with `@Agent` annotations (Triage, Defer, Delegate, Classify, Scope, Wellness) |
-| `backend/src/.../agent/supervisor/BurnoutSupervisorService.java` | Three-phase reshape: deterministic pre-pass (`triageUrgent` + `defuseChaosInputs`) — always runs even when LLM is down — then LangChain4j supervisor (`maxAgentsInvocations: 15`, SUMMARY strategy, prompt-blocked from quoting absolute stress numbers). Returns `SupervisorResult(explanation, mutationPlan, estimatedStressScore, llmUsed, deterministicTriageCount, deterministicDefuseCount)` |
-| `backend/src/.../agent/supervisor/BurnoutMutationTool.java` | 10 `@Tool` methods + `defuseChaosInputs(Clock)` (called only from the pre-pass) |
+| `backend/src/.../agent/supervisor/BurnoutSupervisorService.java` | Three-phase reshape: deterministic pre-pass (`triageUrgent` + `defuseChaosInputs`) — always runs even when LLM is down — then LangChain4j supervisor (`maxAgentsInvocations: 15`, SUMMARY strategy, prompt-blocked from quoting absolute stress numbers). After the LLM, composes `explanation` = pre-pass header + LLM prose + `**🧘 Wellness recommendation:**` block (with `_Triggered by:_` line citing BEFORE stress / after-hours / context-switch signals) when any wellness tool fired. Returns `SupervisorResult(explanation, mutationPlan, estimatedStressScore, llmUsed, deterministicTriageCount, deterministicDefuseCount, wellnessInvocationCount)` |
+| `backend/src/.../agent/supervisor/BurnoutMutationTool.java` | 10 `@Tool` methods + `defuseChaosInputs(Clock)` (called only from the pre-pass). The three wellness tools (`suggestBreak`, `slowIntake`, `blockCalendarTime`) emit no `GitHubAction`s but do log their invocation and capture their verbatim emoji + message into `getWellnessRecommendations()` so the supervisor can surface the actual advice in `explanation` |
 | `backend/src/.../goap/GitHubAction.java` | Sealed interface, 6 records: `AddLabels`, `RemoveLabels`, `Comment`, `Unassign`, `SetBody`, `SetUpdatedAt` |
 | `backend/src/.../config/AgentConfiguration.java` | LangChain4j + Azure OpenAI wiring |
 | `backend/src/.../config/SecurityConfig.java` | Spring Security: GitHub token validation, permitAll paths, CORS |
@@ -364,7 +364,7 @@ The `POST /demo/api/seed` endpoint accepts `{"repo": "owner/repo", "issues": [..
 | `scripts/demo-screenshots.sh` | Bash version of demo screenshot script (same flow, for Linux/macOS/CI) |
 | `scripts/record-demo.mjs` | Records ~30s demo video with scene title cards and issue drilldown |
 | `scripts/seed-issues.sh` | Creates real GitHub issues via `gh` CLI (for live repos) |
-| `mcp-app/src/index.ts` | MCP server with 4 tool definitions + 2 UI resources |
+| `mcp-app/src/index.ts` | MCP server with 4 tool definitions + 2 UI resources. The `reshape_day` and `show_burnout_wheel` tool outputs surface the full `agentExplanation` (pre-pass header + LLM prose + `**🧘 Wellness recommendation:**` block with `_Triggered by:_` line + outcome footer) verbatim in the Copilot Chat text response so the audience sees what the WellnessAgent actually recommended |
 | `mcp-app/src/config.ts` | Backend URL config (reads from `.env`) |
 | `mcp-app/src/backend-client.ts` | HTTP client for backend API calls |
 | `mcp-app/src/demo-data.ts` | Fallback demo data when backend is unavailable |

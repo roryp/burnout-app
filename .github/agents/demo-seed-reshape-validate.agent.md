@@ -43,7 +43,7 @@ POST `/demo/api/reshape` runs in three phases against whatever is currently in t
 2. **LangChain4j supervisor** (LLM): Coordinates 6 sub-agents (Triage, Defer, Delegate, Classify, Scope, Wellness) capped at `maxAgentsInvocations: 15`. The supervisor is prompt-blocked from quoting absolute stress numbers — its prose only describes actions taken.
 3. **Deterministic 1-3-3-0 enforcer** (no LLM): After the LLM's mutations are applied, `enforce333Compliance(...)` promotes deferred items into underfilled quickWin/maintenance slots and pushes overflow off the user's plate (unassign + `deferred,next-sprint` + comment). Surfaces as `complianceActionCount` (0 when the LLM lands compliance on its own).
 
-The `explanation` field is composed: a "🧹 Deterministic pre-pass:" header listing triaged issue numbers, then the LLM's prose, then a "📈 Outcome:" footer with the real measured stress drop. The footer is the source of truth.
+The `explanation` field is composed: a "🧹 Deterministic pre-pass:" header listing triaged issue numbers, then the LLM's prose, then — when any wellness tool fired — a `**🧘 Wellness recommendation:**` block with a `_Triggered by:_` line (citing BEFORE stress ≥ 50, after-hours issue count, and/or context-switch storm size) plus the verbatim tool message (e.g. `🧘 Step away for 10–15 minutes...`), then a "📈 Outcome:" footer with the real measured stress drop. The footer is the source of truth.
 
 On seeded chaos:
 
