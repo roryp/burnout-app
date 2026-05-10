@@ -103,16 +103,20 @@ if ($realIssues.Count -lt 4) {
 }
 
 # --- Overlay chaos ---
-# First 6  -> unassigned URGENT + after-hours updatedAt
+# First 3  -> unassigned URGENT + after-hours updatedAt (pre-pass triages these)
+# Next 3   -> URGENT assigned to alice/bob (survives reshape — teammate fires)
 # Last 10  -> assigned to roryp + last-100-min recent updatedAt
 #
 # NOTE: We use [System.Collections.ArrayList] for labels/assignees because
 # PowerShell `if` expressions unwrap single-element arrays to scalars and
 # convert empty arrays to $null, which breaks ConvertTo-Json's array output.
+$teammates = @("alice", "bob", "carol")
 $issues = [System.Collections.ArrayList]::new()
 for ($i = 0; $i -lt $realIssues.Count; $i++) {
     $src = $realIssues[$i]
-    $isUrgent = $i -lt 6
+    $isUnassignedUrgent = $i -lt 3
+    $isTeammateUrgent   = ($i -ge 3) -and ($i -lt 6)
+    $isUrgent           = $isUnassignedUrgent -or $isTeammateUrgent
 
     $labels = [System.Collections.ArrayList]::new()
     if ($src.labels) {
@@ -126,7 +130,11 @@ for ($i = 0; $i -lt $realIssues.Count; $i++) {
     }
 
     $assignees = [System.Collections.ArrayList]::new()
-    if (-not $isUrgent) { [void]$assignees.Add(@{ login = "roryp" }) }
+    if ($isTeammateUrgent) {
+        [void]$assignees.Add(@{ login = $teammates[($i - 3) % $teammates.Count] })
+    } elseif (-not $isUnassignedUrgent) {
+        [void]$assignees.Add(@{ login = "roryp" })
+    }
 
     if ($isUrgent) {
         $createdAt = $monthAgo
