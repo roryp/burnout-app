@@ -178,7 +178,7 @@ The system has two main components:
 
 - **AgentOrchestrator** — Central coordinator that dispatches to:
   - **BurnoutSupervisorService** — Three-phase reshape:
-    1. **Deterministic pre-pass** (no LLM, ALWAYS runs even when LLM is unavailable): `mutationTool.triageUrgent(n)` is called for every unassigned-urgent issue, then `mutationTool.defuseChaosInputs(clock)` rewrites empty bodies and after-hours / recently-touched timestamps. This guarantees the chaos score drops regardless of which agents the LLM picks (or even when no LLM runs at all). The pre-pass counts are returned on `SupervisorResult` as `deterministicTriageCount` and `deterministicDefuseCount`, and the explanation text is prepended with a "🧹 Deterministic pre-pass:" line listing the triaged issue numbers.
+    1. **Deterministic pre-pass** (no LLM, ALWAYS runs even when LLM is unavailable): `mutationTool.triageUrgent(n)` is called for every unassigned-urgent issue, then `mutationTool.defuseChaosInputs(clock)` fills empty issue bodies with a scope-pending placeholder (`SetBody`). **It deliberately does *not* rewrite after-hours / recently-touched timestamps** — those are real signals about real human activity and are preserved through the reshape so the AFTER score (and the WellnessAgent's gating thresholds) stay grounded in truth ("acknowledge-don't-erase"). The pre-pass counts are returned on `SupervisorResult` as `deterministicTriageCount` and `deterministicDefuseCount`, and the explanation text is prepended with a "🧹 Deterministic pre-pass:" line listing the triaged issue numbers.
     2. **LangChain4j Supervisor Pattern** with 6 sub-agents (TriageAgent, DeferAgent, DelegateAgent, ClassifyAgent, ScopeAgent, WellnessAgent) capped at `maxAgentsInvocations: 15`, `SupervisorResponseStrategy.SUMMARY`. The supervisor is told the unassigned-urgent issues are already triaged and to leave them alone, AND is forbidden from quoting absolute stress numbers in its summary (the prompt explains the system computes the AFTER score itself).
     3. **Deterministic 1-3-3-0 enforcer** (no LLM, only in `/demo/api/reshape`): after the LLM's mutations are applied, `enforce333Compliance(...)` promotes deferred-classified items into underfilled quickWin/maintenance slots and pushes true overflow off the user's plate (unassign + `deferred,next-sprint` + comment). Guarantees the day plan ends up exactly 1-3-3-0 even when the LLM under-fills. Surfaced as `complianceActionCount` in the response.
   - **ExplainerAiService** — Explains action plans in human-friendly language
@@ -194,7 +194,7 @@ Both `/api/reshape` and `/demo/api/reshape` surface deterministic-phase visibili
 | `beforeScore` / `afterScore` | recomputed | Stress score before vs. after all mutations |
 | `actionsApplied` | total | Pre-pass + LLM + (demo only) compliance actions, summed |
 | `deterministicTriageCount` | pre-pass | Unassigned-urgent issues whose `urgent` / `priority:*` labels were stripped |
-| `deterministicDefuseCount` | pre-pass | Issues whose body or `updatedAt` was normalised |
+| `deterministicDefuseCount` | pre-pass | Issues whose empty body was filled with a scope-pending placeholder (`SetBody`). Pre-pass no longer rewrites `updatedAt` — see acknowledge-don't-erase note in `BurnoutMutationTool.defuseChaosInputs` |
 | `complianceActionCount` (demo only) | enforcer | Mutations emitted by the 1-3-3-0 enforcer (0 when the LLM lands compliance on its own) |
 | `wellnessInvocationCount` | LLM | Number of times the supervisor invoked any wellness tool (`suggestBreak` / `slowIntake` / `blockCalendarTime`). Wellness tools are advisory-only and emit no `GitHubAction`s, so this counter is the only way to verify the supervisor's `stress >= 50` gating actually routed work to `WellnessAgent`. Always 0 when `llmUsed=false`. The verbatim recommendation text is also surfaced inside `explanation` under a `**🧘 Wellness recommendation:**` block (with a `_Triggered by:_` line listing which signals — high stress, after-hours activity, context-switch storm — caused the supervisor to fire it) |
 | `afterHoursBefore` / `afterHoursAfter` (demo) · `afterHoursIssues` (api) | WorldState | Issues with `updatedAt` outside 9 AM–6 PM in the active timezone |
@@ -205,7 +205,7 @@ Both `/api/reshape` and `/demo/api/reshape` surface deterministic-phase visibili
 
 ### GitHub mutation actions
 
-[`GitHubAction`](backend/src/main/java/com/demo/burnout/goap/GitHubAction.java) is a sealed interface permitting six records:
+[`GitHubAction`](backend/src/main/java/com/demo/burnout/goap/GitHubAction.java) is a sealed interface permitting six records, **five of which are actively emitted**:
 
 | Action | Emitted by | Effect |
 |--------|------------|--------|
@@ -214,7 +214,7 @@ Both `/api/reshape` and `/demo/api/reshape` surface deterministic-phase visibili
 | `Comment(issueNumber, text)` | All `@Tool` methods | Post a comment |
 | `Unassign(issueNumber, login)` | `deferIssue`, `delegateIssue` | Remove an assignee |
 | `SetBody(issueNumber, body)` | `defuseChaosInputs` | Replace an empty body with a scope-pending placeholder (kills mystery-meat) |
-| `SetUpdatedAt(issueNumber, instant)` | `defuseChaosInputs` | Normalise `updatedAt` to a stable mid-morning slot in the clock zone (kills after-hours + touched-today) |
+| `SetUpdatedAt(issueNumber, instant)` | _(legacy — no longer emitted)_ | Was used to scrub after-hours / touched-today signals; intentionally removed under the "acknowledge-don't-erase" rule so real human activity is preserved through the reshape. Record retained for backward compatibility with persisted plans only |
 
 [`DemoFlamegraphController.applyMutationsToIssues`](backend/src/main/java/com/demo/burnout/controller/DemoFlamegraphController.java) applies the full plan to the in-memory `IssueCache`.
 
@@ -340,9 +340,9 @@ The `POST /demo/api/seed` endpoint accepts `{"repo": "owner/repo", "issues": [..
 | `backend/src/.../agent/ProtectiveAiService.java` | Emotional support agent |
 | `backend/src/.../agent/FridayDeployAiService.java` | Deploy readiness agent |
 | `backend/src/.../agent/supervisor/BurnoutAgents.java` | 6 sub-agent interfaces with `@Agent` annotations (Triage, Defer, Delegate, Classify, Scope, Wellness) |
-| `backend/src/.../agent/supervisor/BurnoutSupervisorService.java` | Three-phase reshape: deterministic pre-pass (`triageUrgent` + `defuseChaosInputs`) — always runs even when LLM is down — then LangChain4j supervisor (`maxAgentsInvocations: 15`, SUMMARY strategy, prompt-blocked from quoting absolute stress numbers). After the LLM, composes `explanation` = pre-pass header + LLM prose + `**🧘 Wellness recommendation:**` block (with `_Triggered by:_` line citing BEFORE stress / after-hours / context-switch signals) when any wellness tool fired. Returns `SupervisorResult(explanation, mutationPlan, estimatedStressScore, llmUsed, deterministicTriageCount, deterministicDefuseCount, wellnessInvocationCount)` |
+| `backend/src/.../agent/supervisor/BurnoutSupervisorService.java` | Three-phase reshape: deterministic pre-pass (`triageUrgent` + `defuseChaosInputs` — latter only fills empty bodies, no longer rewrites timestamps) — always runs even when LLM is down — then LangChain4j supervisor (`maxAgentsInvocations: 15`, SUMMARY strategy, prompt-blocked from quoting absolute stress numbers). After the LLM, composes `explanation` = pre-pass header + LLM prose + `**🧘 Wellness recommendation:**` block (with `_Triggered by:_` line citing BEFORE stress / after-hours / context-switch signals) when any wellness tool fired. Returns `SupervisorResult(explanation, mutationPlan, estimatedStressScore, llmUsed, deterministicTriageCount, deterministicDefuseCount, wellnessInvocationCount)` |
 | `backend/src/.../agent/supervisor/BurnoutMutationTool.java` | 10 `@Tool` methods + `defuseChaosInputs(Clock)` (called only from the pre-pass). The three wellness tools (`suggestBreak`, `slowIntake`, `blockCalendarTime`) emit no `GitHubAction`s but do log their invocation and capture their verbatim emoji + message into `getWellnessRecommendations()` so the supervisor can surface the actual advice in `explanation` |
-| `backend/src/.../goap/GitHubAction.java` | Sealed interface, 6 records: `AddLabels`, `RemoveLabels`, `Comment`, `Unassign`, `SetBody`, `SetUpdatedAt` |
+| `backend/src/.../goap/GitHubAction.java` | Sealed interface, 6 records: `AddLabels`, `RemoveLabels`, `Comment`, `Unassign`, `SetBody`, and the legacy `SetUpdatedAt` (retained for compatibility but no longer emitted by any agent or pre-pass) |
 | `backend/src/.../config/AgentConfiguration.java` | LangChain4j + Azure OpenAI wiring |
 | `backend/src/.../config/SecurityConfig.java` | Spring Security: GitHub token validation, permitAll paths, CORS |
 | `backend/src/.../service/IssueCache.java` | In-memory `ConcurrentHashMap` cache for synced issues |

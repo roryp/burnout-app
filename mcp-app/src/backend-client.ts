@@ -35,8 +35,12 @@ export interface DayPlan {
 }
 
 /**
- * Mirrors backend `GitHubAction` sealed interface — 6 record types:
- * AddLabels, RemoveLabels, Comment, Unassign, SetBody, SetUpdatedAt.
+ * Mirrors backend `GitHubAction` sealed interface — 6 record types. Five are
+ * actively emitted: AddLabels, RemoveLabels, Comment, Unassign, SetBody.
+ * The sixth, SetUpdatedAt, is legacy: retained for backward compatibility with
+ * persisted plans but no longer emitted by any reshape path under the
+ * "acknowledge-don't-erase" rule (real after-hours / recent-touch timestamps
+ * are preserved). Handler below silently skips it.
  */
 export interface GitHubAction {
   type: 'AddLabels' | 'RemoveLabels' | 'Comment' | 'Unassign' | 'SetBody' | 'SetUpdatedAt';
@@ -270,8 +274,10 @@ async function executeMutations(repo: string, actions: GitHubAction[]): Promise<
         }
 
         case 'SetUpdatedAt': {
-          // Demo-only timestamp normalization — no GitHub API equivalent. Skip silently.
-          console.error(`[Mutations] skip SetUpdatedAt on #${action.issueNumber} (demo-only, no GH API)`);
+          // Legacy demo-only timestamp normalization — no GitHub API equivalent and
+          // no longer emitted by current reshape paths (acknowledge-don't-erase).
+          // Skip silently for backward compatibility with any persisted plans.
+          console.error(`[Mutations] skip SetUpdatedAt on #${action.issueNumber} (legacy, no-op)`);
           outcome.skipped++;
           break;
         }

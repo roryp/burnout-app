@@ -3,7 +3,7 @@
 # Demo Seed Script for Burnout-as-a-Service (bash)
 # =============================================================================
 # Mirrors scripts/seed-demo.ps1 — fetches REAL GitHub issues for roryp/burnout-app
-# and overlays a chaos pattern that produces stress=58/HIGH (matches README).
+# and overlays a chaos pattern that produces a HIGH stress score (matches README).
 #
 # Usage:
 #   bash scripts/seed-demo.sh                                                    # local, BEFORE
@@ -24,7 +24,9 @@
 #   7. Re-seeds chaotic issues so the cache reflects the demo state
 #   8. Seeds 14 days of study history
 #
-# Expected result: roryp -> stress 58 (HIGH).  (After reshape: ~8 / LOW.)
+# Expected result: roryp -> HIGH stress (typical: 50-70/100).
+# After reshape: typically MODERATE (chaos defused, real after-hours signal
+# preserved per the acknowledge-don't-erase rule — see AGENTS.md).
 # Falls back to a 16-issue synthetic set when GitHub is unreachable / rate-limited.
 #
 # Requires: bash, curl, jq

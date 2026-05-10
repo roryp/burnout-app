@@ -25,30 +25,30 @@ Four pages, no auth required:
 
 | Before (Chaotic) | After (Reshaped) |
 |:---:|:---:|
-| ![58/100 stress](docs/images/demo/flamegraph-before.png) | ![8/100 stress, 3-3-3](docs/images/demo/flamegraph-after.png) |
-| 58/100 stress (HIGH), Workload + Chaos + Context Switching firing | 8/100 stress (LOW), 100% Friday Score, 3-3-3 compliant |
+| ![Chaotic flamegraph](docs/images/demo/flamegraph-before.png) | ![Reshaped flamegraph, 1-3-3-0](docs/images/demo/flamegraph-after.png) |
+| HIGH stress — Workload + Chaos + Context Switching + After-Hours all firing | MODERATE stress — chaos defused, day plan compliant, real after-hours signal preserved |
 
 ### Stress Breakdown: What Changed
 
-| Before (58/HIGH) | After (8/LOW) |
+| Before (HIGH) | After (MODERATE) |
 |:---:|:---:|
-| ![Stress 58 — workload + chaos red](docs/images/demo/stress-before.png) | ![Stress 8 — only workload remaining](docs/images/demo/stress-after.png) |
+| ![Workload + chaos red](docs/images/demo/stress-before.png) | ![Chaos zeroed, after-hours kept](docs/images/demo/stress-after.png) |
 
 | Metric | Before | After | What changed |
 |--------|--------|-------|-------------|
-| **Workload** | 12 | 8 | 10 issues piled on roryp → reshape deferred most into 3-3-3, leaving 1 deep-work item |
-| **Chaos** | 20 | 0 | 6 unassigned URGENTs + empty bodies + after-hours timestamps → deterministic pre-pass triaged them and defused chaos inputs |
-| **Context Switching** | 15 | 0 | 10 issues touched in the last hour → updatedAt rewritten to a stable mid-morning slot |
-| **Clarity** | 10 | 0 | Every issue had an empty body → SetBody actions added scope-pending placeholders |
-| **After Hours** | 0 | 0 | Chaos issues had 3AM / 4AM / 10PM timestamps but were unassigned, so they didn't count against roryp |
+| **Workload** | high | low | Issues piled on roryp → supervisor deferred/delegated overflow, leaving 1 deep-work item |
+| **Chaos** | high | 0 | Unassigned URGENTs + empty bodies → deterministic pre-pass triaged labels and filled empty bodies (`SetBody`) |
+| **Context Switching** | high | preserved | Real recent-touch storm — the AFTER score still reflects it; the supervisor flags it via the wellness recommendation |
+| **Clarity** | high | 0 | Every issue had an empty body → `SetBody` actions added scope-pending placeholders |
+| **After Hours** | high | preserved | Real after-hours `updatedAt` values are **left intact** — scrubbing them would be dishonest, and the WellnessAgent uses them to decide when to recommend a break |
 | **Sustained** | 0 | 0 | No prior high-stress days yet (this is a fresh seed) |
 
-> **Note:** The reshape uses an LLM supervisor, so results vary slightly run-to-run. Typical: **58 → 8 (LOW)** with ~70-80 actions applied. Occasionally lands on 0 when the supervisor classifies the final remaining issue too.
+> **Note (acknowledge-don't-erase):** the reshape pipeline does **not** rewrite after-hours / recent-touch timestamps. Those are real signals about real human activity, so the AFTER score still includes their penalty. The drop comes from genuine fixes — urgent triage, mystery-meat resolution, 1-3-3-0 rebalancing, deferral of overflow — not from scrubbing the input. Typical run: **HIGH (~50–70) → MODERATE (~25–40)** with ~40–80 actions applied; the WellnessAgent surfaces a verbatim break/intake/calendar recommendation in the explanation when stress, after-hours, or context-switch signals cross their thresholds.
 
 **How to get there:**
 
 ```bash
-# 1. Seed chaotic issues (real GitHub titles + chaos overlay → stress 58 / HIGH)
+# 1. Seed chaotic issues (real GitHub titles + chaos overlay → HIGH stress)
 bash scripts/seed-demo.sh https://your-app.azurecontainerapps.io
 # or PowerShell:
 .\scripts\seed-demo.ps1 -BaseUrl https://your-app.azurecontainerapps.io
@@ -57,10 +57,10 @@ bash scripts/seed-demo.sh https://your-app.azurecontainerapps.io
 curl -X POST https://your-app.azurecontainerapps.io/demo/api/reshape \
   -H 'Content-Type: application/json' \
   -d '{"repo":"roryp/burnout-app","userId":"roryp"}'
-# → beforeScore 58, afterScore 8 (typical, sometimes 0), actionsApplied ~75, llmUsed true
+# → beforeScore HIGH, afterScore MODERATE, actionsApplied ~40-80, llmUsed true
 
 # 3. View the result:
-#    /flamegraph.html?repo=roryp/burnout-app&userId=roryp  → 8/100 stress, 3-3-3 compliant
+#    /flamegraph.html?repo=roryp/burnout-app&userId=roryp  → MODERATE stress, 1-3-3-0 compliant
 #    /study.html → click Load Data → see roryp's drop in the trend chart
 ```
 
@@ -78,7 +78,7 @@ curl -X POST https://your-app.azurecontainerapps.io/demo/api/reshape \
 
 ## How It Works
 
-Reshape runs in three phases. **Phase 1** is a deterministic pre-pass that fires before the LLM ever wakes up — it triages every unassigned-urgent issue and defuses chaos inputs (empty bodies, after-hours timestamps, recent-touch storms) so the chaos score is guaranteed to drop, even when the LLM is offline. **Phase 2** is a **Supervisor LLM** (Azure OpenAI) coordinating 6 specialized sub-agents (`maxAgentsInvocations: 15`) that classify the remaining issues and apply GitHub labels. **Phase 3** is a deterministic 1-3-3-0 enforcer that runs after the LLM, promoting deferred items into underfilled quickWin/maintenance slots and pushing overflow off the user's plate so the day plan ends up exactly **1-3-3-0** every time:
+Reshape runs in three phases. **Phase 1** is a deterministic pre-pass that fires before the LLM ever wakes up — it triages every unassigned-urgent issue and fills empty issue bodies (`SetBody`) so the chaos score is guaranteed to drop, even when the LLM is offline. **It deliberately does *not* rewrite real `updatedAt` timestamps** — after-hours and recent-touch signals reflect actual human activity and are preserved through the reshape so the AFTER score (and the WellnessAgent gating) stay grounded in truth. **Phase 2** is a **Supervisor LLM** (Azure OpenAI) coordinating 6 specialized sub-agents (`maxAgentsInvocations: 15`) that classify the remaining issues and apply GitHub labels. **Phase 3** is a deterministic 1-3-3-0 enforcer that runs after the LLM, promoting deferred items into underfilled quickWin/maintenance slots and pushing overflow off the user's plate so the day plan ends up exactly **1-3-3-0** every time:
 
 | Agent | Action | Labels Applied |
 |-------|--------|---------------|
@@ -91,7 +91,7 @@ Reshape runs in three phases. **Phase 1** is a deterministic pre-pass that fires
 
 Deterministic services compute all metrics (chaos score, compliance, stress). The pre-pass guarantees a chaos drop even if the LLM picks the wrong agent. The post-pass guarantees 1-3-3-0 even if the LLM under-fills. AI agents only explain and classify — they never decide. The reshape response surfaces `deterministicTriageCount`, `deterministicDefuseCount`, `complianceActionCount`, and `wellnessInvocationCount` so callers can see exactly what each phase contributed, and the `explanation` field is bookended by deterministic prose (a "🧹 Deterministic pre-pass:" header, a `**🧘 Wellness recommendation:**` block with a `_Triggered by:_` line citing the BEFORE stress / after-hours / context-switch signals plus the verbatim tool output when any wellness tool fired, and a "📈 Outcome:" footer with the real measured stress drop) — the LLM is prompt-blocked from quoting absolute stress numbers, so the footer is always the source of truth.
 
-The reshape returns a [`GitHubMutationPlan`](backend/src/main/java/com/demo/burnout/goap/GitHubMutationPlan.java) of six action types: `AddLabels`, `RemoveLabels`, `Comment`, `Unassign`, `SetBody`, and `SetUpdatedAt`.
+The reshape returns a [`GitHubMutationPlan`](backend/src/main/java/com/demo/burnout/goap/GitHubMutationPlan.java) of five active action types: `AddLabels`, `RemoveLabels`, `Comment`, `Unassign`, and `SetBody`. (A sixth record `SetUpdatedAt` is still part of the sealed interface for backward compatibility but is **no longer emitted** — see the acknowledge-don't-erase note above.)
 
 ## Algorithm Pipeline
 
@@ -220,8 +220,8 @@ A zero-friction web page for study participants. No VS Code, no CLI, no auth —
 
 | Before (Chaotic) | After (Reshaped) |
 |:---:|:---:|
-| ![Stress 58 — HIGH](docs/images/demo/checkin-before.png) | ![Stress 8 — LOW](docs/images/demo/checkin-after.png) |
-| Stress 58, HIGH — workload + chaos firing | Stress 8, LOW — most bars zeroed |
+| ![HIGH stress check-in](docs/images/demo/checkin-before.png) | ![MODERATE stress check-in](docs/images/demo/checkin-after.png) |
+| HIGH — workload + chaos + context-switch + after-hours firing | MODERATE — chaos zeroed, after-hours preserved (real activity), wellness break suggested |
 
 1. Student enters their GitHub username and a **public** repo
 2. Optionally sets the **self-report slider** (0–100: "How stressed do you feel?") and **notes**

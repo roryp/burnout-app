@@ -13,7 +13,7 @@ Default repo: `roryp/burnout-app`. Default user: `roryp`.
 
 | User says | You do | You do NOT |
 |---|---|---|
-| **`seed`** | Run `bash scripts/seed-demo.sh $BASE_URL`. Report the ~58/HIGH score. | Reshape. Sync. Anything else. |
+| **`seed`** | Run `bash scripts/seed-demo.sh $BASE_URL`. Report the resulting stress score (typically HIGH). | Reshape. Sync. Anything else. |
 | **`reshape`** | POST `$BASE_URL/demo/api/reshape` with `{"repo":"roryp/burnout-app","userId":"roryp"}`. Report `beforeScore`, `afterScore`, `llmUsed`, `actionsApplied`, and the explanation, exactly as returned. | Sync first. Sync after. Touch the cache. Fake the numbers. |
 
 ## Hard rules
@@ -33,13 +33,13 @@ azd env get-values 2>/dev/null | grep SERVICE_BACKEND_URI | cut -d'"' -f2
 
 ## What seed actually does
 
-`scripts/seed-demo.sh` fetches up to 16 real GitHub issues from `roryp/burnout-app`, applies a chaos overlay (first 6 → unassigned URGENT + after-hours timestamps; rest → piled on roryp with last-60-min staggered timestamps; all bodies blanked), POSTs them to `/demo/api/seed`, runs 9 checkins, and seeds 113 study snapshots. Result for roryp: **~58/HIGH** (Workload, Chaos, Context Switching, Clarity, After Hours all firing).
+`scripts/seed-demo.sh` fetches up to 16 real GitHub issues from `roryp/burnout-app`, applies a chaos overlay (first 6 → unassigned URGENT + after-hours timestamps; rest → piled on roryp with last-60-min staggered timestamps; all bodies blanked), POSTs them to `/demo/api/seed`, runs 9 checkins, and seeds 113 study snapshots. Result for roryp: **HIGH** (Workload, Chaos, Context Switching, Clarity, After Hours all firing).
 
 ## What reshape actually does (measured)
 
 POST `/demo/api/reshape` runs in three phases against whatever is currently in the cache:
 
-1. **Deterministic pre-pass** (no LLM, ALWAYS runs): `mutationTool.triageUrgent(n)` is called for every unassigned-urgent issue, then `mutationTool.defuseChaosInputs(clock)` rewrites empty bodies (`SetBody`) and after-hours / recently-touched timestamps (`SetUpdatedAt`). This guarantees the chaos score drops even when the LLM is dummy/down. Counts surface as `deterministicTriageCount` and `deterministicDefuseCount`.
+1. **Deterministic pre-pass** (no LLM, ALWAYS runs): `mutationTool.triageUrgent(n)` is called for every unassigned-urgent issue, then `mutationTool.defuseChaosInputs(clock)` fills empty issue bodies with a scope-pending placeholder (`SetBody`). **It deliberately does *not* rewrite after-hours / recently-touched timestamps** — those are real signals about real human activity and are preserved through the reshape so the AFTER score stays honest ("acknowledge-don't-erase"). Counts surface as `deterministicTriageCount` and `deterministicDefuseCount`.
 2. **LangChain4j supervisor** (LLM): Coordinates 6 sub-agents (Triage, Defer, Delegate, Classify, Scope, Wellness) capped at `maxAgentsInvocations: 15`. The supervisor is prompt-blocked from quoting absolute stress numbers — its prose only describes actions taken.
 3. **Deterministic 1-3-3-0 enforcer** (no LLM): After the LLM's mutations are applied, `enforce333Compliance(...)` promotes deferred items into underfilled quickWin/maintenance slots and pushes overflow off the user's plate (unassign + `deferred,next-sprint` + comment). Surfaces as `complianceActionCount` (0 when the LLM lands compliance on its own).
 
@@ -47,10 +47,10 @@ The `explanation` field is composed: a "🧹 Deterministic pre-pass:" header lis
 
 On seeded chaos:
 
-- `actionsApplied`: ~75 (relabel + unassign + body rewrites + timestamp normalisations + any compliance actions)
+- `actionsApplied`: ~40–80 (relabel + unassign + body fills + any compliance actions — timestamps are no longer rewritten)
 - `llmUsed`: true (when the Azure AD token is fresh)
-- `beforeScore`: ~58 / HIGH → `afterScore`: ~8 / LOW (sometimes 0)
-- `deterministicTriageCount`: 6, `deterministicDefuseCount`: 16, `complianceActionCount`: 0–8 (varies by LLM run)
+- `beforeScore`: HIGH → `afterScore`: MODERATE (typical). The AFTER score still includes the real after-hours penalty — by design — so the WellnessAgent has something honest to gate on.
+- `deterministicTriageCount`: ~3–6, `deterministicDefuseCount`: ~16 (empty-body fills), `complianceActionCount`: 0–20 (varies by LLM run)
 - Day plan: 1 deep work, 3 quick wins, 3 maintenance, 0 deferred (1-3-3-0 compliant)
 
 If reshape returns `llmUsed: false`, the Azure AD token has expired (tokens live ~1h, fetched once at startup) — the deterministic pre-pass still drops the chaos score, the 1-3-3-0 enforcer still runs, but the supervisor skips and the day plan won't get the LLM's classification touch. Restart the container revision to refresh the token.

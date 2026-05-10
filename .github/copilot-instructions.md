@@ -84,12 +84,12 @@ When asked to take screenshots, capture demo screenshots, or run the demo flow:
 
 3. **Screenshot checklist (8 screenshots):**
    - `landing.png` — Landing page with cards linking to Check-In, Flamegraph, Study Dashboard
-   - `checkin-before.png` — Stress 58, HIGH, Workload + Chaos bars red, issue toggles visible
-   - `stress-before.png` — Stress 58, HIGH, with Workload issue drilldown expanded
-   - `flamegraph-before.png` — 58/100 stress, mostly deferred, low Friday Score
-   - `checkin-after.png` — Stress ~8, LOW, most bars zeroed
-   - `stress-after.png` — Stress ~8, LOW, with Workload issue drilldown expanded
-   - `flamegraph-after.png` — ~8/100 stress, ~100% Friday Score, 1-3-3-0 structure
+   - `checkin-before.png` — HIGH stress, Workload + Chaos bars red, issue toggles visible
+   - `stress-before.png` — HIGH stress, with Workload issue drilldown expanded
+   - `flamegraph-before.png` — HIGH stress, mostly deferred, low Friday Score
+   - `checkin-after.png` — MODERATE stress, chaos zeroed, after-hours preserved (acknowledge-don't-erase)
+   - `stress-after.png` — MODERATE stress, with Workload issue drilldown expanded
+   - `flamegraph-after.png` — MODERATE stress, ~100% Friday Score, 1-3-3-0 structure
    - `study-dashboard.png` — trend chart with roryp's drop, 5 participant cards, raw snapshots
 
 4. **Using Playwright MCP tool for screenshots:** Navigate to each page, fill in
@@ -173,7 +173,7 @@ java -Dsecurity.enabled=false `
 .\scripts\seed-demo.ps1 -BaseUrl https://your-app.azurecontainerapps.io -Mode after
 ```
 
-**What it seeds:** 16 chaotic issues (real GitHub titles + chaos overlay — stress → ~58 HIGH), 9 checkin snapshots, 113 study history snapshots for 5 participants.
+**What it seeds:** 16 chaotic issues (real GitHub titles + chaos overlay — stress → HIGH), 9 checkin snapshots, 113 study history snapshots for 5 participants.
 
 ### 4. Verify All Pages Manually
 
@@ -182,8 +182,8 @@ After seeding, open these URLs (replace base URL for Azure):
 | Page | URL | Expected Result |
 |------|-----|-----------------|
 | Home | `/` | Landing page with links to Check-In, Flamegraph, Study |
-| Check-In | `/checkin.html` | Enter `roryp` + `roryp/burnout-app` → Score ~58, HIGH |
-| Flamegraph | `/flamegraph.html?repo=roryp/burnout-app&userId=roryp` | ~58/100 stress, 16 issues, deferred-heavy |
+| Check-In | `/checkin.html` | Enter `roryp` + `roryp/burnout-app` → HIGH stress (chaos firing) |
+| Flamegraph | `/flamegraph.html?repo=roryp/burnout-app&userId=roryp` | HIGH stress, 16 issues, deferred-heavy |
 | Study | `/study.html` | Click Load Data → 5 participants, trend chart, 113+ snapshots |
 | Health | `/actuator/health` | `{"status":"UP"}` |
 
@@ -212,28 +212,28 @@ Show my burnout wheel for roryp/burnout-app
 Reshape my day for roryp/burnout-app
 ```
 
-Expected: `sync_issues` fetches the repo's issues, `get_stress_score` returns ~8/LOW after reshape, `show_burnout_wheel` shows 1-3-3-0 flamegraph, `reshape_day` applies labels and returns AI explanation.
+Expected: `sync_issues` fetches the repo's issues, `get_stress_score` returns MODERATE after reshape (chaos defused, real after-hours signal preserved), `show_burnout_wheel` shows 1-3-3-0 flamegraph, `reshape_day` applies labels and returns AI explanation.
 
 ### 7. Test the Before/After Demo Flow
 
-This is the **live demo flow** — captures the full 58→8 stress reduction driven by the deterministic pre-pass + LangChain4j supervisor:
+This is the **live demo flow** — captures the HIGH → MODERATE stress reduction driven by the deterministic pre-pass + LangChain4j supervisor. The pre-pass intentionally leaves real after-hours / recent-touch timestamps intact (acknowledge-don't-erase), so the AFTER score still reflects genuine human activity:
 
 ```powershell
 # Step 1: Seed chaotic state (real GitHub titles + chaos overlay)
 .\scripts\seed-demo.ps1 -BaseUrl <url>
 
-# Step 2: Verify BEFORE (~58 / HIGH)
-# Open /checkin.html → roryp → ~58
-# Open /flamegraph.html?repo=roryp/burnout-app&userId=roryp → ~58/100
+# Step 2: Verify BEFORE (HIGH)
+# Open /checkin.html → roryp → HIGH
+# Open /flamegraph.html?repo=roryp/burnout-app&userId=roryp → HIGH stress
 
-# Step 3: Reshape — deterministic pre-pass (triageUrgent + defuseChaosInputs)
+# Step 3: Reshape — deterministic pre-pass (triageUrgent + defuseChaosInputs (empty bodies only))
 # then LangChain4j supervisor with 6 sub-agents
 # Either via MCP: "Reshape my day for roryp/burnout-app"
 # Or via API: POST /demo/api/reshape  body: {"repo":"roryp/burnout-app","userId":"roryp"}
 
-# Step 4: Verify AFTER (~8 / LOW)
-# Open /checkin.html → roryp → ~8
-# Open /flamegraph.html?repo=roryp/burnout-app&userId=roryp → ~8/100, ~100% Friday
+# Step 4: Verify AFTER (MODERATE — chaos defused, after-hours preserved)
+# Open /checkin.html → roryp → MODERATE
+# Open /flamegraph.html?repo=roryp/burnout-app&userId=roryp → MODERATE stress, 1-3-3-0 structure
 
 # Step 5: Check study dashboard
 # Open /study.html → Load Data → see 5 participants with trend chart
@@ -289,7 +289,7 @@ azd env get-values | Select-String 'SERVICE_BACKEND_URI'
 
 **When to use:** User says "seed, reshape, validate with playwright mcp tool" or similar.
 
-**Goal:** Execute the full 58→8 stress reduction demo with live screenshots showing before/after state. The drop is driven by the deterministic pre-pass (`triageUrgent` + `defuseChaosInputs`) followed by the LangChain4j supervisor with 6 sub-agents — not by swapping data.
+**Goal:** Execute the HIGH → MODERATE stress reduction demo with live screenshots showing before/after state. The drop is driven by the deterministic pre-pass (`triageUrgent` + `defuseChaosInputs` — the latter only fills empty bodies, no longer rewrites timestamps) followed by the LangChain4j supervisor with 6 sub-agents — not by swapping data and not by scrubbing real after-hours signals.
 
 **Prerequisites:**
 - Azure deployment running (verify via `azd env get-values | Select-String 'SERVICE_BACKEND_URI'`)
@@ -300,8 +300,8 @@ azd env get-values | Select-String 'SERVICE_BACKEND_URI'
 ```powershell
 .\scripts\seed-demo.ps1 -BaseUrl <azure-url>
 ```
-- Outputs: 16 chaotic issues (~58 / HIGH), 9 checkins, 113 study snapshots
-- Verify output: `Stress: 58 (HIGH)` (numbers may shift slightly with real GitHub data)
+- Outputs: 16 chaotic issues (HIGH stress), 9 checkins, 113 study snapshots
+- Verify output: `Stress: NN (HIGH)` (numbers vary with seed timing)
 
 **Step 2: Validate BEFORE State (Playwright)**
 
@@ -310,35 +310,36 @@ azd env get-values | Select-String 'SERVICE_BACKEND_URI'
 - Fill form: username=`roryp`, repo=`roryp/burnout-app`
 - Click "Check My Stress" button
 - Wait for: `HIGH` text appears
-- Screenshot: Capture full page (expect **~58 STRESS SCORE, HIGH, ~16 issues, Non-compliant**)
+- Screenshot: Capture full page (expect **HIGH stress, ~16 issues, Non-compliant**)
 
 **2b. Flamegraph Page BEFORE**
 - Navigate: `/flamegraph.html?repo=roryp/burnout-app&userId=roryp`
 - Wait for: `Stress Score` text appears
-- Screenshot: Capture full page (expect **~58/100 stress, deferred-heavy, low Friday %**)
+- Screenshot: Capture full page (expect **HIGH stress, deferred-heavy, low Friday %**)
 
 **Step 3: Reshape (deterministic pre-pass + supervisor)**
 ```powershell
 # Reshape — deterministic pre-pass triages every unassigned-urgent issue
-# and defuses chaos inputs (empty bodies, after-hours timestamps, recent-touch storms)
+# and fills empty issue bodies (SetBody only — NO timestamp rewriting,
+# real after-hours / recent-touch signals are intentionally preserved)
 # BEFORE the LLM runs, then the supervisor with 6 sub-agents finishes the rebalancing.
 Invoke-RestMethod -Method POST -Uri "$BASE_URL/demo/api/reshape" `
   -Headers @{"Content-Type"="application/json"} `
   -Body '{"repo":"roryp/burnout-app","userId":"roryp"}' | ConvertTo-Json -Depth 5
 ```
-- Expected: `llmUsed: true`, `beforeScore: ~58`, `afterScore: ~8`, `afterLevel: LOW`, `actionsApplied: ~75`, 1-3-3-0 structure (1 deep, 3 quick wins, 3 maintenance, 0 deferred)**Step 4: Validate AFTER State (Playwright)**
+- Expected: `llmUsed: true`, `beforeScore: HIGH`, `afterScore: MODERATE`, `afterLevel: MODERATE`, `actionsApplied: ~40-80`, 1-3-3-0 structure (1 deep, 3 quick wins, 3 maintenance, 0 deferred). The after-hours metric remains non-zero in AFTER — that's the design (the WellnessAgent uses it to gate the break recommendation).**Step 4: Validate AFTER State (Playwright)**
 
 **4a. Check-In Page AFTER**
 - Navigate: `/checkin.html`
 - Fill form: username=`roryp`, repo=`roryp/burnout-app`
 - Click "Check My Stress" button
-- Wait for: `LOW` text appears
-- Screenshot: Capture full page (expect **~8 STRESS SCORE, LOW, 1-3-3-0 Compliant**)
+- Wait for: `MODERATE` text appears
+- Screenshot: Capture full page (expect **MODERATE stress, 1-3-3-0 Compliant, after-hours preserved**)
 
 **4b. Flamegraph Page AFTER**
 - Navigate: `/flamegraph.html?repo=roryp/burnout-app&userId=roryp`
 - Wait for: `Stress Score` text appears
-- Screenshot: Capture full page (expect **~8/100 stress, ~100% Friday, 1-3-3-0 structure**)
+- Screenshot: Capture full page (expect **MODERATE stress, ~100% Friday, 1-3-3-0 structure**)
 
 **Step 5: Validate Study Dashboard (Playwright)**
 
@@ -351,17 +352,18 @@ Invoke-RestMethod -Method POST -Uri "$BASE_URL/demo/api/reshape" `
 
 | Step | Page | Metric | Expected | Status |
 |------|------|--------|----------|--------|
-| BEFORE | Check-In | Stress Score | ~58 / HIGH | ✅ |
+| BEFORE | Check-In | Stress Score | HIGH | ✅ |
 | BEFORE | Check-In | Compliance | Non-compliant | ✅ |
-| BEFORE | Flamegraph | Stress | ~58/100 | ✅ |
+| BEFORE | Flamegraph | Stress | HIGH | ✅ |
 | BEFORE | Flamegraph | Friday % | low | ✅ |
 | BEFORE | Flamegraph | Structure | deferred-heavy | ✅ |
 | API | Reshape | LLM Active | `llmUsed: true` | ✅ |
-| API | Reshape | New Score | ~8 / LOW | ✅ |
-| API | Reshape | Actions | `actionsApplied: ~75` | ✅ |
-| AFTER | Check-In | Stress Score | ~8 / LOW | ✅ |
+| API | Reshape | New Score | MODERATE | ✅ |
+| API | Reshape | Actions | `actionsApplied: ~40–80` | ✅ |
+| API | Reshape | After-hours preserved | `afterHoursAfter > 0` (acknowledge-don't-erase) | ✅ |
+| AFTER | Check-In | Stress Score | MODERATE | ✅ |
 | AFTER | Check-In | Compliance | 1-3-3-0 Compliant | ✅ |
-| AFTER | Flamegraph | Stress | ~8/100 | ✅ |
+| AFTER | Flamegraph | Stress | MODERATE | ✅ |
 | AFTER | Flamegraph | Friday % | ~100% | ✅ |
 | AFTER | Flamegraph | Structure | 1-3-3-0 (compliant) | ✅ |
 | Study | Dashboard | Snapshots | 118+ | ✅ |

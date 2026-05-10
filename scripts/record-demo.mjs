@@ -1,12 +1,15 @@
 /**
  * Record a ~75-second demo video of the REAL Burnout-as-a-Service pipeline:
- *   Landing -> BEFORE check-in (~58 / HIGH) -> BEFORE flamegraph
+ *   Landing -> BEFORE check-in (HIGH) -> BEFORE flamegraph
  *           -> RESHAPE (deterministic pre-pass + LangChain4j supervisor)
- *           -> AFTER check-in (~8 / LOW) -> AFTER flamegraph (3-3-3 compliant)
+ *           -> AFTER check-in (MODERATE) -> AFTER flamegraph (1-3-3-0 compliant)
  *           -> Study Dashboard
  *
  * NOT the old "swap-the-data" sync trick. The score drop is driven by the
- * actual /demo/api/reshape endpoint running against the seeded chaos.
+ * actual /demo/api/reshape endpoint running against the seeded chaos. The
+ * pre-pass intentionally leaves real after-hours / recent-touch timestamps
+ * intact (acknowledge-don't-erase) so the AFTER score still reflects genuine
+ * human activity — the WellnessAgent uses that signal to recommend a break.
  *
  * Holds are long (6-8s per scene) so you can narrate each step live.
  *
@@ -201,7 +204,7 @@ async function main() {
   await page.click("#checkin-btn");
 
   await page.waitForSelector("#result-card", { state: "visible", timeout: 15000 });
-  await sleep(8000); // narration: "58 / HIGH. Workload, Chaos, Context Switching all firing."
+  await sleep(8000); // narration: "HIGH. Workload, Chaos, Context Switching, After-Hours all firing."
 
   const beforeToggles = await page.$$(".issue-toggle");
   for (const toggle of beforeToggles) {
@@ -262,7 +265,7 @@ async function main() {
   await page.evaluate(() => document.getElementById("reshape-overlay")?.remove());
 
   // --- Scene 4: AFTER Check-in ---
-  console.log("Scene 4: AFTER check-in (~8 / LOW)...");
+  console.log("Scene 4: AFTER check-in (MODERATE — after-hours preserved)...");
   await showTitleThenNavigate(
     BASE + "/checkin.html",
     "Step 3: Check Stress Again",
@@ -276,7 +279,7 @@ async function main() {
   await page.click("#checkin-btn");
 
   await page.waitForSelector("#result-card", { state: "visible", timeout: 15000 });
-  await sleep(8000); // narration: "8 / LOW. Compliant. Supervisor + 6 sub-agents did this."
+  await sleep(8000); // narration: "MODERATE. Compliant. Chaos defused. After-hours kept — that's real activity."
 
   const afterToggles = await page.$$(".issue-toggle");
   for (const toggle of afterToggles) {
