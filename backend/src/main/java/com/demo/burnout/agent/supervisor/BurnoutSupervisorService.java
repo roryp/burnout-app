@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -32,6 +33,8 @@ import java.util.stream.Collectors;
  * - ClassifyAgent: Organizes issues for 3-3-3 compliance
  * - ScopeAgent: Flags unclear issues needing definition
  * - WellnessAgent: Provides stress reduction recommendations
+ *   (gated by the supervisor prompt: only invoked when stress >= 50,
+ *   i.e. StressLevel.HIGH or CRITICAL)
  */
 @Service
 public class BurnoutSupervisorService {
@@ -40,14 +43,17 @@ public class BurnoutSupervisorService {
 
     private final ChatModel chatModel;
     private final ChatModel plannerModel;
+    private final Clock clock;
     private final boolean llmEnabled;
 
     @Autowired
     public BurnoutSupervisorService(
             @Autowired(required = false) ChatModel chatModel,
-            @Autowired(required = false) @Qualifier("plannerModel") ChatModel plannerModel) {
+            @Autowired(required = false) @Qualifier("plannerModel") ChatModel plannerModel,
+            Clock clock) {
         this.chatModel = chatModel;
         this.plannerModel = plannerModel != null ? plannerModel : chatModel;
+        this.clock = clock;
         this.llmEnabled = chatModel != null;
         log.info("BurnoutSupervisorService initialized. LLM enabled: {}, Supervisor pattern: {}",
             llmEnabled, plannerModel != null ? "ACTIVE" : "FALLBACK");
@@ -55,15 +61,32 @@ public class BurnoutSupervisorService {
 
     /**
      * Result of supervisor invocation containing explanation and mutation plan.
+     *
+     * {@code deterministicTriageCount} and {@code deterministicDefuseCount}
+     * report how many issues the always-on deterministic pre-pass touched
+     * before (and regardless of) the LLM supervisor running. They are
+     * surfaced separately so callers can show the user what actually drove
+     * the stress drop — pre-pass vs. LLM agents.
+     *
+     * {@code wellnessInvocationCount} counts how many times the LLM
+     * invoked any of the wellness tools (suggestBreak / slowIntake /
+     * blockCalendarTime). Wellness tools are advisory-only and never
+     * emit GitHubActions, so without this counter their invocations
+     * leave no trace in the response. Useful for verifying the
+     * supervisor's stress &gt;= 50 gating actually routes work to the
+     * WellnessAgent. Always 0 when the LLM is disabled or fails.
      */
     public record SupervisorResult(
         String explanation,
         GitHubMutationPlan mutationPlan,
         int estimatedStressScore,
-        boolean llmUsed
+        boolean llmUsed,
+        int deterministicTriageCount,
+        int deterministicDefuseCount,
+        int wellnessInvocationCount
     ) {
         public static SupervisorResult fallback(String message, int stressScore) {
-            return new SupervisorResult(message, GitHubMutationPlan.empty(), stressScore, false);
+            return new SupervisorResult(message, GitHubMutationPlan.empty(), stressScore, false, 0, 0, 0);
         }
     }
 
@@ -81,16 +104,61 @@ public class BurnoutSupervisorService {
             String userId,
             String repo,
             ChaosMetrics chaos) {
-        
+
+        // Create the mutation tool with access to issues. The deterministic
+        // pre-pass below runs against this tool BEFORE we check whether the
+        // LLM is available — that way we always get the chaos-defusing
+        // mutations into the plan even if the LLM is dummy/down.
+        BurnoutMutationTool mutationTool = new BurnoutMutationTool(issues, repo);
+
+        // Identify unassigned-urgent issues that need deterministic triage.
+        List<Integer> unassignedUrgentNumbers = issues.stream()
+            .filter(i -> i.assignees() == null || i.assignees().isEmpty())
+            .filter(i -> i.labels() != null && i.labels().stream().anyMatch(l ->
+                l.name() != null && (
+                    l.name().equalsIgnoreCase("urgent") ||
+                    l.name().equalsIgnoreCase("priority:critical") ||
+                    l.name().equalsIgnoreCase("priority:high"))))
+            .map(Issue::number)
+            .toList();
+        String unassignedUrgentList = unassignedUrgentNumbers.isEmpty()
+            ? "(none)"
+            : unassignedUrgentNumbers.stream().map(n -> "#" + n).collect(Collectors.joining(", "));
+
+        // DETERMINISTIC PRE-PASS — strip chaos-inducing urgent labels from
+        // unassigned issues directly. The supervisor LLM was unreliable at
+        // calling TriageAgent for every issue; doing it here guarantees the
+        // chaos score drops on every reshape regardless of LLM behavior.
+        for (int n : unassignedUrgentNumbers) {
+            mutationTool.triageUrgent(n);
+        }
+        int triagedCount = unassignedUrgentNumbers.size();
+        log.info("Deterministic triage pre-pass: triaged {} unassigned urgent issue(s): {}",
+            triagedCount, unassignedUrgentList);
+
+        // DETERMINISTIC CHAOS DEFUSER — fill empty bodies and normalise
+        // after-hours / recently-touched timestamps. The chaos score is
+        // bucketed (LOW≤2, MEDIUM≤5, HIGH≤8, CRITICAL>8) and uses binary
+        // factors (mysteryMeat≥3, urgent≥3, touched≥6, afterHours,
+        // labels≥12), so partial improvement does not show up. Defusing
+        // every contributor is what actually moves the bucket.
+        int defusedCount = mutationTool.defuseChaosInputs(clock);
+        log.info("Deterministic chaos defuser: normalised body/updatedAt on {} issue(s)", defusedCount);
+
+        // Pre-pass note prepended to whatever explanation we end up with —
+        // this is how the user finds out the deterministic phase ran.
+        String prePassNote = String.format(
+            "**🧹 Deterministic pre-pass:** triaged %d unassigned-urgent issue(s)%s and defused %d chaos input(s) (empty bodies / after-hours timestamps) before the LLM was invoked.%n",
+            triagedCount,
+            unassignedUrgentNumbers.isEmpty() ? "" : " (" + unassignedUrgentList + ")",
+            defusedCount);
+
         if (!llmEnabled) {
-            log.warn("LLM not enabled, returning fallback response");
-            return generateFallbackResult(state);
+            log.warn("LLM not enabled; returning fallback result with deterministic pre-pass mutations only");
+            return generateFallbackResult(state, mutationTool, triagedCount, defusedCount, prePassNote);
         }
 
         try {
-            // Create the mutation tool with access to issues
-            BurnoutMutationTool mutationTool = new BurnoutMutationTool(issues, repo);
-            
             log.info("Building Supervisor pattern for user {} in repo {}", userId, repo);
 
             // Build sub-agents using AgenticServices.agentBuilder() with tools
@@ -124,13 +192,19 @@ public class BurnoutSupervisorService {
                 .tools(mutationTool)
                 .build();
 
+            BurnoutAgents.TriageAgent triageAgent = AgenticServices
+                .agentBuilder(BurnoutAgents.TriageAgent.class)
+                .chatModel(chatModel)
+                .tools(mutationTool)
+                .build();
+
             // Build supervisor using AgenticServices.supervisorBuilder() with sub-agents
             // The supervisor uses plannerModel to decide which sub-agents to invoke
             SupervisorAgent supervisor = AgenticServices.supervisorBuilder()
                 .chatModel(plannerModel)
-                .subAgents(deferAgent, delegateAgent, classifyAgent, scopeAgent, wellnessAgent)
+                .subAgents(deferAgent, delegateAgent, classifyAgent, scopeAgent, wellnessAgent, triageAgent)
                 .responseStrategy(SupervisorResponseStrategy.SUMMARY)
-                .maxAgentsInvocations(10)
+                .maxAgentsInvocations(15)
                 .build();
 
             log.info("Invoking Supervisor to orchestrate burnout prevention agents");
@@ -142,7 +216,7 @@ public class BurnoutSupervisorService {
             String supervisorRequest = String.format("""
                 Analyze and rebalance this developer's workload to reduce stress.
                 
-                Current State:
+                Current State (BEFORE any reshape mutations):
                 - Stress Score: %d/100 (%s)
                 - Total Assigned: %d issues
                 - Deep Work: %d (need exactly 1)
@@ -156,14 +230,31 @@ public class BurnoutSupervisorService {
                 Available Issues:
                 %s
                 
-                Goals:
+                Note: The unassigned urgent issues (%s) have already been
+                triaged deterministically. Do NOT call any agent on those
+                issues — leave them alone.
+                
+                Your job is to:
                 1. Reduce stress score below 50
                 2. Achieve 3-3-3 compliance (1 deep work, 3 quick wins, 3 maintenance)
                 3. Protect the developer's focus time
                 4. Flag unclear issues for scope clarification
-                5. Recommend wellness actions if stress is high
+                5. Recommend wellness actions only if stress >= 50 (HIGH or CRITICAL)
                 
-                Use the available agents to accomplish these goals.
+                Use the available agents in this order: ClassifyAgent (build
+                3-3-3) → DeferAgent (overflow beyond 3-3-3) → ScopeAgent
+                (mystery meat) → WellnessAgent (if stress >= 50).
+                
+                IMPORTANT — output rules for your final summary:
+                * Do NOT quote any specific stress score number. The numbers
+                  shown above are the BEFORE state; the system computes and
+                  appends the AFTER score itself, so any absolute number
+                  you write will be wrong by the time the user sees it.
+                * Describe the ACTIONS you took (classify, defer, scope,
+                  wellness) and their qualitative effect (e.g. "reduced",
+                  "balanced", "deferred overflow"). Avoid claims like
+                  "stress remains at 58/100" or "stress is now 30".
+                * Keep it to 2–3 short sentences.
                 """,
                 state.calculateStressScore(),
                 state.getStressLevel().name(),
@@ -175,25 +266,74 @@ public class BurnoutSupervisorService {
                 chaos.score(),
                 state.hasAfterHoursActivity(),
                 state.mysteryMeatCount(),
-                issueList
+                issueList,
+                unassignedUrgentList
             );
             
             // Supervisor autonomously plans and executes via sub-agents
-            String explanation = supervisor.invoke(supervisorRequest);
-            
+            String llmExplanation = supervisor.invoke(supervisorRequest);
+
             // Get the mutation plan from the tool (accumulated from all sub-agent calls)
             GitHubMutationPlan mutationPlan = mutationTool.getMutationPlan();
-            
-            log.info("Supervisor completed. Actions planned: {}", mutationPlan.actions().size());
-            
+            int wellnessInvocations = mutationTool.getWellnessInvocationCount();
+
+            // The supervisor LLM tends to summarise wellness as a single
+            // vague phrase ("recommended wellness actions") so the actual
+            // emoji + text the WellnessAgent emitted (e.g. "🧘 Step away
+            // for 10-15 minutes") never reaches the user. Inject the
+            // verbatim recommendation strings so Copilot Chat, the demo
+            // pages, and the MCP reshape_day response all show what was
+            // actually recommended.
+            //
+            // We also compose a "Triggered by:" line listing the BEFORE
+            // signals that crossed the wellness gating thresholds (stress
+            // >= 50, after-hours activity, recent context-switch storm)
+            // so the audience can see WHY the WellnessAgent fired —
+            // making it explicit that the system noticed after-hours work
+            // and high stress, not just that some advice popped up.
+            List<String> wellnessRecs = mutationTool.getWellnessRecommendations();
+            String wellnessBlock = "";
+            if (!wellnessRecs.isEmpty()) {
+                int beforeStress = state.calculateStressScore();
+                int afterHoursCount = state.issuesUpdatedAfterHours();
+                int touchedToday = state.issuesTouchedToday();
+                List<String> triggers = new java.util.ArrayList<>();
+                if (beforeStress >= 50) {
+                    triggers.add(String.format("stress %d/100 (%s)",
+                        beforeStress, state.getStressLevel().name()));
+                }
+                if (afterHoursCount > 0) {
+                    triggers.add(String.format("%d issue%s updated after hours (outside 9 AM–6 PM)",
+                        afterHoursCount, afterHoursCount == 1 ? "" : "s"));
+                }
+                if (touchedToday >= 6) {
+                    triggers.add(String.format("%d issues touched in the recent window (context-switch storm)",
+                        touchedToday));
+                }
+                String triggerLine = triggers.isEmpty()
+                    ? ""
+                    : "_Triggered by: " + String.join("; ", triggers) + "._\n";
+                wellnessBlock = "\n\n**🧘 Wellness recommendation"
+                    + (wellnessRecs.size() == 1 ? "" : "s")
+                    + ":**\n"
+                    + triggerLine
+                    + wellnessRecs.stream().map(r -> "- " + r).collect(Collectors.joining("\n"));
+            }
+
+            String explanation = prePassNote + "\n" + llmExplanation + wellnessBlock;
+
+            log.info("Supervisor completed. Actions planned: {} ({} from deterministic pre-pass, {} wellness invocation(s))",
+                mutationPlan.actions().size(), triagedCount + defusedCount, wellnessInvocations);
+
             // Estimate new stress score based on actions taken
             int estimatedStress = estimateReducedStress(state, mutationPlan);
-            
-            return new SupervisorResult(explanation, mutationPlan, estimatedStress, true);
+
+            return new SupervisorResult(explanation, mutationPlan, estimatedStress, true,
+                triagedCount, defusedCount, wellnessInvocations);
             
         } catch (Exception e) {
-            log.error("Supervisor invocation failed: {}", e.getMessage(), e);
-            return generateFallbackResult(state);
+            log.error("Supervisor invocation failed: {} — returning fallback with pre-pass mutations", e.getMessage(), e);
+            return generateFallbackResult(state, mutationTool, triagedCount, defusedCount, prePassNote);
         }
     }
 
@@ -229,12 +369,19 @@ public class BurnoutSupervisorService {
     }
 
     /**
-     * Generate fallback result when LLM is unavailable.
+     * Generate fallback result when LLM is unavailable or fails. Always
+     * returns the deterministic pre-pass mutations and counts so the
+     * caller can still report what happened.
      */
-    private SupervisorResult generateFallbackResult(WorldState state) {
+    private SupervisorResult generateFallbackResult(WorldState state,
+                                                     BurnoutMutationTool mutationTool,
+                                                     int triagedCount,
+                                                     int defusedCount,
+                                                     String prePassNote) {
         int stress = state.calculateStressScore();
         StringBuilder sb = new StringBuilder();
-        
+        sb.append(prePassNote).append('\n');
+
         if (stress >= 70) {
             sb.append("🔴 **Critical stress detected.** ");
         } else if (stress >= 50) {
@@ -243,7 +390,7 @@ public class BurnoutSupervisorService {
             sb.append("🟢 **Stress levels manageable.** ");
         }
         sb.append("Current stress score: ").append(stress).append("/100\n\n");
-        
+
         if (!state.is333Compliant()) {
             sb.append("⚠️ Your workload exceeds the 3-3-3 structure. ");
             sb.append("You have ").append(state.deepWorkCount()).append(" deep work items (max 1), ");
@@ -252,10 +399,13 @@ public class BurnoutSupervisorService {
         } else {
             sb.append("✅ You're within the 3-3-3 structure. Good balance!\n\n");
         }
-        
-        sb.append("*LLM agents unavailable - using deterministic fallback*");
-        
-        return SupervisorResult.fallback(sb.toString(), stress);
+
+        sb.append("*LLM agents unavailable — using deterministic fallback. Pre-pass mutations still applied.*");
+
+        GitHubMutationPlan plan = mutationTool.getMutationPlan();
+        int estimatedStress = estimateReducedStress(state, plan);
+        return new SupervisorResult(sb.toString(), plan, estimatedStress, false,
+            triagedCount, defusedCount, mutationTool.getWellnessInvocationCount());
     }
 
     public boolean isLlmEnabled() {

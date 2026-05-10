@@ -90,6 +90,31 @@ public class ReshapeController {
             log.warn("Failed to persist stress snapshot: {}", e.getMessage());
         }
 
+        // Authoritative outcome footer appended to the LLM explanation. The
+        // supervisor LLM only sees the BEFORE state, so any absolute stress
+        // number it writes is stale. We append the projected drop here so
+        // the prose surfaced to the user is grounded in the planner's own
+        // estimate, regardless of LLM behaviour.
+        int beforeScore = state.calculateStressScore();
+        int expectedScore = supervisorResult.estimatedStressScore();
+        int triagedCount = supervisorResult.deterministicTriageCount();
+        int defusedCount = supervisorResult.deterministicDefuseCount();
+        int wellnessInvocations = supervisorResult.wellnessInvocationCount();
+        int prePassActions = triagedCount + defusedCount;
+        int totalActions = mutationPlan.actions().size();
+        int drop = beforeScore - expectedScore;
+        String dropPart = drop > 0
+            ? String.format("projected drop of %d points", drop)
+            : drop == 0 ? "no projected change" : String.format("projected rise of %d points", -drop);
+        String outcomeFooter = String.format(
+            "%n%n**📈 Projected outcome:** stress %d/100 (%s) → ~%d/100, %s. %d action(s) planned (%d from deterministic pre-pass: %d triage + %d defuse).",
+            beforeScore, state.getStressLevel().name(),
+            expectedScore,
+            dropPart,
+            totalActions, prePassActions, triagedCount, defusedCount);
+        String llmExplanation = supervisorResult.explanation();
+        String groundedExplanation = (llmExplanation == null ? "" : llmExplanation) + outcomeFooter;
+
         return new ReshapeResponse(
             "ok",
             dayPlan,
@@ -97,14 +122,18 @@ public class ReshapeController {
             actionSummaries,
             chaos,
             compliance,
-            state.calculateStressScore(),
+            beforeScore,
             state.getStressLevel(),
-            supervisorResult.estimatedStressScore(),
+            expectedScore,
             fridayScore,
-            supervisorResult.explanation(),
+            groundedExplanation,
             protectiveResponse.triggered(),
             protectiveResponse.message(),
             supervisorResult.llmUsed(),
+            triagedCount,
+            defusedCount,
+            wellnessInvocations,
+            state.issuesUpdatedAfterHours(),
             ReshapeResponse.SCHEMA_VERSION
         );
     }
@@ -182,16 +211,22 @@ public class ReshapeController {
         boolean protectiveTriggered,
         String protectiveMessage,
         boolean llmEnabled,
+        int deterministicTriageCount,
+        int deterministicDefuseCount,
+        int wellnessInvocationCount,
+        int afterHoursIssues,
         int schemaVersion
     ) {
-        public static final int SCHEMA_VERSION = 2;
-        
+        public static final int SCHEMA_VERSION = 4;
+
         public static ReshapeResponse notSynced() {
             return new ReshapeResponse(
                 "not_synced", null, GitHubMutationPlan.empty(), List.of(),
                 ChaosMetrics.notSynced(), ComplianceReport.notSynced(),
-                -1, StressLevel.LOW, -1, -1, 
-                "Issues not synced", false, "", false, SCHEMA_VERSION
+                -1, StressLevel.LOW, -1, -1,
+                "Issues not synced", false, "", false,
+                0, 0, 0, 0,
+                SCHEMA_VERSION
             );
         }
     }

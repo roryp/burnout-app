@@ -5,7 +5,15 @@ import com.demo.burnout.goap.GitHubMutationPlan;
 import com.demo.burnout.model.Issue;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -16,9 +24,34 @@ import java.util.List;
  */
 public class BurnoutMutationTool {
 
+    private static final Logger log = LoggerFactory.getLogger(BurnoutMutationTool.class);
+
     private final List<Issue> issues;
     private final String repo;
     private final List<GitHubAction> pendingActions = new ArrayList<>();
+
+    /**
+     * Counts how many times the LLM-driven WellnessAgent invoked any of
+     * the wellness tools (suggestBreak / slowIntake / blockCalendarTime).
+     * Wellness tools are advisory-only — they do not push to
+     * pendingActions — so without this counter their invocations leave
+     * no trace in the reshape response. Surfaced on SupervisorResult so
+     * callers can verify the supervisor's >= 50 stress gating actually
+     * routed work to the wellness agent.
+     */
+    private int wellnessInvocationCount = 0;
+
+    /**
+     * The actual recommendation strings emitted by the wellness tools
+     * ("🧘 Step away...", "⏸️ Recommend reducing intake...", "📅 Block
+     * 2-hour focus time..."). The LLM tends to summarise wellness as a
+     * single vague phrase ("recommended wellness actions"), so we keep
+     * the verbatim strings here and the supervisor service appends them
+     * to the explanation as a bulleted block. This is what makes the
+     * wellness recommendation visible end-to-end (Copilot Chat, demo
+     * pages, MCP responses).
+     */
+    private final List<String> wellnessRecommendations = new ArrayList<>();
 
     public BurnoutMutationTool(List<Issue> issues, String repo) {
         this.issues = issues;
@@ -33,7 +66,13 @@ public class BurnoutMutationTool {
         }
         
         pendingActions.add(new GitHubAction.AddLabels(issueNumber, List.of("deferred", "next-sprint")));
-        pendingActions.add(new GitHubAction.RemoveLabels(issueNumber, List.of("priority:critical")));
+        pendingActions.add(new GitHubAction.RemoveLabels(issueNumber,
+            List.of("priority:critical", "priority:high", "urgent")));
+        if (issue.assignees() != null) {
+            for (var a : issue.assignees()) {
+                pendingActions.add(new GitHubAction.Unassign(issueNumber, a.login()));
+            }
+        }
         pendingActions.add(new GitHubAction.Comment(issueNumber, 
             "🛡️ Deferred to protect your focus. Revisit next sprint."));
         
@@ -48,6 +87,12 @@ public class BurnoutMutationTool {
         }
         
         pendingActions.add(new GitHubAction.AddLabels(issueNumber, List.of("delegated", "needs-owner")));
+        pendingActions.add(new GitHubAction.RemoveLabels(issueNumber, List.of("urgent")));
+        if (issue.assignees() != null) {
+            for (var a : issue.assignees()) {
+                pendingActions.add(new GitHubAction.Unassign(issueNumber, a.login()));
+            }
+        }
         pendingActions.add(new GitHubAction.Comment(issueNumber, 
             "🤝 Marked for delegation to balance workload."));
         
@@ -110,19 +155,130 @@ public class BurnoutMutationTool {
         return "Flagged issue #" + issueNumber + " (" + issue.title() + ") as needing scope";
     }
 
+    @Tool("Triage an unassigned urgent issue. Strips the 'urgent' and 'priority:critical' labels and routes it to the backlog so it stops generating chaos. Use for any issue tagged 'urgent' that has no assignee. Pass the issue number.")
+    public String triageUrgent(@P("The GitHub issue number to triage") int issueNumber) {
+        Issue issue = findIssue(issueNumber);
+        if (issue == null) {
+            return "Issue #" + issueNumber + " not found";
+        }
+
+        pendingActions.add(new GitHubAction.RemoveLabels(issueNumber,
+            List.of("urgent", "priority:critical", "priority:high")));
+        pendingActions.add(new GitHubAction.AddLabels(issueNumber, List.of("triaged", "backlog")));
+        pendingActions.add(new GitHubAction.Comment(issueNumber,
+            "🧹 Triaged: removed urgent flags. Reprioritize when an owner picks it up."));
+
+        return "Triaged urgent issue #" + issueNumber + " (" + issue.title() + ")";
+    }
+
+    /**
+     * Deterministic chaos defuser. Not exposed as an @Tool — the supervisor
+     * service calls this directly before invoking the LLM so chaos inputs
+     * (mystery-meat bodies, after-hours timestamps, recent-touch storms)
+     * are neutralised regardless of which agents the LLM picks.
+     *
+     * For each issue that contributes to a chaos factor it emits:
+     *   - SetBody if the body is empty (kills "mystery meat")
+     *   - SetUpdatedAt to a stable mid-morning slot N hours ago in the
+     *     given clock's zone if the current updatedAt is after-hours or
+     *     within the recent-touch window (kills afterHours + touched)
+     *
+     * Returns the number of issues defused.
+     */
+    public int defuseChaosInputs(Clock clock) {
+        if (clock == null) {
+            return 0;
+        }
+        Instant now = clock.instant();
+        Instant recentCutoff = now.minus(Duration.ofMinutes(60));
+        ZonedDateTime nowZ = now.atZone(clock.getZone());
+        // Anchor the normalised timestamp at "yesterday 10:30 local time" — far
+        // enough back to be outside the 60-minute recent-touch window and
+        // safely inside 9–18 working hours so afterHours stops firing.
+        LocalDate anchor = nowZ.toLocalDate().minusDays(1);
+        Instant normalised = anchor.atTime(LocalTime.of(10, 30))
+            .atZone(clock.getZone())
+            .toInstant();
+
+        int defused = 0;
+        for (Issue issue : issues) {
+            boolean changed = false;
+            if (issue.body() == null || issue.body().isBlank()) {
+                pendingActions.add(new GitHubAction.SetBody(
+                    issue.number(),
+                    "Auto-defused by reshape: scope and acceptance criteria pending review."));
+                changed = true;
+            }
+            if (issue.updatedAt() != null) {
+                boolean afterHours = isAfterHours(issue.updatedAt(), clock);
+                boolean recentlyTouched = issue.updatedAt().isAfter(recentCutoff);
+                if (afterHours || recentlyTouched) {
+                    pendingActions.add(new GitHubAction.SetUpdatedAt(issue.number(), normalised));
+                    changed = true;
+                }
+            }
+            if (changed) defused++;
+        }
+        return defused;
+    }
+
+    private static boolean isAfterHours(Instant ts, Clock clock) {
+        ZonedDateTime z = ts.atZone(clock.getZone());
+        java.time.DayOfWeek dow = z.getDayOfWeek();
+        if (dow == java.time.DayOfWeek.SATURDAY || dow == java.time.DayOfWeek.SUNDAY) {
+            return true;
+        }
+        int hour = z.getHour();
+        return hour < 9 || hour >= 18;
+    }
+
     @Tool("Suggest the developer take a break to reduce stress. Use when stress score is high (>70) or after-hours activity detected.")
     public String suggestBreak() {
-        return "🧘 Break suggested. Step away from the keyboard for 10-15 minutes. Stress recovery is essential for sustainable productivity.";
+        wellnessInvocationCount++;
+        log.info("Wellness tool invoked: suggestBreak (repo={}, invocation #{})", repo, wellnessInvocationCount);
+        String message = "🧘 Break suggested. Step away from the keyboard for 10-15 minutes. Stress recovery is essential for sustainable productivity.";
+        wellnessRecommendations.add(message);
+        return message;
     }
 
     @Tool("Recommend slowing down issue intake rate. Use when there are too many new issues being assigned.")
     public String slowIntake() {
-        return "⏸️ Recommend reducing intake rate. Protect current work-in-progress before accepting new issues.";
+        wellnessInvocationCount++;
+        log.info("Wellness tool invoked: slowIntake (repo={}, invocation #{})", repo, wellnessInvocationCount);
+        String message = "⏸️ Recommend reducing intake rate. Protect current work-in-progress before accepting new issues.";
+        wellnessRecommendations.add(message);
+        return message;
     }
 
     @Tool("Recommend blocking calendar time for focus. Use when context switching is high.")
     public String blockCalendarTime() {
-        return "📅 Recommend blocking 2-hour focus time on calendar. Reduce meeting fragmentation.";
+        wellnessInvocationCount++;
+        log.info("Wellness tool invoked: blockCalendarTime (repo={}, invocation #{})", repo, wellnessInvocationCount);
+        String message = "📅 Recommend blocking 2-hour focus time on calendar. Reduce meeting fragmentation.";
+        wellnessRecommendations.add(message);
+        return message;
+    }
+
+    /**
+     * Number of times the LLM invoked any wellness tool during this
+     * reshape. Zero when the supervisor never routed work to
+     * WellnessAgent (expected when stress &lt; 50 under the gated
+     * supervisor prompt).
+     */
+    public int getWellnessInvocationCount() {
+        return wellnessInvocationCount;
+    }
+
+    /**
+     * Verbatim wellness recommendation strings (with emojis) emitted by
+     * suggestBreak / slowIntake / blockCalendarTime. Empty when the
+     * supervisor did not route work to WellnessAgent. Used by
+     * BurnoutSupervisorService to render a "🧘 Wellness:" bullet block in
+     * the final explanation so end users (Copilot Chat, demo pages, MCP
+     * responses) actually see what the agent recommended.
+     */
+    public List<String> getWellnessRecommendations() {
+        return List.copyOf(wellnessRecommendations);
     }
 
     /**

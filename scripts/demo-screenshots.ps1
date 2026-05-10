@@ -10,9 +10,10 @@
 #   .\scripts\demo-screenshots.ps1 -BaseUrl http://localhost:8080                   # local server
 #
 # What it does:
-#   1. Seeds BEFORE (chaotic) data via seed-demo.ps1
+#   1. Seeds BEFORE (chaotic) data via seed-demo.ps1 (stress=58/HIGH)
 #   2. Opens checkin + flamegraph pages and takes BEFORE screenshots
-#   3. Seeds AFTER (reshaped) data via seed-demo.ps1 -Mode after (calls real reshape endpoint)
+#   3. Calls /demo/api/reshape (deterministic pre-pass + LangChain4j supervisor)
+#      to drop stress to ~8/LOW
 #   4. Opens checkin + flamegraph pages and takes AFTER screenshots
 #   5. Opens study dashboard, loads data, takes screenshot
 #   6. Copies all screenshots to docs/images/demo/
@@ -118,23 +119,16 @@ node $playwrightJs $BaseUrl $outPath "before" $Width $Height $WaitMs 2>&1 | ForE
 
 $playwrightOk = ($LASTEXITCODE -eq 0)
 
-# --- Step 3: Sync real GitHub issues for AFTER state ---
-Write-Host "`nStep 3: Syncing real GitHub issues for AFTER state..." -ForegroundColor Yellow
-$synced = $false
-for ($attempt = 0; $attempt -lt 3 -and -not $synced; $attempt++) {
-    try {
-        $syncResp = Invoke-RestMethod -Uri "$BaseUrl/demo/api/sync?repo=roryp/burnout-app" -Method POST -TimeoutSec 30
-        Write-Host "  Synced $($syncResp.issueCount) real issues from GitHub" -ForegroundColor Green
-        $synced = $true
-    } catch {
-        $errBody = $_.ErrorDetails.Message | ConvertFrom-Json -ErrorAction SilentlyContinue
-        $waitSec = if ($errBody.retryAfterSeconds) { $errBody.retryAfterSeconds + 5 } else { 120 }
-        Write-Host "  Rate-limited. Waiting ${waitSec}s..." -ForegroundColor Yellow
-        Start-Sleep -Seconds $waitSec
-    }
-}
-if (-not $synced) {
-    Write-Host "  WARNING: Could not sync. AFTER screenshots may show stale data." -ForegroundColor Red
+# --- Step 3: Run reshape (deterministic pre-pass + supervisor) for AFTER state ---
+Write-Host "`nStep 3: Running reshape (deterministic pre-pass + supervisor) for AFTER state..." -ForegroundColor Yellow
+try {
+    $reshapeBody = @{ repo = "roryp/burnout-app"; userId = "roryp" } | ConvertTo-Json -Compress
+    $reshapeResp = Invoke-RestMethod -Uri "$BaseUrl/demo/api/reshape" -Method POST -ContentType "application/json" -Body $reshapeBody -TimeoutSec 90
+    Write-Host "  Reshape: before=$($reshapeResp.beforeScore) -> after=$($reshapeResp.afterScore) ($($reshapeResp.afterLevel))" -ForegroundColor Green
+    Write-Host "  Actions applied: $($reshapeResp.actionsApplied), LLM used: $($reshapeResp.llmUsed)" -ForegroundColor Gray
+} catch {
+    Write-Host "  WARNING: Reshape failed. AFTER screenshots may show BEFORE data." -ForegroundColor Red
+    Write-Host "  Error: $($_.Exception.Message)" -ForegroundColor Red
 }
 
 # --- Step 4: AFTER screenshots ---

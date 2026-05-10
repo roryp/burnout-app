@@ -177,10 +177,63 @@ The system has two main components:
 ### Agent hierarchy
 
 - **AgentOrchestrator** — Central coordinator that dispatches to:
-  - **BurnoutSupervisorService** — Supervisor pattern with 5 sub-agents (DeferAgent, DelegateAgent, ClassifyAgent, ScopeAgent, WellnessAgent)
+  - **BurnoutSupervisorService** — Three-phase reshape:
+    1. **Deterministic pre-pass** (no LLM, ALWAYS runs even when LLM is unavailable): `mutationTool.triageUrgent(n)` is called for every unassigned-urgent issue, then `mutationTool.defuseChaosInputs(clock)` rewrites empty bodies and after-hours / recently-touched timestamps. This guarantees the chaos score drops regardless of which agents the LLM picks (or even when no LLM runs at all). The pre-pass counts are returned on `SupervisorResult` as `deterministicTriageCount` and `deterministicDefuseCount`, and the explanation text is prepended with a "🧹 Deterministic pre-pass:" line listing the triaged issue numbers.
+    2. **LangChain4j Supervisor Pattern** with 6 sub-agents (TriageAgent, DeferAgent, DelegateAgent, ClassifyAgent, ScopeAgent, WellnessAgent) capped at `maxAgentsInvocations: 15`, `SupervisorResponseStrategy.SUMMARY`. The supervisor is told the unassigned-urgent issues are already triaged and to leave them alone, AND is forbidden from quoting absolute stress numbers in its summary (the prompt explains the system computes the AFTER score itself).
+    3. **Deterministic 1-3-3-0 enforcer** (no LLM, only in `/demo/api/reshape`): after the LLM's mutations are applied, `enforce333Compliance(...)` promotes deferred-classified items into underfilled quickWin/maintenance slots and pushes true overflow off the user's plate (unassign + `deferred,next-sprint` + comment). Guarantees the day plan ends up exactly 1-3-3-0 even when the LLM under-fills. Surfaced as `complianceActionCount` in the response.
   - **ExplainerAiService** — Explains action plans in human-friendly language
   - **ProtectiveAiService** — Detects emotional signals and provides protective interventions
   - **FridayDeployAiService** — Assesses Friday deploy readiness
+
+### Reshape response fields
+
+Both `/api/reshape` and `/demo/api/reshape` surface deterministic-phase visibility on top of the LLM output:
+
+| Field | Source | Meaning |
+|---|---|---|
+| `beforeScore` / `afterScore` | recomputed | Stress score before vs. after all mutations |
+| `actionsApplied` | total | Pre-pass + LLM + (demo only) compliance actions, summed |
+| `deterministicTriageCount` | pre-pass | Unassigned-urgent issues whose `urgent` / `priority:*` labels were stripped |
+| `deterministicDefuseCount` | pre-pass | Issues whose body or `updatedAt` was normalised |
+| `complianceActionCount` (demo only) | enforcer | Mutations emitted by the 1-3-3-0 enforcer (0 when the LLM lands compliance on its own) |
+| `wellnessInvocationCount` | LLM | Number of times the supervisor invoked any wellness tool (`suggestBreak` / `slowIntake` / `blockCalendarTime`). Wellness tools are advisory-only and emit no `GitHubAction`s, so this counter is the only way to verify the supervisor's `stress >= 50` gating actually routed work to `WellnessAgent`. Always 0 when `llmUsed=false`. The verbatim recommendation text is also surfaced inside `explanation` under a `**🧘 Wellness recommendation:**` block (with a `_Triggered by:_` line listing which signals — high stress, after-hours activity, context-switch storm — caused the supervisor to fire it) |
+| `afterHoursBefore` / `afterHoursAfter` (demo) · `afterHoursIssues` (api) | WorldState | Issues with `updatedAt` outside 9 AM–6 PM in the active timezone |
+| `llmUsed` | flag | `true` when the supervisor LLM ran; `false` means deterministic-only fallback (token expired or LLM down) |
+| `explanation` | composed | LLM prose **bookended** by deterministic content: a "🧹 Deterministic pre-pass:" header listing triaged issue numbers, then the LLM summary, then — if any wellness tool fired — a `**🧘 Wellness recommendation:**` block with a `_Triggered by:_` line (citing the BEFORE stress score, after-hours issue count, and/or context-switch storm size) plus the verbatim tool message, then a "📈 Outcome:" footer with the real measured stress drop. The supervisor is prompt-blocked from quoting absolute stress numbers, so the footer is the source of truth |
+
+`/api/reshape` increments `SCHEMA_VERSION` to `4` for the new fields.
+
+### GitHub mutation actions
+
+[`GitHubAction`](backend/src/main/java/com/demo/burnout/goap/GitHubAction.java) is a sealed interface permitting six records:
+
+| Action | Emitted by | Effect |
+|--------|------------|--------|
+| `AddLabels(issueNumber, labels)` | All `@Tool` methods | Add GitHub labels |
+| `RemoveLabels(issueNumber, labels)` | `deferIssue`, `delegateIssue`, `triageUrgent` | Strip labels |
+| `Comment(issueNumber, text)` | All `@Tool` methods | Post a comment |
+| `Unassign(issueNumber, login)` | `deferIssue`, `delegateIssue` | Remove an assignee |
+| `SetBody(issueNumber, body)` | `defuseChaosInputs` | Replace an empty body with a scope-pending placeholder (kills mystery-meat) |
+| `SetUpdatedAt(issueNumber, instant)` | `defuseChaosInputs` | Normalise `updatedAt` to a stable mid-morning slot in the clock zone (kills after-hours + touched-today) |
+
+[`DemoFlamegraphController.applyMutationsToIssues`](backend/src/main/java/com/demo/burnout/controller/DemoFlamegraphController.java) applies the full plan to the in-memory `IssueCache`.
+
+### `BurnoutMutationTool` `@Tool` methods (10 total)
+
+| Tool | Purpose |
+|------|---------|
+| `deferIssue` | Defer to next sprint (adds `deferred,next-sprint`, removes priority/urgent labels, unassigns) |
+| `delegateIssue` | Reassign to balance load (adds `delegated,needs-owner`, unassigns) |
+| `classifyAsQuickWin` | Mark as a quick-win in the 3-3-3 plan |
+| `classifyAsMaintenance` | Mark as maintenance in the 3-3-3 plan |
+| `markAsDeepWork` | Mark today's single deep-work item |
+| `addScopeNeeded` | Flag an issue as needing scope (adds `needs-scope,blocked`) |
+| `triageUrgent` | Strip `urgent` / `priority:critical` / `priority:high` from an unassigned issue (adds `triaged,backlog`) — **also called directly from the deterministic pre-pass** |
+| `suggestBreak` | Recommend a 10–15 minute break (also captures verbatim text into `getWellnessRecommendations()` for the explanation block) |
+| `slowIntake` | Recommend reducing new-issue intake (verbatim text captured) |
+| `blockCalendarTime` | Recommend blocking 2-hour focus time (verbatim text captured) |
+
+`defuseChaosInputs(Clock)` is a public method on `BurnoutMutationTool` but **not** annotated `@Tool` — it is only invoked by `BurnoutSupervisorService` from the deterministic pre-pass.
 
 ### MCP tools
 
@@ -201,7 +254,7 @@ The system has two main components:
 | GET | `/demo/api/flamegraph?repo=...&userId=...` | No | Read-only flamegraph data for pre-synced repos |
 | GET | `/demo/api/repos` | No | List repos currently synced in memory |
 | POST | `/demo/api/sync?repo=owner/repo` | No | Sync issues from GitHub public API (rate-limited: 1 per repo per 5 min) |
-| POST | `/demo/api/reshape` | No | Run reshape (supervisor agent) and apply mutations to IssueCache |
+| POST | `/demo/api/reshape` | No | Run reshape (deterministic pre-pass + LangChain4j supervisor + deterministic 1-3-3-0 enforcer) and apply mutations to IssueCache. Response includes `deterministicTriageCount`, `deterministicDefuseCount`, `complianceActionCount`, `afterHoursBefore`, `afterHoursAfter` |
 | POST | `/demo/api/checkin` | No | Stress check-in — accepts optional `tz` param (e.g. `America/New_York`) for timezone-aware after-hours detection. Returns `breakdown`, `breakdownHints`, `breakdownIssues`, and `timezone` |
 
 ### Demo web app
@@ -286,16 +339,18 @@ The `POST /demo/api/seed` endpoint accepts `{"repo": "owner/repo", "issues": [..
 | `backend/src/.../agent/ExplainerAiService.java` | Plan explanation agent |
 | `backend/src/.../agent/ProtectiveAiService.java` | Emotional support agent |
 | `backend/src/.../agent/FridayDeployAiService.java` | Deploy readiness agent |
-| `backend/src/.../agent/supervisor/BurnoutAgents.java` | 5 sub-agent interfaces with `@Agent` annotations |
-| `backend/src/.../agent/supervisor/BurnoutSupervisorService.java` | Supervisor pattern orchestration |
-| `backend/src/.../agent/supervisor/BurnoutMutationTool.java` | GitHub mutation tools (`@Tool` methods) |
+| `backend/src/.../agent/supervisor/BurnoutAgents.java` | 6 sub-agent interfaces with `@Agent` annotations (Triage, Defer, Delegate, Classify, Scope, Wellness) |
+| `backend/src/.../agent/supervisor/BurnoutSupervisorService.java` | Three-phase reshape: deterministic pre-pass (`triageUrgent` + `defuseChaosInputs`) — always runs even when LLM is down — then LangChain4j supervisor (`maxAgentsInvocations: 15`, SUMMARY strategy, prompt-blocked from quoting absolute stress numbers). After the LLM, composes `explanation` = pre-pass header + LLM prose + `**🧘 Wellness recommendation:**` block (with `_Triggered by:_` line citing BEFORE stress / after-hours / context-switch signals) when any wellness tool fired. Returns `SupervisorResult(explanation, mutationPlan, estimatedStressScore, llmUsed, deterministicTriageCount, deterministicDefuseCount, wellnessInvocationCount)` |
+| `backend/src/.../agent/supervisor/BurnoutMutationTool.java` | 10 `@Tool` methods + `defuseChaosInputs(Clock)` (called only from the pre-pass). The three wellness tools (`suggestBreak`, `slowIntake`, `blockCalendarTime`) emit no `GitHubAction`s but do log their invocation and capture their verbatim emoji + message into `getWellnessRecommendations()` so the supervisor can surface the actual advice in `explanation` |
+| `backend/src/.../goap/GitHubAction.java` | Sealed interface, 6 records: `AddLabels`, `RemoveLabels`, `Comment`, `Unassign`, `SetBody`, `SetUpdatedAt` |
 | `backend/src/.../config/AgentConfiguration.java` | LangChain4j + Azure OpenAI wiring |
 | `backend/src/.../config/SecurityConfig.java` | Spring Security: GitHub token validation, permitAll paths, CORS |
 | `backend/src/.../service/IssueCache.java` | In-memory `ConcurrentHashMap` cache for synced issues |
 | `backend/src/.../service/IssueClassifierService.java` | Classifies issues into DEEP_WORK, QUICK_WIN, MAINTENANCE, DEFERRED |
 | `backend/src/.../service/ChaosMetricsService.java` | Calculates chaos score from issue patterns |
 | `backend/src/.../service/ComplianceService.java` | Analyzes compliance (labels, assignees, SLA) |
-| `backend/src/.../controller/DemoFlamegraphController.java` | Read-only demo endpoints + seed endpoint (no auth) |
+| `backend/src/.../controller/DemoFlamegraphController.java` | Read-only demo endpoints + seed endpoint (no auth) + `enforce333Compliance` post-pass that guarantees the day plan ends 1-3-3-0 |
+| `backend/src/.../controller/ReshapeController.java` | `/api/reshape` (auth) — `ReshapeResponse` (SCHEMA_VERSION=3) includes `deterministicTriageCount`, `deterministicDefuseCount`, `afterHoursIssues` |
 | `backend/src/main/resources/static/index.html` | Landing page with links to all demo pages |
 | `backend/src/main/resources/static/flamegraph.html` | Standalone flamegraph web app for live demos |
 | `backend/src/main/resources/static/checkin.html` | Stress check-in page (supports URL params for deep-linking) |
@@ -309,7 +364,7 @@ The `POST /demo/api/seed` endpoint accepts `{"repo": "owner/repo", "issues": [..
 | `scripts/demo-screenshots.sh` | Bash version of demo screenshot script (same flow, for Linux/macOS/CI) |
 | `scripts/record-demo.mjs` | Records ~30s demo video with scene title cards and issue drilldown |
 | `scripts/seed-issues.sh` | Creates real GitHub issues via `gh` CLI (for live repos) |
-| `mcp-app/src/index.ts` | MCP server with 4 tool definitions + 2 UI resources |
+| `mcp-app/src/index.ts` | MCP server with 4 tool definitions + 2 UI resources. The `reshape_day` and `show_burnout_wheel` tool outputs surface the full `agentExplanation` (pre-pass header + LLM prose + `**🧘 Wellness recommendation:**` block with `_Triggered by:_` line + outcome footer) verbatim in the Copilot Chat text response so the audience sees what the WellnessAgent actually recommended |
 | `mcp-app/src/config.ts` | Backend URL config (reads from `.env`) |
 | `mcp-app/src/backend-client.ts` | HTTP client for backend API calls |
 | `mcp-app/src/demo-data.ts` | Fallback demo data when backend is unavailable |

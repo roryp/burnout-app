@@ -2,7 +2,7 @@
 
 **AI-powered burnout prevention** for developers — a Java backend (LangChain4j Supervisor Pattern) + MCP App that analyzes your GitHub issues, detects stress signals, and organizes your day using the **3-3-3 structure**: 1 deep work, 3 quick wins, 3 maintenance. See the [Psychology & Science deep-dive](docs/PSYCHOLOGY.md) for the research and algorithms behind every feature.
 
-![Burnout Flamegraph - 3-3-3 Day Structure](docs/burnout-flamegraph.png)
+![Burnout Flamegraph - 3-3-3 Day Structure](docs/images/demo/flamegraph-after.png)
 
 **Live demo:** [https://aka.ms/burnout-app](https://aka.ms/burnout-app) — enter any public repo and see its burnout flamegraph instantly.
 
@@ -23,37 +23,43 @@ Four pages, no auth required:
 
 | Before (Chaotic) | After (Reshaped) |
 |:---:|:---:|
-| ![100/100 stress](docs/images/demo/flamegraph-before.png) | ![10/100 stress, 3-3-3](docs/images/demo/flamegraph-after.png) |
-| 100/100 stress, 0 quick wins, 9 deferred | 10/100 stress, 90% Friday Score, 3-3-3 compliant |
+| ![58/100 stress](docs/images/demo/flamegraph-before.png) | ![8/100 stress, 3-3-3](docs/images/demo/flamegraph-after.png) |
+| 58/100 stress (HIGH), Workload + Chaos + Context Switching firing | 8/100 stress (LOW), 100% Friday Score, 3-3-3 compliant |
 
 ### Stress Breakdown: What Changed
 
-| Before (100/CRITICAL) | After (10/LOW) |
+| Before (58/HIGH) | After (8/LOW) |
 |:---:|:---:|
-| ![Stress 100 — all bars red](docs/images/demo/stress-before.png) | ![Stress 10 — bars nearly empty](docs/images/demo/stress-after.png) |
+| ![Stress 58 — workload + chaos red](docs/images/demo/stress-before.png) | ![Stress 8 — only workload remaining](docs/images/demo/stress-after.png) |
 
 | Metric | Before | After | What changed |
 |--------|--------|-------|-------------|
-| **Workload** | 40 | 0 | 16 issues all on roryp → only 7 of 32 assigned, 3-3-3 compliant |
-| **Chaos** | 30 | 10 | 3 unassigned URGENTs, no descriptions → after-hours activity detected (click to see which issues) |
-| **Context Switching** | 15 | 0 | 10+ issues updated in 60 min → no rapid-fire updates |
-| **Clarity** | 10 | 0 | All 16 issues had empty body → every issue has a description |
-| **After Hours** | 10 | 0 | Updates at 3AM/4AM/10PM → all during business hours (timezone-aware) |
-| **Sustained** | 0 | 0 | — |
+| **Workload** | 12 | 8 | 10 issues piled on roryp → reshape deferred most into 3-3-3, leaving 1 deep-work item |
+| **Chaos** | 20 | 0 | 6 unassigned URGENTs + empty bodies + after-hours timestamps → deterministic pre-pass triaged them and defused chaos inputs |
+| **Context Switching** | 15 | 0 | 10 issues touched in the last hour → updatedAt rewritten to a stable mid-morning slot |
+| **Clarity** | 10 | 0 | Every issue had an empty body → SetBody actions added scope-pending placeholders |
+| **After Hours** | 0 | 0 | Chaos issues had 3AM / 4AM / 10PM timestamps but were unassigned, so they didn't count against roryp |
+| **Sustained** | 0 | 0 | No prior high-stress days yet (this is a fresh seed) |
+
+> **Note:** The reshape uses an LLM supervisor, so results vary slightly run-to-run. Typical: **58 → 8 (LOW)** with ~70-80 actions applied. Occasionally lands on 0 when the supervisor classifies the final remaining issue too.
 
 **How to get there:**
 
 ```bash
-# 1. Seed chaotic issues (stress → 100)
+# 1. Seed chaotic issues (real GitHub titles + chaos overlay → stress 58 / HIGH)
 bash scripts/seed-demo.sh https://your-app.azurecontainerapps.io
+# or PowerShell:
+.\scripts\seed-demo.ps1 -BaseUrl https://your-app.azurecontainerapps.io
 
-# 2. Reshape via MCP in VS Code Copilot Chat:
-#    "Sync issues for roryp/burnout-app"
-#    "Reshape my day for roryp/burnout-app"
+# 2. Reshape — runs the deterministic pre-pass + LangChain4j supervisor:
+curl -X POST https://your-app.azurecontainerapps.io/demo/api/reshape \
+  -H 'Content-Type: application/json' \
+  -d '{"repo":"roryp/burnout-app","userId":"roryp"}'
+# → beforeScore 58, afterScore 8 (typical, sometimes 0), actionsApplied ~75, llmUsed true
 
 # 3. View the result:
-#    /flamegraph.html?repo=roryp/burnout-app&userId=roryp  → 10/100 stress
-#    /study.html → click Load Data → see roryp's 95→10 dramatic drop
+#    /flamegraph.html?repo=roryp/burnout-app&userId=roryp  → 8/100 stress, 3-3-3 compliant
+#    /study.html → click Load Data → see roryp's drop in the trend chart
 ```
 
 ![Study Dashboard](docs/images/demo/study-dashboard.png)
@@ -70,21 +76,24 @@ bash scripts/seed-demo.sh https://your-app.azurecontainerapps.io
 
 ## How It Works
 
-A **Supervisor LLM** (Azure OpenAI) orchestrates 5 specialized sub-agents that analyze your workload and apply GitHub labels automatically:
+Reshape runs in three phases. **Phase 1** is a deterministic pre-pass that fires before the LLM ever wakes up — it triages every unassigned-urgent issue and defuses chaos inputs (empty bodies, after-hours timestamps, recent-touch storms) so the chaos score is guaranteed to drop, even when the LLM is offline. **Phase 2** is a **Supervisor LLM** (Azure OpenAI) coordinating 6 specialized sub-agents (`maxAgentsInvocations: 15`) that classify the remaining issues and apply GitHub labels. **Phase 3** is a deterministic 1-3-3-0 enforcer that runs after the LLM, promoting deferred items into underfilled quickWin/maintenance slots and pushing overflow off the user's plate so the day plan ends up exactly **1-3-3-0** every time:
 
 | Agent | Action | Labels Applied |
 |-------|--------|---------------|
+| **TriageAgent** | Strip urgent flags from unassigned issues | `triaged`, `backlog` |
 | **DeferAgent** | Push non-critical to next sprint | `deferred`, `next-sprint` |
 | **DelegateAgent** | Reassign to balance load | `delegated`, `needs-owner` |
 | **ClassifyAgent** | Organize into 3-3-3 buckets | `deep-work`, `quick-win`, `maintenance` |
 | **ScopeAgent** | Flag vague issues | `needs-scope`, `blocked` |
-| **WellnessAgent** | Recommend breaks & boundaries | *(advisory only)* |
+| **WellnessAgent** | Recommend breaks & boundaries | *(advisory only — text surfaced in explanation)* |
 
-Deterministic services compute all metrics (chaos score, compliance, stress). AI agents only explain and act — they never decide.
+Deterministic services compute all metrics (chaos score, compliance, stress). The pre-pass guarantees a chaos drop even if the LLM picks the wrong agent. The post-pass guarantees 1-3-3-0 even if the LLM under-fills. AI agents only explain and classify — they never decide. The reshape response surfaces `deterministicTriageCount`, `deterministicDefuseCount`, `complianceActionCount`, and `wellnessInvocationCount` so callers can see exactly what each phase contributed, and the `explanation` field is bookended by deterministic prose (a "🧹 Deterministic pre-pass:" header, a `**🧘 Wellness recommendation:**` block with a `_Triggered by:_` line citing the BEFORE stress / after-hours / context-switch signals plus the verbatim tool output when any wellness tool fired, and a "📈 Outcome:" footer with the real measured stress drop) — the LLM is prompt-blocked from quoting absolute stress numbers, so the footer is always the source of truth.
+
+The reshape returns a [`GitHubMutationPlan`](backend/src/main/java/com/demo/burnout/goap/GitHubMutationPlan.java) of six action types: `AddLabels`, `RemoveLabels`, `Comment`, `Unassign`, `SetBody`, and `SetUpdatedAt`.
 
 ## Algorithm Pipeline
 
-<img src="docs/images/algorithm-pipeline.png" alt="6-stage algorithm pipeline: Ingestion → Classification → Metrics → WorldState → AI Agents → Output" width="100%"/>
+<img src="docs/images/algorithm-pipeline.png" alt="6-stage algorithm pipeline: Ingestion → Chaos Metrics → Classification → WorldState → Reshape (deterministic pre-pass + LangChain4j Supervisor with 6 sub-agents) → Output" width="100%"/>
 
 > **Full technical deep-dive:** [docs/PSYCHOLOGY.md](docs/PSYCHOLOGY.md) — formulas, thresholds, and the psychology behind every algorithm.
 
@@ -174,7 +183,7 @@ What's my stress score for owner/repo # Quick stress check (0-100)
 | GET | `/demo/api/repos` | No | List synced repos |
 | POST | `/demo/api/sync?repo=owner/repo` | No | Sync from GitHub public API (rate-limited) |
 | POST | `/demo/api/seed` | No | Seed test data (**use camelCase fields** — see below) |
-| POST | `/demo/api/reshape` | No | Run reshape (supervisor agent), apply mutations to cache |
+| POST | `/demo/api/reshape` | No | Run reshape (deterministic pre-pass + LangChain4j supervisor), apply mutations to cache |
 | POST | `/demo/api/checkin` | No | Student stress check-in — accepts optional `tz` param for timezone-aware after-hours (syncs + records snapshot) |
 
 ## Seeding & Demo Data
@@ -191,7 +200,7 @@ bash scripts/seed-demo.sh https://your-app.azurecontainerapps.io after      # se
 .\scripts\seed-demo.ps1 -BaseUrl https://your-app.azurecontainerapps.io -Mode after  # seed + reshape
 ```
 
-The **AFTER** mode seeds chaotic issues then calls the real `/demo/api/reshape` endpoint, which runs the LLM supervisor agent to restructure the workload. No hardcoded data — the reshape result comes from the actual AI.
+The **AFTER** mode seeds chaotic issues then calls the real `/demo/api/reshape` endpoint, which runs the **deterministic pre-pass** (`triageUrgent` + `defuseChaosInputs`) followed by the **LangChain4j supervisor** with 6 sub-agents to restructure the workload. No hardcoded data — every action comes from real code or the LLM.
 
 <details>
 <summary><strong>⚠️ Manual seeding rules</strong></summary>
@@ -209,8 +218,8 @@ A zero-friction web page for study participants. No VS Code, no CLI, no auth —
 
 | Before (Chaotic) | After (Reshaped) |
 |:---:|:---:|
-| ![Stress 100 — CRITICAL](docs/images/demo/checkin-before.png) | ![Stress 10 — LOW](docs/images/demo/checkin-after.png) |
-| Stress 100, CRITICAL — all bars red | Stress 10, LOW — most bars zeroed |
+| ![Stress 58 — HIGH](docs/images/demo/checkin-before.png) | ![Stress 8 — LOW](docs/images/demo/checkin-after.png) |
+| Stress 58, HIGH — workload + chaos firing | Stress 8, LOW — most bars zeroed |
 
 1. Student enters their GitHub username and a **public** repo
 2. Optionally sets the **self-report slider** (0–100: "How stressed do you feel?") and **notes**
@@ -287,7 +296,7 @@ bash scripts/demo-screenshots.sh                                                
 bash scripts/demo-screenshots.sh https://your-app.azurecontainerapps.io            # explicit URL
 ```
 
-The scripts seed BEFORE data, capture screenshots, run reshape via the real supervisor agent, then capture AFTER + study screenshots. Saved to `docs/images/demo/`.
+The scripts seed BEFORE data, capture screenshots, run the deterministic pre-pass + LangChain4j supervisor via `/demo/api/reshape`, then capture AFTER + study screenshots. Saved to `docs/images/demo/`.
 
 ## Security
 

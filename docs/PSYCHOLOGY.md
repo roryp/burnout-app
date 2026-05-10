@@ -31,7 +31,7 @@
 | 9 | [Protective Intervention](#9-protective-intervention) | Circuit breaker — safety net when thresholds are crossed |
 | 10 | [Friday Deploy](#10-friday-deploy) | Is it safe to ship today? (counters optimism bias) |
 | 11 | [Calendar Fragmentation](#11-calendar-fragmentation) | No 90-min block? Deep work gets deferred automatically |
-| 12 | [AI Agent Architecture](#12-ai-agent-architecture) | 5 sub-agents, 9 tools, 3 personas — the Supervisor Pattern |
+| 12 | [AI Agent Architecture](#12-ai-agent-architecture) | Deterministic pre-pass + 6 sub-agents, 10 tools, 3 personas — the Supervisor Pattern |
 | 13 | [Flamegraph Psychology](#13-flamegraph-psychology) | Why fire metaphors work + per-issue stress formula |
 | 14 | [Priority & Day Plan](#14-priority--day-plan) | How the system picks *which* issues you work on today |
 | 15 | [Graceful Degradation](#15-graceful-degradation) | 4 fallback levels — works fully without AI |
@@ -41,9 +41,9 @@
 
 ## System Sequence Diagram
 
-Four phases — sync, analyze, reshape, protect — across six components. Deterministic services do all the measuring; AI only explains and acts.
+Four phases — **sync**, **analyze**, **reshape** (deterministic pre-pass + AI), and **apply / recalculate / output** — across six actors. Deterministic services do all the measuring; the pre-pass guarantees the chaos drop; AI only rebalances and explains.
 
-<img src="images/sequence-diagram.png" alt="Sequence diagram showing 4 phases: Sync (GitHub → MCP → Backend → IssueCache), Analyze (classify + metrics → WorldState → stress score), Reshape (WorldState → Supervisor → 5 sub-agents → mutation plan), Protect & Output (protective check → flamegraph + interventions → GitHub)" width="100%"/>
+<img src="images/sequence-diagram.png" alt="Sequence diagram showing 4 phases across 6 actors (GitHub, MCP App, Backend, Deterministic Services, WorldState, AI Supervisor): 1·Sync (GitHub → MCP → Backend → IssueCache), 2·Analyze (classify + measure → 12 capped variables → Stress 0–100 BEFORE), 3·Reshape (deterministic pre-pass: triageUrgent + defuseChaosInputs, then Supervisor → 6 sub-agents → @Tool mutations), 4·Apply, Recalculate, Output (apply mutations to IssueCache → recalculate stress AFTER → protective check + Friday score → MCP applies labels & comments to GitHub)" width="100%"/>
 
 ---
 
@@ -51,7 +51,7 @@ Four phases — sync, analyze, reshape, protect — across six components. Deter
 
 The system flows through 6 stages — from raw GitHub issues to actionable mutations. Every algorithm is deterministic except the AI agents, which always have a fallback path.
 
-<img src="images/algorithm-pipeline.png" alt="Widescreen infographic showing the 6-stage algorithm pipeline: Ingestion, Classification, Metrics and Compliance, WorldState, AI Agents, and Output — with formulas, thresholds, and connections between all components" width="100%"/>
+<img src="images/algorithm-pipeline.png" alt="Widescreen infographic showing the 6-stage algorithm pipeline: Ingestion, Chaos Metrics, Classification & Compliance, WorldState (12 capped variables → stress 0–100), Reshape (deterministic pre-pass with triageUrgent + defuseChaosInputs, then LangChain4j Supervisor with 6 sub-agents and 10 @Tool methods, max 15 invocations), and Output (apply mutations → recalculate → Friday score → persist) — with formulas, thresholds, and connections between all components" width="100%"/>
 
 **The six stages:**
 
@@ -59,7 +59,7 @@ The system flows through 6 stages — from raw GitHub issues to actionable mutat
 2. **Classification** — Each issue is sorted into one of 4 buckets (Deep Work → Quick Win → Maintenance → Deferred) using a priority-ordered, first-match label cascade.
 3. **Metrics & Compliance** — Chaos score (0–10) and compliance score (100 → 0) are calculated deterministically. No AI involved.
 4. **WorldState** — 18 capped variables feed into the stress score (0–100), computed from its weighted components.
-5. **AI Agents** — The LangChain4j Supervisor (Azure OpenAI `gpt-4o` by default, SUMMARY strategy, max 10 invocations) coordinates 5 sub-agents with 9 `@Tool` methods, plus 3 support agents for explanation, emotional care, and deploy readiness.
+5. **AI Agents** — Reshape runs as a deterministic pre-pass (`triageUrgent` + `defuseChaosInputs`) followed by the LangChain4j Supervisor (Azure OpenAI `gpt-4o` by default, SUMMARY strategy, max 15 invocations) coordinating 6 sub-agents with 10 `@Tool` methods, plus 3 support agents for explanation, emotional care, and deploy readiness.
 6. **Output** — A mutation plan applied to GitHub via MCP: label changes, comments, a rebalanced 1+3+3 day, and protective messages when needed.
 
 ---
@@ -102,11 +102,11 @@ The system builds a **WorldState** from 18 discrete variables, then calculates a
 
 ### Scene 5: The Supervisor Agent Steps In
 
-The LangChain4j **Supervisor Pattern** takes over. A planner LLM coordinates 5 specialized sub-agents to rebalance the workload.
+Reshape runs in two phases. A **deterministic pre-pass** strips chaos-inducing labels off every unassigned-urgent issue and rewrites empty bodies and after-hours timestamps so the chaos score is guaranteed to drop. Then the LangChain4j **Supervisor Pattern** takes over: a planner LLM coordinates 6 specialized sub-agents to finish the rebalancing.
 
-<img src="images/scene5-supervisor-pattern.png" alt="LangChain4j Supervisor Agent architecture with 5 sub-agents and mutation plan output" width="800"/>
+<img src="images/scene5-supervisor-pattern.png" alt="LangChain4j Supervisor Agent architecture with deterministic pre-pass and 6 sub-agents producing a mutation plan" width="800"/>
 
-*The Supervisor pattern: planner model (Azure OpenAI `gpt-4o` by default, SUMMARY strategy, max 10 invocations) coordinates 5 sub-agents — Defer, Delegate, Classify, Scope, Wellness — each with `@Tool` methods from `BurnoutMutationTool`. Output: a mutation plan of label additions, removals, and comments.*
+*Two-phase reshape: a deterministic pre-pass calls `triageUrgent` for every unassigned-urgent issue and `defuseChaosInputs(clock)` to neutralise mystery-meat bodies and after-hours timestamps, then the supervisor (Azure OpenAI `gpt-4o` by default, SUMMARY strategy, max 15 invocations) coordinates 6 sub-agents — Triage, Defer, Delegate, Classify, Scope, Wellness — each with `@Tool` methods from `BurnoutMutationTool`. Output: a mutation plan of label changes, comments, unassignments, body rewrites, and timestamp normalisations.*
 
 ### Scene 6: The Flamegraph — Seeing Stress
 
@@ -118,7 +118,7 @@ The flamegraph transforms abstract numbers into visceral visualization. Fire = d
 
 Alex's BEFORE state — 12 issues with no labels, all in Deferred:
 
-<img src="images/flamegraph-before.png" alt="Flamegraph showing 12 unclassified issues all in Deferred" width="800"/>
+<img src="images/demo/flamegraph-before.png" alt="Flamegraph showing 12 unclassified issues all in Deferred" width="800"/>
 
 *All 12 issues in Deferred because none have classification labels. No structure at all.*
 
@@ -126,7 +126,7 @@ Alex's BEFORE state — 12 issues with no labels, all in Deferred:
 
 The `reshape_day` tool applies the mutation plan. Labels are added, comments posted, issues deferred. Chaos becomes structure:
 
-<img src="images/flamegraph-after.png" alt="Flamegraph after reshaping showing 1 Deep Work, 3 Quick Wins, 3 Maintenance, 5 Deferred" width="800"/>
+<img src="images/demo/flamegraph-after.png" alt="Flamegraph after reshaping showing 1 Deep Work, 3 Quick Wins, 3 Maintenance, 5 Deferred" width="800"/>
 
 *AFTER: 1 Deep Work, 3 Quick Wins, 3 Maintenance, 5 Deferred. Same 12 issues, now with a plan.*
 
@@ -332,26 +332,33 @@ Deep work requires sustained focus [[4]](#ref-4) — but a day full of meetings 
 
 ## 12. AI Agent Architecture
 
-Deterministic services calculate all metrics first. AI agents only explain, recommend, and act — they never make the initial measurements. This is the LangChain4j **Supervisor Pattern** in action: [AgentOrchestrator.java](../backend/src/main/java/com/demo/burnout/agent/AgentOrchestrator.java) coordinates the full pipeline from metrics through supervisor to protective response, [BurnoutAgents.java](../backend/src/main/java/com/demo/burnout/agent/supervisor/BurnoutAgents.java) declares the five sub-agent `@Agent` interfaces (Defer, Delegate, Classify, Scope, Wellness), and [AgentConfiguration.java](../backend/src/main/java/com/demo/burnout/config/AgentConfiguration.java) wires the Spring beans for both LLM models and all agent instances.
+Deterministic services calculate all metrics first. AI agents only explain, recommend, and act — they never make the initial measurements. This is the LangChain4j **Supervisor Pattern** in action: [AgentOrchestrator.java](../backend/src/main/java/com/demo/burnout/agent/AgentOrchestrator.java) coordinates the full pipeline from metrics through supervisor to protective response, [BurnoutAgents.java](../backend/src/main/java/com/demo/burnout/agent/supervisor/BurnoutAgents.java) declares the six sub-agent `@Agent` interfaces (Triage, Defer, Delegate, Classify, Scope, Wellness), and [AgentConfiguration.java](../backend/src/main/java/com/demo/burnout/config/AgentConfiguration.java) wires the Spring beans for both LLM models and all agent instances.
 
 ### Flow
 
 1. **Sync** — GitHub issues → [`IssueCache`](../backend/src/main/java/com/demo/burnout/service/IssueCache.java) (ConcurrentHashMap)
 2. **Calculate** — `ChaosMetricsService`, `ComplianceService`, `IssueClassifierService` run independently
 3. **Build WorldState** — capped variables from issue data + metrics
-4. **Invoke Supervisor** — planner model coordinates 5 sub-agents autonomously
-5. **Accumulate Mutations** — sub-agents invoke `@Tool` methods → [`pendingActions`](../backend/src/main/java/com/demo/burnout/agent/supervisor/BurnoutMutationTool.java) list
-6. **Return Response** — explanation, [mutation plan](../backend/src/main/java/com/demo/burnout/goap/GitHubMutationPlan.java), stress scores, protective messages
+4. **Deterministic Pre-pass** — [`BurnoutSupervisorService`](../backend/src/main/java/com/demo/burnout/agent/supervisor/BurnoutSupervisorService.java) calls `mutationTool.triageUrgent(n)` for every unassigned-urgent issue, then `mutationTool.defuseChaosInputs(clock)` to neutralise empty bodies and after-hours / recently-touched timestamps. **Always runs**, even when the LLM is dummy/down — so the chaos score drops in every fallback path. Counts surface on `SupervisorResult` as `deterministicTriageCount` and `deterministicDefuseCount`, and the explanation is prepended with a "🧹 Deterministic pre-pass:" line listing the triaged issue numbers.
+5. **Invoke Supervisor** — planner model coordinates 6 sub-agents autonomously (max 15 invocations); the supervisor is told the unassigned-urgent issues are already triaged and should be left alone, AND is **prompt-blocked from quoting absolute stress numbers** in its summary (the prompt explains that the system computes the AFTER score itself)
+6. **Accumulate Mutations** — sub-agents invoke `@Tool` methods → [`pendingActions`](../backend/src/main/java/com/demo/burnout/agent/supervisor/BurnoutMutationTool.java) list (six action types: AddLabels, RemoveLabels, Comment, Unassign, SetBody, SetUpdatedAt)
+7. **Apply + Recalculate** — controller applies the mutation plan to the in-memory cache and recomputes `afterScore` from the mutated state
+8. **Deterministic 1-3-3-0 enforcer** *(`/demo/api/reshape` only)* — [`enforce333Compliance`](../backend/src/main/java/com/demo/burnout/controller/DemoFlamegraphController.java) promotes deferred-classified items into underfilled quickWin/maintenance slots, then defers true overflow off the user's plate (unassign + `deferred,next-sprint` + comment). Surfaces as `complianceActionCount` (0 when the LLM lands compliance on its own).
+9. **Compose explanation** — the supervisor service builds the explanation by stitching together (a) a "🧹 Deterministic pre-pass:" header listing triaged issue numbers, (b) the LLM's prose summary, (c) — when any wellness tool fired — a `**🧘 Wellness recommendation:**` block with a `_Triggered by:_` line citing the BEFORE signals that crossed the gating thresholds (`stress N/100 (LEVEL)` when stress ≥ 50, `N issues updated after hours (outside 9 AM–6 PM)` when after-hours > 0, `N issues touched in the recent window (context-switch storm)` when touched-today ≥ 6) followed by the verbatim tool message (e.g. `🧘 Step away for 10–15 minutes...`). Controllers then append (d) a "📈 Outcome:" footer with the real measured `beforeScore → afterScore` drop and per-phase action counts. The prose surfaced to the user is bookended by deterministic content, so even if the LLM regresses the footer is the source of truth.
+10. **Return Response** — explanation, [mutation plan](../backend/src/main/java/com/demo/burnout/goap/GitHubMutationPlan.java), stress scores, deterministic counts, protective messages
 
-### 5 Sub-Agents
+### 6 Sub-Agents
 
 | Agent | Role | Tools |
 |-------|------|-------|
+| **TriageAgent** | Strip chaos-inducing urgent flags from unassigned issues | `triageUrgent()` |
 | **DeferAgent** | Move non-critical work to next sprint | `deferIssue()` |
 | **DelegateAgent** | Redistribute across team | `delegateIssue()` |
 | **ClassifyAgent** | Organize into 3-3-3 | `markAsDeepWork()`, `classifyAsQuickWin()`, `classifyAsMaintenance()` |
 | **ScopeAgent** | Flag unclear issues | `addScopeNeeded()` |
-| **WellnessAgent** | Recommend self-care | `suggestBreak()`, `slowIntake()`, `blockCalendarTime()` |
+| **WellnessAgent** | Recommend self-care (only when stress ≥ 50, i.e. HIGH or CRITICAL) | `suggestBreak()`, `slowIntake()`, `blockCalendarTime()` |
+
+`triageUrgent()` is also invoked directly from the deterministic pre-pass, so the chaos signal disappears even if the LLM never calls TriageAgent. `defuseChaosInputs(Clock)` is a non-`@Tool` method on `BurnoutMutationTool` that the supervisor service runs before the LLM — it emits `SetBody` and `SetUpdatedAt` actions to kill the mystery-meat, after-hours, and touched-today factors. The supervisor prompt only routes work to `WellnessAgent` when stress ≥ 50, so MODERATE/LOW reshapes stay focused on classification and deferral and don't burn LLM invocations on advisory wellness comments. Because the three wellness tools return advisory strings (no `GitHubAction`s), `BurnoutMutationTool` increments a `wellnessInvocationCount` on every call **and captures the verbatim emoji + message into a `wellnessRecommendations` list** — both surface on `SupervisorResult` and the reshape API responses. The supervisor service then renders a `**🧘 Wellness recommendation:**` block in the explanation containing a `_Triggered by:_` line that names the actual signal (high stress, after-hours work, context-switch storm) followed by the verbatim tool output, so the audience sees exactly what the agent recommended **and why** — not just an opaque counter.
 
 ### 3 AI Personas
 
@@ -473,7 +480,7 @@ Above 80 you're generally in a good position to ship 🟢. Between 50 and 79, ca
 
 ### Agent guardrails
 
-[BurnoutSupervisorService.java](../backend/src/main/java/com/demo/burnout/agent/supervisor/BurnoutSupervisorService.java) caps the supervisor at **10 invocations** per reshape — enough to reorganize a messy day without running forever. Each action the agents take (defer, delegate, classify) is estimated to reduce stress by about **7 points**, a heuristic that keeps the system from over-intervening. [AgentOrchestrator.java](../backend/src/main/java/com/demo/burnout/agent/AgentOrchestrator.java) triggers protective interventions after **two consecutive high-stress days**, when stress hits **70**, or when someone has more than **10 assigned issues**.
+[BurnoutSupervisorService.java](../backend/src/main/java/com/demo/burnout/agent/supervisor/BurnoutSupervisorService.java) caps the supervisor at **15 invocations** per reshape — enough to reorganize a messy day without running forever. Each action the agents take (defer, delegate, classify, triage) is estimated to reduce stress by about **7 points**, a heuristic that keeps the system from over-intervening. Before the LLM is invoked at all, a deterministic pre-pass calls `triageUrgent` for every unassigned-urgent issue and runs `defuseChaosInputs(clock)` to rewrite mystery-meat bodies and after-hours timestamps — so the chaos score drops regardless of what the planner decides. [AgentOrchestrator.java](../backend/src/main/java/com/demo/burnout/agent/AgentOrchestrator.java) triggers protective interventions after **two consecutive high-stress days**, when stress hits **70**, or when someone has more than **10 assigned issues**.
 
 ### Flamegraph heat
 

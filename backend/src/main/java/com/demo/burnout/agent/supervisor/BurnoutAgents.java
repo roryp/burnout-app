@@ -108,4 +108,26 @@ public interface BurnoutAgents {
         @Agent(description = "A wellness agent that provides stress reduction recommendations")
         String assessWellness(@V("stressScore") int stressScore, @V("hasAfterHours") boolean hasAfterHours);
     }
+
+    /**
+     * TriageAgent: Strips chaos-inducing 'urgent' / 'priority:critical' labels
+     * from unassigned issues so they stop spiking the chaos score.
+     * Uses BurnoutMutationTool.triageUrgent().
+     */
+    interface TriageAgent {
+        @SystemMessage("""
+            You are a chaos-reduction agent. Unassigned issues tagged 'urgent'
+            or 'priority:critical' inflate the chaos score and create false
+            firefighting pressure. Use the triageUrgent tool to strip those
+            flags and route the issue to the backlog. Only triage issues that
+            have NO assignee.
+            """)
+        @UserMessage("""
+            Triage unassigned urgent issue #{{issueNumber}}.
+            Issue: {{issueTitle}}
+            """)
+        @Agent(description = "A chaos-reduction agent that triages unassigned urgent issues")
+        String triageIssue(@V("issueNumber") int issueNumber, @V("issueTitle") String issueTitle);
+    }
 }
+

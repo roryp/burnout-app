@@ -84,13 +84,13 @@ When asked to take screenshots, capture demo screenshots, or run the demo flow:
 
 3. **Screenshot checklist (8 screenshots):**
    - `landing.png` — Landing page with cards linking to Check-In, Flamegraph, Study Dashboard
-   - `checkin-before.png` — Stress 100, CRITICAL, all bars red, issue toggles visible
-   - `stress-before.png` — Stress 100, CRITICAL, with Workload issue drilldown expanded
-   - `flamegraph-before.png` — 100/100 stress, 0 quick wins, 9 deferred
-   - `checkin-after.png` — Stress ~10, LOW, most bars zeroed
-   - `stress-after.png` — Stress ~10, LOW, with Workload issue drilldown expanded
-   - `flamegraph-after.png` — ~10/100 stress, 90% Friday Score, 3-3-3 structure
-   - `study-dashboard.png` — trend chart with roryp's dramatic drop, 5 participant cards, raw snapshots
+   - `checkin-before.png` — Stress 58, HIGH, Workload + Chaos bars red, issue toggles visible
+   - `stress-before.png` — Stress 58, HIGH, with Workload issue drilldown expanded
+   - `flamegraph-before.png` — 58/100 stress, mostly deferred, low Friday Score
+   - `checkin-after.png` — Stress ~8, LOW, most bars zeroed
+   - `stress-after.png` — Stress ~8, LOW, with Workload issue drilldown expanded
+   - `flamegraph-after.png` — ~8/100 stress, ~100% Friday Score, 1-3-3-0 structure
+   - `study-dashboard.png` — trend chart with roryp's drop, 5 participant cards, raw snapshots
 
 4. **Using Playwright MCP tool for screenshots:** Navigate to each page, fill in
    `roryp` / `roryp/burnout-app`, click the action button, wait for results, then
@@ -109,6 +109,9 @@ When asked to take screenshots, capture demo screenshots, or run the demo flow:
 - The `/demo/api/seed` endpoint deserializes directly into `Issue` — so it needs **camelCase**
 - Deterministic services calculate all metrics first; AI agents only explain — they never make decisions
 - Every AI agent must have a deterministic fallback when the LLM is unavailable
+- **Reshape is three phases, not two**: (1) deterministic pre-pass `triageUrgent` + `defuseChaosInputs` runs **before** the LLM and **always runs even when the LLM is down/disabled**, (2) LangChain4j supervisor with 6 sub-agents, (3) deterministic 1-3-3-0 enforcer (`/demo/api/reshape` only) runs **after** the LLM and promotes deferred items to fill underfilled buckets / pushes overflow off the user's plate. Counts surface as `deterministicTriageCount`, `deterministicDefuseCount`, `complianceActionCount`.
+- **The supervisor LLM is prompt-blocked from quoting absolute stress numbers** in its summary. Both reshape controllers append a deterministic "📈 Outcome:" footer to `explanation` after `afterScore` is recomputed, so the prose surfaced to the user is grounded in measured truth — even if the LLM regresses, the footer is the source of truth.
+- **Wellness recommendations are surfaced verbatim in the explanation**: when the supervisor's `WellnessAgent` invokes any of the three wellness tools (`suggestBreak`, `slowIntake`, `blockCalendarTime`), the verbatim emoji + message (e.g. `🧘 Step away for 10–15 minutes...`) is appended to `explanation` under a `**🧘 Wellness recommendation:**` block. The block also includes a `_Triggered by:_` line listing the BEFORE signals that crossed the wellness gating thresholds — `stress N/100 (LEVEL)` when stress ≥ 50, `N issues updated after hours (outside 9 AM–6 PM)` when after-hours > 0, `N issues touched in the recent window (context-switch storm)` when touched-today ≥ 6 — so the audience sees WHY the agent fired, not just that some advice popped up.
 - **After-hours is timezone-aware**: The checkin page auto-detects the browser timezone and sends it as `tz` in the request body. Working hours are 9 AM–6 PM in the user's timezone; weekends always count as after-hours. All three after-hours implementations (ChaosMetricsService, WorldState, SyntheticTimeResolver) use the same 9 AM–6 PM + weekends rule.
 
 ## Testing the App (Comprehensive Guide)
@@ -137,7 +140,7 @@ This runs `IntegrationTest.java` which tests:
 - Chaos endpoint with empty cache
 - Issue seeding via `/demo/api/seed`
 - Stress breakdown calculation (all 6 metrics non-zero)
-- Reshape endpoint with supervisor agent (deterministic fallback)
+- Reshape endpoint with deterministic pre-pass + supervisor (deterministic fallback when LLM unavailable)
 - Flamegraph API with day plan structure
 
 Tests use `security.enabled=false` and dummy OpenAI credentials — the system falls back to deterministic responses.
@@ -170,7 +173,7 @@ java -Dsecurity.enabled=false `
 .\scripts\seed-demo.ps1 -BaseUrl https://your-app.azurecontainerapps.io -Mode after
 ```
 
-**What it seeds:** 16 chaotic issues (stress → 100), 9 checkin snapshots, 113 study history snapshots for 5 participants.
+**What it seeds:** 16 chaotic issues (real GitHub titles + chaos overlay — stress → ~58 HIGH), 9 checkin snapshots, 113 study history snapshots for 5 participants.
 
 ### 4. Verify All Pages Manually
 
@@ -179,12 +182,12 @@ After seeding, open these URLs (replace base URL for Azure):
 | Page | URL | Expected Result |
 |------|-----|-----------------|
 | Home | `/` | Landing page with links to Check-In, Flamegraph, Study |
-| Check-In | `/checkin.html` | Enter `roryp` + `roryp/burnout-app` → Score 100, CRITICAL |
-| Flamegraph | `/flamegraph.html?repo=roryp/burnout-app&userId=roryp` | 100/100 stress, 16 issues, 0 quick wins |
+| Check-In | `/checkin.html` | Enter `roryp` + `roryp/burnout-app` → Score ~58, HIGH |
+| Flamegraph | `/flamegraph.html?repo=roryp/burnout-app&userId=roryp` | ~58/100 stress, 16 issues, deferred-heavy |
 | Study | `/study.html` | Click Load Data → 5 participants, trend chart, 113+ snapshots |
 | Health | `/actuator/health` | `{"status":"UP"}` |
 
-**CRITICAL:** Always use `&userId=roryp` on the flamegraph URL — without it, stress is calculated across ALL users (higher score). With it, stress filters to roryp's assigned issues only (matches reference screenshots: 10/100).
+**CRITICAL:** Always use `&userId=roryp` on the flamegraph URL — without it, stress is calculated across ALL users in the repo (different number). With it, stress filters to roryp's assigned issues only.
 
 ### 5. Post-Deployment Smoke Test (26 Assertions)
 
@@ -209,27 +212,28 @@ Show my burnout wheel for roryp/burnout-app
 Reshape my day for roryp/burnout-app
 ```
 
-Expected: `sync_issues` fetches 32 issues, `get_stress_score` returns 10/LOW, `show_burnout_wheel` shows 3-3-3 flamegraph, `reshape_day` applies labels and returns AI explanation.
+Expected: `sync_issues` fetches the repo's issues, `get_stress_score` returns ~8/LOW after reshape, `show_burnout_wheel` shows 1-3-3-0 flamegraph, `reshape_day` applies labels and returns AI explanation.
 
 ### 7. Test the Before/After Demo Flow
 
-This is the **live demo flow** — captures the full 100→10 stress reduction:
+This is the **live demo flow** — captures the full 58→8 stress reduction driven by the deterministic pre-pass + LangChain4j supervisor:
 
 ```powershell
-# Step 1: Seed chaotic state
+# Step 1: Seed chaotic state (real GitHub titles + chaos overlay)
 .\scripts\seed-demo.ps1 -BaseUrl <url>
 
-# Step 2: Verify BEFORE (100/CRITICAL)
-# Open /checkin.html → roryp → 100
-# Open /flamegraph.html?repo=roryp/burnout-app&userId=roryp → 100/100
+# Step 2: Verify BEFORE (~58 / HIGH)
+# Open /checkin.html → roryp → ~58
+# Open /flamegraph.html?repo=roryp/burnout-app&userId=roryp → ~58/100
 
-# Step 3: Sync real issues (replaces chaotic data with actual repo issues)
-# Either via MCP: "Sync issues for roryp/burnout-app"
-# Or via API: POST /demo/api/sync?repo=roryp/burnout-app
+# Step 3: Reshape — deterministic pre-pass (triageUrgent + defuseChaosInputs)
+# then LangChain4j supervisor with 6 sub-agents
+# Either via MCP: "Reshape my day for roryp/burnout-app"
+# Or via API: POST /demo/api/reshape  body: {"repo":"roryp/burnout-app","userId":"roryp"}
 
-# Step 4: Verify AFTER (10/LOW)
-# Open /checkin.html → roryp → 10
-# Open /flamegraph.html?repo=roryp/burnout-app&userId=roryp → 10/100, 90% Friday
+# Step 4: Verify AFTER (~8 / LOW)
+# Open /checkin.html → roryp → ~8
+# Open /flamegraph.html?repo=roryp/burnout-app&userId=roryp → ~8/100, ~100% Friday
 
 # Step 5: Check study dashboard
 # Open /study.html → Load Data → see 5 participants with trend chart
@@ -285,7 +289,7 @@ azd env get-values | Select-String 'SERVICE_BACKEND_URI'
 
 **When to use:** User says "seed, reshape, validate with playwright mcp tool" or similar.
 
-**Goal:** Execute the full 100→10 stress reduction demo with live screenshots showing before/after state.
+**Goal:** Execute the full 58→8 stress reduction demo with live screenshots showing before/after state. The drop is driven by the deterministic pre-pass (`triageUrgent` + `defuseChaosInputs`) followed by the LangChain4j supervisor with 6 sub-agents — not by swapping data.
 
 **Prerequisites:**
 - Azure deployment running (verify via `azd env get-values | Select-String 'SERVICE_BACKEND_URI'`)
@@ -296,8 +300,8 @@ azd env get-values | Select-String 'SERVICE_BACKEND_URI'
 ```powershell
 .\scripts\seed-demo.ps1 -BaseUrl <azure-url>
 ```
-- Outputs: 16 chaotic issues (100/CRITICAL), 9 checkins, 113 study snapshots
-- Verify output: `Stress: 100 (CRITICAL)`
+- Outputs: 16 chaotic issues (~58 / HIGH), 9 checkins, 113 study snapshots
+- Verify output: `Stress: 58 (HIGH)` (numbers may shift slightly with real GitHub data)
 
 **Step 2: Validate BEFORE State (Playwright)**
 
@@ -305,63 +309,60 @@ azd env get-values | Select-String 'SERVICE_BACKEND_URI'
 - Navigate: `/checkin.html`
 - Fill form: username=`roryp`, repo=`roryp/burnout-app`
 - Click "Check My Stress" button
-- Wait for: `CRITICAL` text appears
-- Screenshot: Capture full page (expect **100 STRESS SCORE, CRITICAL, 16 issues, Non-compliant**)
+- Wait for: `HIGH` text appears
+- Screenshot: Capture full page (expect **~58 STRESS SCORE, HIGH, ~16 issues, Non-compliant**)
 
 **2b. Flamegraph Page BEFORE**
 - Navigate: `/flamegraph.html?repo=roryp/burnout-app&userId=roryp`
 - Wait for: `Stress Score` text appears
-- Screenshot: Capture full page (expect **100/100 stress, 10% Friday, 0 quick wins, 9 deferred**)
+- Screenshot: Capture full page (expect **~58/100 stress, deferred-heavy, low Friday %**)
 
-**Step 3: Reshape (Sync + API)**
+**Step 3: Reshape (deterministic pre-pass + supervisor)**
 ```powershell
-# Sync real GitHub issues (replaces chaotic 16 with real 32)
-Invoke-RestMethod -Method POST -Uri "$BASE_URL/demo/api/sync?repo=roryp/burnout-app"
-
-# Reshape the day plan
+# Reshape — deterministic pre-pass triages every unassigned-urgent issue
+# and defuses chaos inputs (empty bodies, after-hours timestamps, recent-touch storms)
+# BEFORE the LLM runs, then the supervisor with 6 sub-agents finishes the rebalancing.
 Invoke-RestMethod -Method POST -Uri "$BASE_URL/demo/api/reshape" `
   -Headers @{"Content-Type"="application/json"} `
   -Body '{"repo":"roryp/burnout-app","userId":"roryp"}' | ConvertTo-Json -Depth 5
 ```
-- Expected: `llmUsed: true`, `afterScore: 10`, `afterLevel: LOW`, 3-3-3 structure (1 deep, 3 quick wins, 3 maintenance, 0 deferred)
-- **Note:** If rate-limited, wait 186+ seconds, then retry
-
-**Step 4: Validate AFTER State (Playwright)**
+- Expected: `llmUsed: true`, `beforeScore: ~58`, `afterScore: ~8`, `afterLevel: LOW`, `actionsApplied: ~75`, 1-3-3-0 structure (1 deep, 3 quick wins, 3 maintenance, 0 deferred)**Step 4: Validate AFTER State (Playwright)**
 
 **4a. Check-In Page AFTER**
 - Navigate: `/checkin.html`
 - Fill form: username=`roryp`, repo=`roryp/burnout-app`
 - Click "Check My Stress" button
 - Wait for: `LOW` text appears
-- Screenshot: Capture full page (expect **10 STRESS SCORE, LOW, 32 issues, 3-3-3 Compliant**)
+- Screenshot: Capture full page (expect **~8 STRESS SCORE, LOW, 1-3-3-0 Compliant**)
 
 **4b. Flamegraph Page AFTER**
 - Navigate: `/flamegraph.html?repo=roryp/burnout-app&userId=roryp`
 - Wait for: `Stress Score` text appears
-- Screenshot: Capture full page (expect **10/100 stress, 90% Friday, 1-3-3-0 structure**)
+- Screenshot: Capture full page (expect **~8/100 stress, ~100% Friday, 1-3-3-0 structure**)
 
 **Step 5: Validate Study Dashboard (Playwright)**
 
 - Navigate: `/study.html`
 - Click "Load Data" button
 - Wait for: `roryp` text appears (participant list loads)
-- Screenshot: Capture full page (expect **118 snapshots, 5 participants, trend chart showing roryp 95→10 drop**)
+- Screenshot: Capture full page (expect **~118 snapshots, 5 participants, trend chart showing roryp's drop**)
 
 **Final Output: Validation Results Table**
 
 | Step | Page | Metric | Expected | Status |
 |------|------|--------|----------|--------|
-| BEFORE | Check-In | Stress Score | 100/CRITICAL | ✅ |
-| BEFORE | Check-In | Issues | 16, Non-compliant | ✅ |
-| BEFORE | Flamegraph | Stress | 100/100 | ✅ |
-| BEFORE | Flamegraph | Friday % | 10% | ✅ |
-| BEFORE | Flamegraph | Structure | 0-0-3-9 (deferred) | ✅ |
+| BEFORE | Check-In | Stress Score | ~58 / HIGH | ✅ |
+| BEFORE | Check-In | Compliance | Non-compliant | ✅ |
+| BEFORE | Flamegraph | Stress | ~58/100 | ✅ |
+| BEFORE | Flamegraph | Friday % | low | ✅ |
+| BEFORE | Flamegraph | Structure | deferred-heavy | ✅ |
 | API | Reshape | LLM Active | `llmUsed: true` | ✅ |
-| API | Reshape | New Score | 10/LOW | ✅ |
-| AFTER | Check-In | Stress Score | 10/LOW | ✅ |
-| AFTER | Check-In | Issues | 32, 3-3-3 Compliant | ✅ |
-| AFTER | Flamegraph | Stress | 10/100 | ✅ |
-| AFTER | Flamegraph | Friday % | 90% | ✅ |
+| API | Reshape | New Score | ~8 / LOW | ✅ |
+| API | Reshape | Actions | `actionsApplied: ~75` | ✅ |
+| AFTER | Check-In | Stress Score | ~8 / LOW | ✅ |
+| AFTER | Check-In | Compliance | 1-3-3-0 Compliant | ✅ |
+| AFTER | Flamegraph | Stress | ~8/100 | ✅ |
+| AFTER | Flamegraph | Friday % | ~100% | ✅ |
 | AFTER | Flamegraph | Structure | 1-3-3-0 (compliant) | ✅ |
 | Study | Dashboard | Snapshots | 118+ | ✅ |
 | Study | Dashboard | Participants | 5 (alice, bob, carol, dave, roryp) | ✅ |
@@ -376,6 +377,7 @@ Invoke-RestMethod -Method POST -Uri "$BASE_URL/demo/api/reshape" `
 | Sync rate-limited | Called within 5 minutes of previous sync | Wait for `retryAfterSeconds` value, then retry |
 | Screenshots show blank/loading | Page didn't finish rendering | Increase wait time or add additional `wait_for` call |
 | Wrong stress score in flamegraph | Missing `&userId=roryp` parameter | **CRITICAL:** Always include `&userId=roryp` — without it, stress calculated across ALL users |
+| Reshape didn't drop chaos | Bug in pre-pass or supervisor injection | Check logs for `Deterministic triage pre-pass:` and `Deterministic chaos defuser:` log lines |
 
 ## Agent Profile: Deploy App -> Verify (Deployment Flow)
 

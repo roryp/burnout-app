@@ -3,8 +3,16 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { config } from './config.js';
-import { getReshapeData, getStressScore, syncIssues, type ReshapeResponse, type StressResponse, type Issue } from './backend-client.js';
-import { getDemoReshapeData, getDemoStressData, getDemoIssues } from './demo-data.js';
+import {
+  getReshapeData,
+  getStressScore,
+  syncIssues,
+  type ReshapeResponse,
+  type StressResponse,
+  type Issue,
+  type MutationOutcome,
+} from './backend-client.js';
+import { getDemoReshapeData, getDemoStressData } from './demo-data.js';
 import { generateWheelUI } from './ui/burnout-wheel.js';
 import { generateFlamegraphUI } from './ui/burnout-flamegraph.js';
 
@@ -17,6 +25,40 @@ const server = new McpServer({
 // Helper to log to stderr (stdout is for MCP protocol)
 function log(message: string) {
   console.error(`[burnout-app] ${message}`);
+}
+
+// ============================================================================
+// Formatting helpers
+// ============================================================================
+
+function stressIndicator(score: number): string {
+  if (score < 0) return '⚪';
+  if (score < 30) return '🟢';
+  if (score < 60) return '🟡';
+  return '🔴';
+}
+
+function levelFromScore(score: number): string {
+  if (score < 0) return 'UNKNOWN';
+  if (score < 30) return 'LOW';
+  if (score < 60) return 'MODERATE';
+  return 'HIGH';
+}
+
+function formatBreakdown(breakdown: Record<string, number> | undefined): string {
+  if (!breakdown) return '';
+  const labels: Record<string, string> = {
+    workload: 'Workload',
+    chaos: 'Chaos',
+    contextSwitching: 'Context Switching',
+    clarity: 'Clarity',
+    sustained: 'Sustained Load',
+    afterHours: 'After Hours',
+  };
+  const lines = Object.entries(breakdown)
+    .filter(([, v]) => typeof v === 'number')
+    .map(([k, v]) => `- ${labels[k] ?? k}: ${v}`);
+  return lines.length ? `\n**Breakdown**\n${lines.join('\n')}` : '';
 }
 
 // ============================================================================
@@ -78,13 +120,14 @@ server.resource(
 );
 
 // ============================================================================
-// Tool: Show Day Plan (with UI visualization)
+// Tool: Show Burnout Wheel (read-only flamegraph view, dry-run)
 // ============================================================================
 
 server.registerTool(
   'show_burnout_wheel',
   {
-    description: 'Display an interactive flamegraph visualization for a GitHub repository. Shows deep work, quick wins, maintenance tasks, and stress score per issue.',
+    description:
+      'Display an interactive flamegraph visualization for a GitHub repository. Read-only — does not modify any issues.',
     inputSchema: {
       repo: z.string().describe('GitHub repository in owner/repo format'),
     },
@@ -102,16 +145,14 @@ server.registerTool(
       };
     }
     log(`show_burnout_wheel called for ${repo}`);
-    
+
     let data: ReshapeResponse;
     let isDemo = false;
-    
+
     try {
-      // Call with dryRun=true (applyMutations=false) - just get the plan, don't apply labels
       data = await getReshapeData(repo, undefined, false);
       log(`Backend returned data with stress score: ${data.stressScore}`);
-      
-      // If backend returns not-synced status, fall back to demo
+
       if (data.stressScore < 0) {
         log('Backend returned not-synced, using demo mode');
         data = getDemoReshapeData(repo);
@@ -123,37 +164,45 @@ server.registerTool(
       data = getDemoReshapeData(repo);
       isDemo = true;
     }
-    
-    // Build text summary for the model
+
     const plan = data.dayPlan;
-    const deepWork = plan?.deepWork ? `🎯 **Deep Work**: #${plan.deepWork.number} - ${plan.deepWork.title}` : '🎯 **Deep Work**: None';
-    const quickWins = `⚡ **Quick Wins** (${plan?.quickWins?.length || 0}): ${plan?.quickWins?.slice(0,3).map(i => `#${i.number}`).join(', ') || 'None'}`;
-    const maintenance = `🔧 **Maintenance** (${plan?.maintenance?.length || 0}): ${plan?.maintenance?.slice(0,3).map(i => `#${i.number}`).join(', ') || 'None'}`;
-    const stress = data.stressScore < 30 ? '🟢' : data.stressScore < 60 ? '🟡' : '🔴';
-    
+    const deepWork = plan?.deepWork
+      ? `🎯 **Deep Work**: #${plan.deepWork.number} - ${plan.deepWork.title}`
+      : '🎯 **Deep Work**: None';
+    const quickWins = `⚡ **Quick Wins** (${plan?.quickWins?.length || 0}): ${plan?.quickWins?.slice(0, 3).map(i => `#${i.number}`).join(', ') || 'None'}`;
+    const maintenance = `🔧 **Maintenance** (${plan?.maintenance?.length || 0}): ${plan?.maintenance?.slice(0, 3).map(i => `#${i.number}`).join(', ') || 'None'}`;
+    const deferred = `📦 **Deferred** (${plan?.deferred?.length || 0})`;
+    const indicator = stressIndicator(data.stressScore);
+    const level = data.stressLevel ?? levelFromScore(data.stressScore);
+
     const summary = [
       `## 📊 3-3-3 Day Plan for ${repo}`,
       '',
       deepWork,
       quickWins,
       maintenance,
+      deferred,
       '',
-      `${stress} **Stress Score**: ${data.stressScore}/100`,
+      `${indicator} **Stress Score**: ${data.stressScore}/100 (${level})`,
       `🎉 **Friday Score**: ${data.fridayScore}%`,
+      typeof data.expectedStressScore === 'number' && data.expectedStressScore !== data.stressScore
+        ? `🔮 **Projected after reshape**: ${data.expectedStressScore}/100 (drop of ${Math.max(0, data.stressScore - data.expectedStressScore)})`
+        : '',
       '',
-      isDemo ? '*Demo data - connect backend for real issues*' : '',
+      isDemo ? '*Demo data - sync the repo for real issues*' : '',
     ].filter(Boolean).join('\n');
-    
+
     return {
       content: [{
         type: 'text' as const,
         text: summary,
       }],
-      // SEP-1865: structuredContent for the UI panel
       structuredContent: {
         repo,
         dayPlan: data.dayPlan,
         stressScore: data.stressScore,
+        stressLevel: level,
+        expectedStressScore: data.expectedStressScore,
         fridayScore: data.fridayScore,
         agentExplanation: data.agentExplanation,
         isDemo,
@@ -163,12 +212,12 @@ server.registerTool(
 );
 
 // ============================================================================
-// Tool: Reshape Day (AI agent analysis)
+// Tool: Reshape Day (deterministic pre-pass + LangChain4j supervisor)
 // ============================================================================
 
 server.tool(
   'reshape_day',
-  'AI-powered workload optimization that analyzes your GitHub issues and automatically applies labels (deep-work, quick-win, maintenance) to organize them into the 3-3-3 structure.',
+  'Run the deterministic pre-pass (triageUrgent + defuseChaosInputs) then the LangChain4j supervisor with 6 sub-agents. Applies the resulting GitHub label/comment changes. Surfaces BEFORE→AFTER stress drop.',
   {
     repo: z.string().describe('GitHub repository in owner/repo format'),
   },
@@ -179,55 +228,97 @@ server.tool(
       };
     }
     log(`reshape_day called for ${repo}`);
-    
-    // Progress notification
+
     const progressToken = (extra as any)._meta?.progressToken;
-    
-    if (progressToken !== undefined) {
-      await (extra as any).sendNotification?.({
-        method: 'notifications/progress',
-        params: { progressToken, progress: 0, message: `🔄 Analyzing ${repo}...` },
-      });
-    }
-    
-    let data: ReshapeResponse;
+    const sendProgress = async (progress: number, message: string) => {
+      if (progressToken === undefined) return;
+      try {
+        await (extra as any).sendNotification?.({
+          method: 'notifications/progress',
+          params: { progressToken, progress, message },
+        });
+      } catch {
+        // best-effort — clients can drop progress
+      }
+    };
+
+    await sendProgress(0, `🔄 Analyzing ${repo}...`);
+    await sendProgress(25, '🧹 Deterministic pre-pass (triage + chaos defuser)...');
+    await sendProgress(50, '🤖 Supervisor + 6 sub-agents...');
+
+    let data: ReshapeResponse & { mutationOutcome?: MutationOutcome };
     let isDemo = false;
-    
+
     try {
-      // Pass applyMutations: true to execute AI-recommended label changes
       data = await getReshapeData(repo, undefined, true);
+      if (data.stressScore < 0) {
+        log('Backend returned not-synced, using demo mode');
+        data = getDemoReshapeData(repo);
+        isDemo = true;
+      }
     } catch (error) {
       log(`Backend unavailable: ${error}`);
       data = getDemoReshapeData(repo);
       isDemo = true;
     }
-    
-    if (progressToken !== undefined) {
-      await (extra as any).sendNotification?.({
-        method: 'notifications/progress',
-        params: { progressToken, progress: 100, message: `✅ Plan ready!` },
-      });
-    }
-    
-    const mutationsApplied = data.actionPlan?.actions?.length || 0;
-    
+
+    await sendProgress(100, '✅ Plan ready!');
+
+    const totalActions = data.actionPlan?.actions?.length || 0;
+    const outcome = data.mutationOutcome;
+    const before = data.stressScore;
+    const after = typeof data.expectedStressScore === 'number' ? data.expectedStressScore : before;
+    const drop = Math.max(0, before - after);
+    const beforeLevel = data.stressLevel ?? levelFromScore(before);
+    const afterLevel = levelFromScore(after);
+    const llmTag = data.llmEnabled === false ? ' *(deterministic fallback — LLM unavailable)*' : '';
+    const triaged = data.deterministicTriageCount ?? 0;
+    const defused = data.deterministicDefuseCount ?? 0;
+    const afterHours = data.afterHoursIssues ?? 0;
+    const prePassLine = (triaged > 0 || defused > 0)
+      ? `🧹 **Deterministic pre-pass**: triaged ${triaged} unassigned-urgent · defused ${defused} chaos input(s)`
+      : '';
+    const afterHoursLine = afterHours > 0
+      ? `🌙 **After-hours issues (before reshape)**: ${afterHours}`
+      : '';
+
     const summary = [
-      `## 📊 3-3-3 Day Plan for ${repo}`,
+      `## 📊 Reshape Complete — ${repo}${llmTag}`,
       '',
-      data.dayPlan.deepWork 
+      `${stressIndicator(before)} **Before**: ${before}/100 (${beforeLevel})`,
+      `${stressIndicator(after)} **After**:  ${after}/100 (${afterLevel})`,
+      drop > 0 ? `📉 **Drop**: -${drop} points` : '',
+      prePassLine,
+      afterHoursLine,
+      '',
+      data.dayPlan.deepWork
         ? `🎯 **Deep Work**: #${data.dayPlan.deepWork.number} - ${data.dayPlan.deepWork.title}`
         : '🎯 **Deep Work**: None assigned',
-      `⚡ **Quick Wins**: ${data.dayPlan.quickWins.length} tasks`,
-      `🔧 **Maintenance**: ${data.dayPlan.maintenance.length} tasks`,
-      `📦 **Deferred**: ${data.dayPlan.deferred.length} tasks`,
+      `⚡ **Quick Wins**: ${data.dayPlan.quickWins.length}`,
+      `🔧 **Maintenance**: ${data.dayPlan.maintenance.length}`,
+      `📦 **Deferred**: ${data.dayPlan.deferred.length}`,
       '',
-      `**Stress Score**: ${data.stressScore}/100`,
-      `**Friday Score**: ${data.fridayScore}%`,
+      `🎉 **Friday Score**: ${data.fridayScore}%`,
       '',
-      mutationsApplied > 0 ? `✨ Applied ${mutationsApplied} label changes to GitHub` : '',
-      isDemo ? '*⚠️ Demo data - backend not available*' : '',
+      isDemo
+        ? '*⚠️ Demo data — backend not synced or unreachable*'
+        : outcome
+          ? `✨ **GitHub mutations**: ${outcome.applied} applied, ${outcome.skipped} skipped, ${outcome.failed} failed (of ${totalActions} planned)`
+          : totalActions > 0
+            ? `📝 **Planned mutations**: ${totalActions} (none executed — dry run)`
+            : '',
+      data.protectiveTriggered && data.protectiveMessage
+        ? `\n💚 **Protective**: ${data.protectiveMessage}`
+        : '',
+      // Surface the full agent explanation (deterministic pre-pass header,
+      // LLM summary, wellness recommendation block, and outcome footer)
+      // so the audience sees what the supervisor + WellnessAgent actually
+      // recommended — not just a stress score.
+      data.agentExplanation
+        ? `\n---\n${data.agentExplanation}`
+        : '',
     ].filter(Boolean).join('\n');
-    
+
     return {
       content: [{
         type: 'text',
@@ -236,10 +327,17 @@ server.tool(
       structuredContent: {
         repo,
         dayPlan: data.dayPlan,
-        stressScore: data.stressScore,
+        stressScore: before,
+        expectedStressScore: after,
+        stressLevel: beforeLevel,
         fridayScore: data.fridayScore,
         agentExplanation: data.agentExplanation,
         mutations: data.actionPlan?.actions || [],
+        mutationOutcome: outcome,
+        llmEnabled: data.llmEnabled !== false,
+        deterministicTriageCount: triaged,
+        deterministicDefuseCount: defused,
+        afterHoursIssues: afterHours,
         isDemo,
       },
       _meta: {
@@ -257,7 +355,7 @@ server.tool(
 
 server.tool(
   'get_stress_score',
-  'Get a quick stress score (0-100) based on your open issues. Returns LOW (🟢), MODERATE (🟡), or HIGH (🔴) stress level.',
+  'Get a quick stress score (0-100) and 6-metric breakdown (workload, chaos, context switching, clarity, sustained load, after hours).',
   {
     repo: z.string().describe('GitHub repository in owner/repo format'),
   },
@@ -268,28 +366,55 @@ server.tool(
       };
     }
     log(`get_stress_score called for ${repo}`);
-    
+
     let data: StressResponse;
     let isDemo = false;
-    
+
     try {
       data = await getStressScore(repo);
+      if (data.stressScore < 0) {
+        data = getDemoStressData();
+        isDemo = true;
+      }
     } catch (error) {
       log(`Backend unavailable: ${error}`);
       data = getDemoStressData();
       isDemo = true;
     }
-    
+
     const score = data.stressScore ?? 0;
-    const level = data.stressLevel ?? 'UNKNOWN';
-    const indicator = score < 30 ? '🟢' : score < 60 ? '🟡' : '🔴';
-    const demoNote = isDemo ? ' *(demo data)*' : '';
-    
+    const level = data.stressLevel ?? levelFromScore(score);
+    const indicator = stressIndicator(score);
+    const projected =
+      typeof data.expectedStressScore === 'number' &&
+      data.expectedStressScore !== score
+        ? `\n🔮 **Projected after reshape**: ${data.expectedStressScore}/100`
+        : '';
+    const compliance =
+      typeof data.is333Compliant === 'boolean'
+        ? `\n✅ **3-3-3 Compliant**: ${data.is333Compliant ? 'yes' : 'no'}`
+        : '';
+    const demoNote = isDemo ? '\n\n*⚠️ Demo data — backend not synced or unreachable*' : '';
+
+    const text = [
+      `${indicator} **Stress Score**: ${score}/100 (${level})`,
+      formatBreakdown(data.breakdown),
+      projected,
+      compliance,
+      demoNote,
+    ].filter(Boolean).join('');
+
     return {
-      content: [{
-        type: 'text',
-        text: `${indicator} **Stress Score**: ${score}/100 (${level})${demoNote}`,
-      }],
+      content: [{ type: 'text', text }],
+      structuredContent: {
+        repo,
+        stressScore: score,
+        stressLevel: level,
+        breakdown: data.breakdown,
+        expectedStressScore: data.expectedStressScore,
+        is333Compliant: data.is333Compliant,
+        isDemo,
+      },
     };
   }
 );
@@ -300,7 +425,7 @@ server.tool(
 
 server.tool(
   'sync_issues',
-  'Fetch open issues from GitHub and sync them to the backend for analysis. Required before using other tools. Works with public and private repos.',
+  'Fetch open issues from GitHub via gh CLI and sync them to the backend. Required before using other tools. Works with public and private repos.',
   {
     repo: z.string().describe('GitHub repository in owner/repo format'),
   },
@@ -311,10 +436,9 @@ server.tool(
       };
     }
     log(`sync_issues called for ${repo}`);
-    
+
     let issues: Issue[];
-    let errorMessage = '';
-    
+
     try {
       issues = await syncIssues(repo);
       return {
@@ -322,13 +446,14 @@ server.tool(
           type: 'text',
           text: `✅ Synced ${issues.length} issues from ${repo}`,
         }],
+        structuredContent: { repo, count: issues.length },
       };
     } catch (error) {
       const err = error as Error;
-      errorMessage = err.message || String(error);
+      const errorMessage = err.message || String(error);
       log(`Sync failed: ${errorMessage}`);
-      
-      // Check if it's a gh CLI error
+
+      // gh CLI errors
       if (errorMessage.includes('gh') || errorMessage.includes('Command failed')) {
         return {
           content: [{
@@ -337,8 +462,7 @@ server.tool(
           }],
         };
       }
-      
-      // Backend error
+
       return {
         content: [{
           type: 'text',
@@ -356,10 +480,10 @@ server.tool(
 async function main() {
   log('Starting burnout-app MCP server...');
   log(`Backend URL: ${config.backendUrl}`);
-  
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  
+
   log('Server connected and ready');
 }
 
