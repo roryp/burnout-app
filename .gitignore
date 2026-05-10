@@ -51,3 +51,4 @@ docs/images/demo/copilot-workflow.webm
 scripts/record-copilot-workflow.mjs
 docs/generate_timeline.py
 script.txt
+archive-*.zip

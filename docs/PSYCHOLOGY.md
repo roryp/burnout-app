@@ -118,7 +118,7 @@ The flamegraph transforms abstract numbers into visceral visualization. Fire = d
 
 Alex's BEFORE state — 12 issues with no labels, all in Deferred:
 
-<img src="images/flamegraph-before.png" alt="Flamegraph showing 12 unclassified issues all in Deferred" width="800"/>
+<img src="images/demo/flamegraph-before.png" alt="Flamegraph showing 12 unclassified issues all in Deferred" width="800"/>
 
 *All 12 issues in Deferred because none have classification labels. No structure at all.*
 
@@ -126,7 +126,7 @@ Alex's BEFORE state — 12 issues with no labels, all in Deferred:
 
 The `reshape_day` tool applies the mutation plan. Labels are added, comments posted, issues deferred. Chaos becomes structure:
 
-<img src="images/flamegraph-after.png" alt="Flamegraph after reshaping showing 1 Deep Work, 3 Quick Wins, 3 Maintenance, 5 Deferred" width="800"/>
+<img src="images/demo/flamegraph-after.png" alt="Flamegraph after reshaping showing 1 Deep Work, 3 Quick Wins, 3 Maintenance, 5 Deferred" width="800"/>
 
 *AFTER: 1 Deep Work, 3 Quick Wins, 3 Maintenance, 5 Deferred. Same 12 issues, now with a plan.*
 
