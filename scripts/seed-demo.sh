@@ -1,33 +1,33 @@
 #!/bin/bash
 # =============================================================================
-# Demo Seed Script for Burnout-as-a-Service
+# Demo Seed Script for Burnout-as-a-Service (bash)
 # =============================================================================
-# Seeds the backend with realistic issue data + study snapshots so all stress
-# metrics are populated for live demos.
+# Mirrors scripts/seed-demo.ps1 — fetches REAL GitHub issues for roryp/burnout-app
+# and overlays a chaos pattern that produces stress=58/HIGH (matches README).
 #
 # Usage:
-#   bash scripts/seed-demo.sh                          # seeds BEFORE (chaotic) state
-#   bash scripts/seed-demo.sh http://localhost:8080 after   # seeds BEFORE then runs reshape
-#   bash scripts/seed-demo.sh https://your-app.azurecontainerapps.io before
+#   bash scripts/seed-demo.sh                                                    # local, BEFORE
+#   bash scripts/seed-demo.sh https://your-app.azurecontainerapps.io
+#   bash scripts/seed-demo.sh https://your-app.azurecontainerapps.io after
 #
 # What it does:
-#   1. Seeds 16 chaotic issues into IssueCache
-#   2. (AFTER mode) Calls /demo/api/reshape to run the real supervisor agent
-#   3. Runs 3 checkins each for roryp, alice, bob to generate study snapshots
-#   4. Seeds 14 days of dummy study data (alice, bob, carol, dave, roryp)
+#   1. Fetches up to 30 open issues from github.com/roryp/burnout-app
+#   2. Drops PRs, takes first 16
+#   3. Overlays chaos:
+#        - First 3  -> unassigned + urgent/priority:critical + after-hours updatedAt
+#        - Next 3   -> URGENT assigned to alice/bob/carol (teammate fires)
+#        - Last 10  -> assigned to roryp + last-100-min staggered updatedAt
+#        - All bodies blanked (Clarity hit)
+#   4. POSTs to /demo/api/seed
+#   5. (AFTER mode) Calls /demo/api/reshape
+#   6. Runs 3 checkins each for roryp/alice/bob
+#   7. Re-seeds chaotic issues so the cache reflects the demo state
+#   8. Seeds 14 days of study history
 #
-# BEFORE mode: All issues assigned to roryp, blank bodies, after-hours updates,
-#   multiple URGENT unassigned items → stress score ~100 (CRITICAL)
+# Expected result: roryp -> stress 58 (HIGH).  (After reshape: ~8 / LOW.)
+# Falls back to a 16-issue synthetic set when GitHub is unreachable / rate-limited.
 #
-# AFTER mode: Seeds the same chaotic issues, then calls the reshape endpoint
-#   which runs the real supervisor agent (LLM or deterministic fallback) to
-#   reorganize the workload. No hardcoded AFTER state.
-#
-# After running, open:
-#   - /                    → landing page with links to all pages
-#   - /checkin.html         → stress check-in (enter roryp + roryp/burnout-app)
-#   - /flamegraph.html      → flamegraph visualization
-#   - /study.html           → researcher dashboard (click Load Data)
+# Requires: bash, curl, jq
 # =============================================================================
 
 set -euo pipefail
@@ -35,6 +35,12 @@ set -euo pipefail
 BASE_URL="${1:-http://localhost:8080}"
 MODE="${2:-before}"
 REPO="roryp/burnout-app"
+
+if ! command -v jq >/dev/null 2>&1; then
+    echo "❌ jq is required but not installed. Install via: apt-get install jq | brew install jq | choco install jq" >&2
+    echo "   On Windows, prefer scripts/seed-demo.ps1 which has no external dependencies." >&2
+    exit 1
+fi
 
 echo "🔥 Seeding demo data ($MODE) on $BASE_URL ..."
 
@@ -89,8 +95,9 @@ fi
 
 # Build chaos overlay via jq:
 #   - Take up to 16 issues, drop pull_requests
-#   - First 6 → unassigned URGENT + after-hours timestamps
-#   - Rest → assigned to roryp + last-60-min staggered timestamps
+#   - First 3 → unassigned URGENT + after-hours timestamps (pre-pass triages these)
+#   - Next 3  → URGENT assigned to alice/bob/carol (teammate fires)
+#   - Last 10 → assigned to roryp + last-100-min staggered timestamps
 #   - All bodies blanked (Clarity), camelCase fields
 ISSUES=$(echo "$RAW_ISSUES" | jq \
     --arg ah1 "$AH1" --arg ah2 "$AH2" --arg ah3 "$AH3" \
@@ -99,8 +106,11 @@ ISSUES=$(echo "$RAW_ISSUES" | jq \
     --arg week "$WEEK_AGO" --arg month "$MONTH_AGO" '
     [ .[] | select(.pull_request | not) ] | .[0:16] |
     [ to_entries[] | .key as $i | .value |
-        ($i < 6) as $is_urgent |
-        [$ah1,$ah2,$ah3,$ah1,$ah2,$ah3] as $ah |
+        ($i < 3) as $is_unassigned_urgent |
+        (($i >= 3) and ($i < 6)) as $is_teammate_urgent |
+        ($is_unassigned_urgent or $is_teammate_urgent) as $is_urgent |
+        ["alice","bob","carol"] as $teammates |
+        [$ah1,$ah2,$ah3] as $ah |
         [$r1,$r2,$r3,$r4,$r5,$r6,$r7,$r8,$r9,$r10] as $recent |
         {
             number: .number,
@@ -110,7 +120,11 @@ ISSUES=$(echo "$RAW_ISSUES" | jq \
                 [ .labels[]? | {name: .name} ] +
                 (if $is_urgent then [{name:"urgent"},{name:"priority:critical"}] else [] end)
             ),
-            assignees: (if $is_urgent then [] else [{login:"roryp"}] end),
+            assignees: (
+                if $is_unassigned_urgent then []
+                elif $is_teammate_urgent then [{login: $teammates[($i - 3) % 3]}]
+                else [{login:"roryp"}] end
+            ),
             createdAt: (if $is_urgent then $month else $week end),
             updatedAt: (if $is_urgent then $ah[$i % 3] else $recent[($i - 6) % 10] end),
             state: "open"
@@ -120,35 +134,60 @@ ISSUES=$(echo "$RAW_ISSUES" | jq \
 
 ISSUE_COUNT=$(echo "$ISSUES" | jq 'length')
 if [ "$ISSUE_COUNT" -lt 4 ]; then
-    echo "⚠️  Only $ISSUE_COUNT real issues fetched — chaos overlay needs ≥4. Falling back to synthetic." >&2
+    echo "⚠️  Only $ISSUE_COUNT real issues fetched — using 16-issue synthetic fallback." >&2
     ISSUES="[
-        {\"number\":1,\"title\":\"Critical auth bypass in OAuth flow\",\"body\":\"\",\"labels\":[{\"name\":\"priority:critical\"},{\"name\":\"security\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$WEEK_AGO\",\"updatedAt\":\"$R1\",\"state\":\"open\"},
-        {\"number\":2,\"title\":\"URGENT: Production memory leak\",\"body\":\"\",\"labels\":[{\"name\":\"urgent\"},{\"name\":\"bug\"}],\"assignees\":[],\"createdAt\":\"$TWO_WEEKS\",\"updatedAt\":\"$AH1\",\"state\":\"open\"},
-        {\"number\":3,\"title\":\"URGENT: Database connection pool exhaustion\",\"body\":\"\",\"labels\":[{\"name\":\"urgent\"},{\"name\":\"priority:critical\"}],\"assignees\":[],\"createdAt\":\"$MONTH_AGO\",\"updatedAt\":\"$AH3\",\"state\":\"open\"},
-        {\"number\":4,\"title\":\"Fix typo in README\",\"body\":\"\",\"labels\":[{\"name\":\"good-first-issue\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$WEEK_AGO\",\"updatedAt\":\"$R4\",\"state\":\"open\"}
+        {\"number\":1,\"title\":\"Critical auth bypass in OAuth flow\",\"body\":\"\",\"labels\":[{\"name\":\"priority:critical\"},{\"name\":\"security\"},{\"name\":\"urgent\"}],\"assignees\":[],\"createdAt\":\"$MONTH_AGO\",\"updatedAt\":\"$AH1\",\"state\":\"open\"},
+        {\"number\":2,\"title\":\"URGENT: Production memory leak\",\"body\":\"\",\"labels\":[{\"name\":\"bug\"},{\"name\":\"urgent\"},{\"name\":\"priority:critical\"}],\"assignees\":[],\"createdAt\":\"$MONTH_AGO\",\"updatedAt\":\"$AH2\",\"state\":\"open\"},
+        {\"number\":3,\"title\":\"URGENT: API rate limiting broken\",\"body\":\"\",\"labels\":[{\"name\":\"bug\"},{\"name\":\"urgent\"},{\"name\":\"priority:critical\"}],\"assignees\":[],\"createdAt\":\"$MONTH_AGO\",\"updatedAt\":\"$AH3\",\"state\":\"open\"},
+        {\"number\":4,\"title\":\"URGENT: Database connection pool exhaustion\",\"body\":\"\",\"labels\":[{\"name\":\"priority:critical\"},{\"name\":\"urgent\"}],\"assignees\":[{\"login\":\"alice\"}],\"createdAt\":\"$MONTH_AGO\",\"updatedAt\":\"$AH1\",\"state\":\"open\"},
+        {\"number\":5,\"title\":\"Refactor agent orchestration layer\",\"body\":\"\",\"labels\":[{\"name\":\"architecture\"},{\"name\":\"urgent\"},{\"name\":\"priority:critical\"}],\"assignees\":[{\"login\":\"bob\"}],\"createdAt\":\"$MONTH_AGO\",\"updatedAt\":\"$AH2\",\"state\":\"open\"},
+        {\"number\":6,\"title\":\"Implement new feature flags system\",\"body\":\"\",\"labels\":[{\"name\":\"epic\"},{\"name\":\"feature\"},{\"name\":\"urgent\"},{\"name\":\"priority:critical\"}],\"assignees\":[{\"login\":\"carol\"}],\"createdAt\":\"$MONTH_AGO\",\"updatedAt\":\"$AH3\",\"state\":\"open\"},
+        {\"number\":7,\"title\":\"Fix typo in README\",\"body\":\"\",\"labels\":[{\"name\":\"good-first-issue\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$WEEK_AGO\",\"updatedAt\":\"$R1\",\"state\":\"open\"},
+        {\"number\":8,\"title\":\"Update Spring Boot to 3.5.11\",\"body\":\"\",\"labels\":[{\"name\":\"dependencies\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$WEEK_AGO\",\"updatedAt\":\"$R2\",\"state\":\"open\"},
+        {\"number\":9,\"title\":\"Something unclear\",\"body\":\"\",\"labels\":[{\"name\":\"bug\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$WEEK_AGO\",\"updatedAt\":\"$R3\",\"state\":\"open\"},
+        {\"number\":10,\"title\":\"Another vague issue\",\"body\":\"\",\"labels\":[{\"name\":\"bug\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$WEEK_AGO\",\"updatedAt\":\"$R4\",\"state\":\"open\"},
+        {\"number\":11,\"title\":\"CI pipeline failing intermittently\",\"body\":\"\",\"labels\":[{\"name\":\"ci\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$WEEK_AGO\",\"updatedAt\":\"$R5\",\"state\":\"open\"},
+        {\"number\":12,\"title\":\"Write API documentation\",\"body\":\"\",\"labels\":[{\"name\":\"documentation\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$WEEK_AGO\",\"updatedAt\":\"$R6\",\"state\":\"open\"},
+        {\"number\":13,\"title\":\"Add dark mode toggle\",\"body\":\"\",\"labels\":[{\"name\":\"enhancement\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$WEEK_AGO\",\"updatedAt\":\"$R7\",\"state\":\"open\"},
+        {\"number\":14,\"title\":\"Fix CORS headers on demo endpoints\",\"body\":\"\",\"labels\":[{\"name\":\"bug\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$WEEK_AGO\",\"updatedAt\":\"$R8\",\"state\":\"open\"},
+        {\"number\":15,\"title\":\"Stale tracking issue from last quarter\",\"body\":\"\",\"labels\":[{\"name\":\"triage\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$WEEK_AGO\",\"updatedAt\":\"$R9\",\"state\":\"open\"},
+        {\"number\":16,\"title\":\"Upgrade Node.js to v22\",\"body\":\"\",\"labels\":[{\"name\":\"dependencies\"}],\"assignees\":[{\"login\":\"roryp\"}],\"createdAt\":\"$WEEK_AGO\",\"updatedAt\":\"$R10\",\"state\":\"open\"}
     ]"
 else
     echo "  ↳ Fetched $ISSUE_COUNT real issues from GitHub; applied chaos overlay."
 fi
 
 # --- Step 1: Seed chaotic issues ---
-curl -s -X POST "$BASE_URL/demo/api/seed" \
+SEED_RESULT=$(curl -s -X POST "$BASE_URL/demo/api/seed" \
   -H 'Content-Type: application/json' \
-  -d "{\"repo\":\"$REPO\",\"issues\":$ISSUES}" | python3 -m json.tool 2>/dev/null || cat
+  -d "{\"repo\":\"$REPO\",\"issues\":$ISSUES}")
+SEEDED_COUNT=$(echo "$SEED_RESULT" | jq -r '.issueCount // empty')
+SEEDED_REPO=$(echo "$SEED_RESULT" | jq -r '.repo // empty')
+if [ -n "$SEEDED_COUNT" ]; then
+    APPLIED_COUNT=$(echo "$ISSUES" | jq 'length')
+    echo "  Seeded $SEEDED_COUNT issues for $SEEDED_REPO (overlayed chaos on $APPLIED_COUNT real titles)"
+else
+    echo "$SEED_RESULT"
+fi
 
 # --- Step 2 (AFTER mode only): Call reshape endpoint ---
 if [ "$MODE" = "after" ]; then
     echo ""
-    echo "🤖 Step 2/4: Running reshape (supervisor agent)..."
+    echo "🤖 Step 2/4: Running reshape (deterministic pre-pass + supervisor)..."
     RESHAPE_RESULT=$(curl -s -X POST "$BASE_URL/demo/api/reshape" \
       -H 'Content-Type: application/json' \
       -d "{\"repo\":\"$REPO\",\"userId\":\"roryp\"}")
-    echo "$RESHAPE_RESULT" | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-print(f\"  Before: {d['beforeScore']} -> After: {d['afterScore']} ({d['afterLevel']})\")
-print(f\"  Actions applied: {d['actionsApplied']}, LLM used: {d['llmUsed']}\")
-" 2>/dev/null || echo "$RESHAPE_RESULT"
+    BEFORE=$(echo "$RESHAPE_RESULT" | jq -r '.beforeScore // "?"')
+    AFTER=$(echo "$RESHAPE_RESULT" | jq -r '.afterScore // "?"')
+    LEVEL=$(echo "$RESHAPE_RESULT" | jq -r '.afterLevel // "?"')
+    ACTIONS=$(echo "$RESHAPE_RESULT" | jq -r '.actionsApplied // "?"')
+    LLM_USED=$(echo "$RESHAPE_RESULT" | jq -r '.llmUsed // "?"')
+    if [ "$BEFORE" != "?" ]; then
+        echo "  Before: $BEFORE -> After: $AFTER ($LEVEL)"
+        echo "  Actions applied: $ACTIONS, LLM used: $LLM_USED"
+    else
+        echo "$RESHAPE_RESULT"
+    fi
 fi
 
 # --- Checkins ---
@@ -165,8 +204,8 @@ for user in roryp alice bob; do
     RESULT=$(curl -s -X POST "$BASE_URL/demo/api/checkin" \
       -H 'Content-Type: application/json' \
       -d "{\"userId\":\"$user\",\"repo\":\"$REPO\",\"selfScore\":$SELF}")
-    SCORE=$(echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['stressScore'])" 2>/dev/null || echo "?")
-    LEVEL=$(echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['stressLevel'])" 2>/dev/null || echo "?")
+    SCORE=$(echo "$RESULT" | jq -r '.stressScore // "?"')
+    LEVEL=$(echo "$RESULT" | jq -r '.stressLevel // "?"')
     echo "  $user checkin $i: score=$SCORE level=$LEVEL"
   done
 done
@@ -191,7 +230,14 @@ else
     STUDY_STEP="Step 3/3"
 fi
 echo "📈 $STUDY_STEP: Seeding 14 days of study history..."
-curl -s -X POST "$BASE_URL/demo/api/study/seed" | python3 -m json.tool 2>/dev/null || cat
+STUDY_RESULT=$(curl -s -X POST "$BASE_URL/demo/api/study/seed")
+STUDY_COUNT=$(echo "$STUDY_RESULT" | jq -r '.seeded // empty')
+STUDY_USERS=$(echo "$STUDY_RESULT" | jq -r '.users // [] | join(", ")')
+if [ -n "$STUDY_COUNT" ]; then
+    echo "  Seeded $STUDY_COUNT snapshots for $STUDY_USERS"
+else
+    echo "$STUDY_RESULT"
+fi
 
 # --- Validate ---
 echo ""
@@ -199,17 +245,14 @@ echo "📊 Validation for roryp:"
 RESULT=$(curl -s -X POST "$BASE_URL/demo/api/checkin" \
   -H 'Content-Type: application/json' \
   -d "{\"userId\":\"roryp\",\"repo\":\"$REPO\",\"selfScore\":50}")
-echo "$RESULT" | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-b = d['breakdown']
-print(f\"   Stress: {d['stressScore']} ({d['stressLevel']})\")
-print(f\"   Workload={b['workload']} Chaos={b['chaos']} CtxSwitch={b['contextSwitching']} Clarity={b['clarity']} Sustained={b['sustained']} AfterHrs={b['afterHours']}\")
-" 2>/dev/null || echo "$RESULT"
+echo "$RESULT" | jq -r '
+    "   Stress: \(.stressScore) (\(.stressLevel))",
+    "   Workload=\(.breakdown.workload) Chaos=\(.breakdown.chaos) CtxSwitch=\(.breakdown.contextSwitching) Clarity=\(.breakdown.clarity) Sustained=\(.breakdown.sustained) AfterHrs=\(.breakdown.afterHours)"
+' 2>/dev/null || echo "$RESULT"
 
 echo ""
 echo "✅ Demo data seeded ($MODE)! Open these pages:"
-echo "   ${BASE_URL}/                              → Landing page"
-echo "   ${BASE_URL}/checkin.html              → Stress check-in (use: roryp / roryp/burnout-app)"
-echo "   ${BASE_URL}/flamegraph.html?repo=roryp/burnout-app  → Flamegraph"
-echo "   ${BASE_URL}/study.html                → Study dashboard (click Load Data)"
+echo "   ${BASE_URL}/                              -> Landing page"
+echo "   ${BASE_URL}/checkin.html              -> Stress check-in (use: roryp / roryp/burnout-app)"
+echo "   ${BASE_URL}/flamegraph.html?repo=roryp/burnout-app  -> Flamegraph"
+echo "   ${BASE_URL}/study.html                -> Study dashboard (click Load Data)"
