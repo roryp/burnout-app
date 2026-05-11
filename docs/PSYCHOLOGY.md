@@ -311,18 +311,21 @@ Note: protection fires at **2** consecutive high days, but the fallback message 
 
 Should you deploy on Friday? The system uses a **Friday deploy readiness** score (0–100) to make that decision legible, and [FridayDeployAiService.java](../backend/src/main/java/com/demo/burnout/agent/FridayDeployAiService.java) turns that score into a human-readable recommendation. In other words, the service explains the readiness state rather than acting as the source of truth for the calculation itself. The value of this step is less about prediction and more about discipline: it helps counter **optimism bias** (“it’ll be fine”) and **completion bias** (“just ship it before the weekend”) by making operational risk explicit.
 
-A lower readiness score reflects accumulating delivery risk signals such as high chaos, structural non-compliance, unassigned urgent work, after-hours activity, and poor issue quality.
+A lower readiness score reflects accumulating delivery risk signals: a day plan that isn't in 1-3-3-0 shape, unscoped issues, unassigned urgent work, and sustained after-hours fatigue. The formula lives in [`FridayScoreFormula.java`](../backend/src/main/java/com/demo/burnout/util/FridayScoreFormula.java) and is the single source of truth used by `/demo/api/flamegraph`, `/demo/api/reshape`, `/api/reshape`, and `/api/friday-score`. Each signal is counted **at most once** — the previous formula passed the rolled-up chaos score as a cost input alongside individual penalties for after-hours, mystery meat, and urgent-unassigned, which double-counted because those three signals are also components of `chaos.score`. The new formula consumes the underlying signals directly and ignores the rolled-up chaos number.
 
 | Condition | Deduction |
 |-----------|-----------|
-| chaos > 5 | −20 |
-| chaos > 8 | −20 (cumulative: −40) |
-| !isCompliant | −15 |
-| urgentUnassigned > 0 | −15 |
-| afterHoursSignal | −10 |
-| mysteryMeatCount > 3 | −10 |
+| Day plan not 1-3-3-0 compliant (deepWork > 1, quickWins > 3, or maintenance > 3) | −25 |
+| Mystery meat (empty body) on more than 3 open issues | −20 |
+| Mystery meat on 1–3 open issues | −10 |
+| Any urgent / `priority:critical` issue unassigned | −15 |
+| Sustained after-hours activity (binary signal) | −10 |
 
-**Readiness bands:** ≥ 80 READY 🟢, 50–79 CAUTION 🟡, < 50 NOT_READY 🔴.
+**Readiness bands:** ≥ 80 READY 🟢 (Friday deploy possible), 50–79 CAUTION 🟡 (Friday deploy possible with eyes open), < 50 NOT_READY 🔴 (defer to Monday).
+
+Day-plan compliance is the **structural** 1-3-3-0 check derived from `compliance.bucketCounts()`, not `ComplianceReport.isCompliant()` — the latter also fires on signals like `EXCESSIVE_CONTEXT_SWITCHING` that are already inside the chaos score, so using it would double-count again. Two chaos components are deliberately **not** part of the Friday formula: `distinctLabelCount` (better organisation is not a deploy risk) and `issuesTouchedToday` (normal dev activity is not a deploy risk). They still live in `chaos.score` for the stress breakdown — they just don't gate deploys.
+
+After a reshape, `/demo/api/reshape` recomputes the Friday score against the post-mutation state and surfaces it on the response as `fridayScore` plus a `fridayStatus` string like `"READY — Friday deploy possible"`. The same values are appended to the `explanation` footer (`**🚀 Friday deploy:** 90/100 — READY — Friday deploy possible.`) so the prose surfaced to the user is always grounded in the same number the flamegraph page shows.
 
 ## 11. Calendar Fragmentation
 
@@ -474,9 +477,9 @@ Five binary signals, each worth two points, capping at 10 — [ChaosMetricsServi
 
 ### Friday deploy scoring
 
-The Friday deploy readiness score is intentionally conservative: it starts from an ideal state and drops as operational risk signals accumulate. High chaos has the biggest impact, while non-compliance, unassigned urgent work, after-hours activity, and poor issue quality further reduce confidence. [FridayDeployAiService.java](../backend/src/main/java/com/demo/burnout/agent/FridayDeployAiService.java) uses that score to generate a calm release recommendation in plain language, making the decision easier to communicate and harder to rationalize emotionally.
+The Friday deploy readiness score is intentionally conservative: it starts from an ideal state and drops as operational risk signals accumulate. The biggest single deduction is the day-plan structure — a day that isn't in 1-3-3-0 shape costs 25 points, because that's what the reshape is actually trying to achieve. Mystery-meat issues (empty bodies) cost up to 20, unassigned urgents cost 15, and sustained after-hours fatigue costs 10. [FridayDeployAiService.java](../backend/src/main/java/com/demo/burnout/agent/FridayDeployAiService.java) translates the score into a calm release recommendation in plain language, making the decision easier to communicate and harder to rationalize emotionally.
 
-Above 80 you're generally in a good position to ship 🟢. Between 50 and 79, caution is warranted 🟡. Below 50, the system treats the situation as too risky for an end-of-week deploy 🔴.
+Above 80 you're generally in a good position to ship 🟢 (Friday deploy possible). Between 50 and 79, caution is warranted 🟡 (Friday deploy possible with eyes open). Below 50, the system treats the situation as too risky for an end-of-week deploy 🔴.
 
 ### Agent guardrails
 

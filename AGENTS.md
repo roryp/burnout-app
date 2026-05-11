@@ -198,8 +198,10 @@ Both `/api/reshape` and `/demo/api/reshape` surface deterministic-phase visibili
 | `complianceActionCount` (demo only) | enforcer | Mutations emitted by the 1-3-3-0 enforcer (0 when the LLM lands compliance on its own) |
 | `wellnessInvocationCount` | LLM | Number of times the supervisor invoked any wellness tool (`suggestBreak` / `slowIntake` / `blockCalendarTime`). Wellness tools are advisory-only and emit no `GitHubAction`s, so this counter is the only way to verify the supervisor's `stress >= 50` gating actually routed work to `WellnessAgent`. Always 0 when `llmUsed=false`. The verbatim recommendation text is also surfaced inside `explanation` under a `**🧘 Wellness recommendation:**` block (with a `_Triggered by:_` line listing which signals — high stress, after-hours activity, context-switch storm — caused the supervisor to fire it) |
 | `afterHoursBefore` / `afterHoursAfter` (demo) · `afterHoursIssues` (api) | WorldState | Issues with `updatedAt` outside 9 AM–6 PM in the active timezone |
+| `fridayScore` (demo) | recomputed | Friday deploy-readiness score (0–100) recomputed against the post-mutation state. Same formula as `/demo/api/flamegraph` and `/api/friday-score` ([`FridayScoreFormula`](backend/src/main/java/com/demo/burnout/util/FridayScoreFormula.java)) so the number in the explanation footer matches what the flamegraph page shows |
+| `fridayStatus` (demo) | recomputed | Human-readable status string: `"READY — Friday deploy possible"` (≥ 80), `"CAUTION — Friday deploy possible with eyes open"` (50–79), `"NOT_READY — defer to Monday"` (< 50) |
 | `llmUsed` | flag | `true` when the supervisor LLM ran; `false` means deterministic-only fallback (token expired or LLM down) |
-| `explanation` | composed | LLM prose **bookended** by deterministic content: a "🧹 Deterministic pre-pass:" header listing triaged issue numbers, then the LLM summary, then — if any wellness tool fired — a `**🧘 Wellness recommendation:**` block with a `_Triggered by:_` line (citing the BEFORE stress score, after-hours issue count, and/or context-switch storm size) plus the verbatim tool message, then a "📈 Outcome:" footer with the real measured stress drop. The supervisor is prompt-blocked from quoting absolute stress numbers, so the footer is the source of truth |
+| `explanation` | composed | LLM prose **bookended** by deterministic content: a "🧹 Deterministic pre-pass:" header listing triaged issue numbers, then the LLM summary, then — if any wellness tool fired — a `**🧘 Wellness recommendation:**` block with a `_Triggered by:_` line (citing the BEFORE stress score, after-hours issue count, and/or context-switch storm size) plus the verbatim tool message, then a "📈 Outcome:" footer with the real measured stress drop, and a "🚀 Friday deploy:" line with the post-mutation Friday score and status. The supervisor is prompt-blocked from quoting absolute stress numbers, so the footer is the source of truth |
 
 `/api/reshape` increments `SCHEMA_VERSION` to `4` for the new fields.
 
@@ -254,7 +256,7 @@ Both `/api/reshape` and `/demo/api/reshape` surface deterministic-phase visibili
 | GET | `/demo/api/flamegraph?repo=...&userId=...` | No | Read-only flamegraph data for pre-synced repos |
 | GET | `/demo/api/repos` | No | List repos currently synced in memory |
 | POST | `/demo/api/sync?repo=owner/repo` | No | Sync issues from GitHub public API (rate-limited: 1 per repo per 5 min) |
-| POST | `/demo/api/reshape` | No | Run reshape (deterministic pre-pass + LangChain4j supervisor + deterministic 1-3-3-0 enforcer) and apply mutations to IssueCache. Response includes `deterministicTriageCount`, `deterministicDefuseCount`, `complianceActionCount`, `afterHoursBefore`, `afterHoursAfter` |
+| POST | `/demo/api/reshape` | No | Run reshape (deterministic pre-pass + LangChain4j supervisor + deterministic 1-3-3-0 enforcer) and apply mutations to IssueCache. Response includes `deterministicTriageCount`, `deterministicDefuseCount`, `complianceActionCount`, `afterHoursBefore`, `afterHoursAfter`, `fridayScore`, `fridayStatus` |
 | POST | `/demo/api/checkin` | No | Stress check-in — accepts optional `tz` param (e.g. `America/New_York`) for timezone-aware after-hours detection. Returns `breakdown`, `breakdownHints`, `breakdownIssues`, and `timezone` |
 
 ### Demo web app
@@ -349,6 +351,7 @@ The `POST /demo/api/seed` endpoint accepts `{"repo": "owner/repo", "issues": [..
 | `backend/src/.../service/IssueClassifierService.java` | Classifies issues into DEEP_WORK, QUICK_WIN, MAINTENANCE, DEFERRED |
 | `backend/src/.../service/ChaosMetricsService.java` | Calculates chaos score from issue patterns |
 | `backend/src/.../service/ComplianceService.java` | Analyzes compliance (labels, assignees, SLA) |
+| `backend/src/.../util/FridayScoreFormula.java` | Single source of truth for the Friday deploy readiness score (0–100). Consumed by `DemoFlamegraphController`, `ReshapeController`, and `FridayScoreController` so all three endpoints return identical numbers for the same inputs |
 | `backend/src/.../controller/DemoFlamegraphController.java` | Read-only demo endpoints + seed endpoint (no auth) + `enforce333Compliance` post-pass that guarantees the day plan ends 1-3-3-0 |
 | `backend/src/.../controller/ReshapeController.java` | `/api/reshape` (auth) — `ReshapeResponse` (SCHEMA_VERSION=3) includes `deterministicTriageCount`, `deterministicDefuseCount`, `afterHoursIssues` |
 | `backend/src/main/resources/static/index.html` | Landing page with links to all demo pages |

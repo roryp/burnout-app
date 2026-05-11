@@ -222,7 +222,7 @@ async function main() {
     3500,
     "text=Deep Work",
   );
-  await sleep(8000); // narration: "1 deep, 0 quick wins, 0 maintenance, 9 deferred. Friday score 30%."
+  await sleep(8000); // narration: "1 deep, 0 quick wins, 0 maintenance, 9 deferred. Friday score below 50 — NOT_READY."
 
   // --- Scene 3: Reshape transition ---
   console.log("Scene 3: Calling reshape (deterministic pre-pass + supervisor)...");
@@ -297,7 +297,7 @@ async function main() {
     3500,
     "text=Deep Work",
   );
-  await sleep(8000); // narration: "1 deep, ~3 quick wins, ~3 maintenance, ~3 deferred. Friday 100%."
+  await sleep(8000); // narration: "1 deep, 3 quick wins, 3 maintenance, 0 deferred. Friday score ≥ 80 — READY."
 
   // --- Scene 6: Study Dashboard ---
   console.log("Scene 6: Team study dashboard...");

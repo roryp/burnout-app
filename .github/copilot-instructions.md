@@ -89,7 +89,7 @@ When asked to take screenshots, capture demo screenshots, or run the demo flow:
    - `flamegraph-before.png` — HIGH stress, mostly deferred, low Friday Score
    - `checkin-after.png` — MODERATE stress, chaos zeroed, after-hours preserved (acknowledge-don't-erase)
    - `stress-after.png` — MODERATE stress, with Workload issue drilldown expanded
-   - `flamegraph-after.png` — MODERATE stress, ~100% Friday Score, 1-3-3-0 structure
+   - `flamegraph-after.png` — MODERATE stress, Friday Score ≥ 80 (READY), 1-3-3-0 structure
    - `study-dashboard.png` — trend chart with roryp's drop, 5 participant cards, raw snapshots
 
 4. **Using Playwright MCP tool for screenshots:** Navigate to each page, fill in
@@ -315,7 +315,7 @@ azd env get-values | Select-String 'SERVICE_BACKEND_URI'
 **2b. Flamegraph Page BEFORE**
 - Navigate: `/flamegraph.html?repo=roryp/burnout-app&userId=roryp`
 - Wait for: `Stress Score` text appears
-- Screenshot: Capture full page (expect **HIGH stress, deferred-heavy, low Friday %**)
+- Screenshot: Capture full page (expect **HIGH stress, deferred-heavy, low Friday Score**)
 
 **Step 3: Reshape (deterministic pre-pass + supervisor)**
 ```powershell
@@ -339,7 +339,7 @@ Invoke-RestMethod -Method POST -Uri "$BASE_URL/demo/api/reshape" `
 **4b. Flamegraph Page AFTER**
 - Navigate: `/flamegraph.html?repo=roryp/burnout-app&userId=roryp`
 - Wait for: `Stress Score` text appears
-- Screenshot: Capture full page (expect **MODERATE stress, ~100% Friday, 1-3-3-0 structure**)
+- Screenshot: Capture full page (expect **MODERATE stress, Friday Score ≥ 80 (READY), 1-3-3-0 structure**)
 
 **Step 5: Validate Study Dashboard (Playwright)**
 
@@ -355,7 +355,7 @@ Invoke-RestMethod -Method POST -Uri "$BASE_URL/demo/api/reshape" `
 | BEFORE | Check-In | Stress Score | HIGH | ✅ |
 | BEFORE | Check-In | Compliance | Non-compliant | ✅ |
 | BEFORE | Flamegraph | Stress | HIGH | ✅ |
-| BEFORE | Flamegraph | Friday % | low | ✅ |
+| BEFORE | Flamegraph | Friday Score | < 50 (NOT_READY — defer to Monday) | ✅ |
 | BEFORE | Flamegraph | Structure | deferred-heavy | ✅ |
 | API | Reshape | LLM Active | `llmUsed: true` | ✅ |
 | API | Reshape | New Score | MODERATE | ✅ |
@@ -364,7 +364,7 @@ Invoke-RestMethod -Method POST -Uri "$BASE_URL/demo/api/reshape" `
 | AFTER | Check-In | Stress Score | MODERATE | ✅ |
 | AFTER | Check-In | Compliance | 1-3-3-0 Compliant | ✅ |
 | AFTER | Flamegraph | Stress | MODERATE | ✅ |
-| AFTER | Flamegraph | Friday % | ~100% | ✅ |
+| AFTER | Flamegraph | Friday Score | ≥ 80 (READY — Friday deploy possible) | ✅ |
 | AFTER | Flamegraph | Structure | 1-3-3-0 (compliant) | ✅ |
 | Study | Dashboard | Snapshots | 118+ | ✅ |
 | Study | Dashboard | Participants | 5 (alice, bob, carol, dave, roryp) | ✅ |

@@ -41,7 +41,7 @@ POST `/demo/api/reshape` runs three phases against the current cache:
 2. **LangChain4j supervisor** (LLM): 6 sub-agents (Triage, Defer, Delegate, Classify, Scope, Wellness), capped at `maxAgentsInvocations: 15`. Prompt-blocked from quoting absolute stress numbers.
 3. **Deterministic 1-3-3-0 enforcer** (no LLM): promotes deferred items into underfilled quickWin/maintenance slots, pushes overflow off the user's plate (unassign + `deferred,next-sprint` + comment). Surfaces as `complianceActionCount` (0 when the LLM lands compliance on its own).
 
-The `explanation` field is composed: `🧹 Deterministic pre-pass:` header (triaged issue numbers) → LLM prose → `**🧘 Wellness recommendation:**` block (only when a wellness tool fired; includes `_Triggered by:_` line citing BEFORE stress ≥ 50, after-hours count, and/or context-switch storm size, plus the verbatim tool message) → `📈 Outcome:` footer with the real measured stress drop. **The footer is the source of truth.**
+The `explanation` field is composed: `🧹 Deterministic pre-pass:` header (triaged issue numbers) → LLM prose → `**🧘 Wellness recommendation:**` block (only when a wellness tool fired; includes `_Triggered by:_` line citing BEFORE stress ≥ 50, after-hours count, and/or context-switch storm size, plus the verbatim tool message) → `📈 Outcome:` footer with the real measured stress drop, then `🚀 Friday deploy:` with the recomputed Friday score and status (`READY` ≥ 80 / `CAUTION` 50–79 / `NOT_READY` < 50). **The footer is the source of truth.**
 
 Expected on seeded chaos:
 
@@ -50,6 +50,7 @@ Expected on seeded chaos:
 - `beforeScore`: HIGH → `afterScore`: MODERATE
 - `deterministicTriageCount`: ~3–6, `deterministicDefuseCount`: ~16, `complianceActionCount`: 0–20
 - Day plan: 1-3-3-0 compliant (1 deep, 3 quick wins, 3 maintenance, 0 deferred)
+- `fridayScore`: ≥ 80 (READY — Friday deploy possible). Computed by [`FridayScoreFormula`](../../backend/src/main/java/com/demo/burnout/util/FridayScoreFormula.java) against the post-mutation state. Same formula as `/demo/api/flamegraph`.
 - AFTER score still includes the real after-hours penalty — by design — so the WellnessAgent has something honest to gate on.
 
 If `llmUsed: false`, the Azure AD token expired (~1h after container start). Pre-pass and 1-3-3-0 enforcer still run; supervisor skipped. Restart the container revision to refresh.
