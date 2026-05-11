@@ -184,14 +184,12 @@ public class ReshapeController {
     }
 
     private int calculateFridayScore(ChaosMetrics chaos, ComplianceReport compliance, WorldState state) {
-        int score = 100;
-        if (chaos.score() > 5) score -= 20;
-        if (chaos.score() > 8) score -= 20;
-        if (!compliance.isCompliant()) score -= 15;
-        if (state.urgentUnassigned() > 0) score -= 15;
-        if (chaos.afterHoursSignal()) score -= 10;
-        if (state.mysteryMeatCount() > 3) score -= 10;
-        return Math.max(0, score);
+        // Delegate to the single source of truth. See FridayScoreFormula.
+        return com.demo.burnout.util.FridayScoreFormula.compute(
+            compliance,
+            state.mysteryMeatCount(),
+            state.urgentUnassigned(),
+            chaos.afterHoursSignal());
     }
 
     public record ReshapeRequest(String repo, String userId, boolean dryRun) {}
