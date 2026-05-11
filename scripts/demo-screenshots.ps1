@@ -10,10 +10,10 @@
 #   .\scripts\demo-screenshots.ps1 -BaseUrl http://localhost:8080                   # local server
 #
 # What it does:
-#   1. Seeds BEFORE (chaotic) data via seed-demo.ps1 (stress=58/HIGH)
+#   1. Seeds BEFORE (chaotic) data via seed-demo.ps1 (HIGH stress)
 #   2. Opens checkin + flamegraph pages and takes BEFORE screenshots
 #   3. Calls /demo/api/reshape (deterministic pre-pass + LangChain4j supervisor)
-#      to drop stress to ~8/LOW
+#      to drop stress to MODERATE (chaos defused, after-hours signal preserved)
 #   4. Opens checkin + flamegraph pages and takes AFTER screenshots
 #   5. Opens study dashboard, loads data, takes screenshot
 #   6. Copies all screenshots to docs/images/demo/

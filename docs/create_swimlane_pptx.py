@@ -187,7 +187,7 @@ def main():
     txt(slide, px3, py + Inches(0.92), p3w, Inches(0.30),
         "Comment · Unassign", 10, MUTED)
     txt(slide, px3, py + Inches(1.08), p3w, Inches(0.25),
-        "SetBody · SetUpdatedAt", 10, MUTED)
+        "SetBody · SetUpdatedAt (legacy)", 10, MUTED)
 
     # Arrows between phases in Lane 2
     arrow_y = py + p1h / 2 - Inches(0.1)
@@ -242,8 +242,10 @@ def main():
         "5a. DETERMINISTIC PRE-PASS — runs in BurnoutSupervisorService BEFORE any LLM call:\n"
         "    • triageUrgent(n) is invoked directly for every unassigned-urgent issue, stripping "
         "      `urgent` / `priority:critical` / `priority:high` and adding `triaged,backlog`.\n"
-        "    • defuseChaosInputs(clock) replaces empty bodies with a scope-pending placeholder "
-        "      and normalises after-hours / touched-today timestamps to 10:00 in the demo clock zone.\n"
+        "    • defuseChaosInputs(clock) replaces empty bodies with a scope-pending placeholder. "
+        "      It does NOT rewrite real after-hours / touched-today `updatedAt` values — those "
+        "      are real signals about real human activity and are deliberately preserved "
+        "      (acknowledge-don't-erase) so the AFTER score and the WellnessAgent gates stay honest.\n"
         "    These two calls guarantee the chaos score drops on every reshape, regardless of which "
         "    sub-agents the LLM picks. The supervisor is told the unassigned-urgent issues are "
         "    already triaged and to leave them alone.\n"
@@ -257,15 +259,16 @@ def main():
         "    • WellnessAgent (suggestBreak, slowIntake, blockCalendarTime)\n"
         "    Every agent has a deterministic fallback if the LLM is unavailable.\n"
         "5c. LABEL MUTATIONS — Each @Tool method on BurnoutMutationTool emits records from the "
-        "    sealed GitHubAction interface: AddLabels, RemoveLabels, Comment, Unassign, SetBody, "
-        "    SetUpdatedAt. Mutations are buffered, not applied directly to GitHub.\n\n"
+        "    sealed GitHubAction interface: AddLabels, RemoveLabels, Comment, Unassign, SetBody. "
+        "    SetUpdatedAt is retained on the sealed interface for backward compatibility but is "
+        "    no longer emitted by any code path. Mutations are buffered, not applied directly to GitHub.\n\n"
         "OUTPUT LANE\n"
         "6a. Apply Mutations — DemoFlamegraphController.applyMutationsToIssues writes the buffered "
         "    label/body/timestamp changes to the in-memory IssueCache (not to GitHub).\n"
         "6b. Recalculate — The ENTIRE deterministic pipeline reruns on the mutated issues. "
-        "    Chaos drops (urgent stripped, bodies filled, timestamps normalised), classification "
-        "    re-buckets with the new labels, new stress score is computed. This is the AFTER score "
-        "    (~58 → ~8 in the demo).\n"
+        "    Chaos drops (urgent stripped, bodies filled), classification re-buckets with the "
+        "    new labels, new stress score is computed. This is the AFTER score "
+        "    (HIGH → MODERATE in the demo — the after-hours penalty is preserved by design).\n"
         "6c. Friday Score — Deploy readiness: READY ≥ 80, CAUTION ≥ 50, NOT_READY < 50.\n"
         "6d. Persist Snapshot — JPA StressSnapshot with all 6 components + optional self-report. "
         "    Powers the Study Dashboard trend charts."

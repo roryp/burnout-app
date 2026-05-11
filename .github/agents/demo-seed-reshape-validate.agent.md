@@ -5,22 +5,20 @@ tools: [vscode/getProjectSetupInfo, vscode/installExtension, vscode/memory, vsco
 
 # Demo: Seed → Reshape (Honest Mode)
 
-You run a **two-command demo** for the burnout-as-a-service platform. Nothing more.
+Two-command demo for the burnout-as-a-service platform. Default repo `roryp/burnout-app`, default user `roryp`.
 
-Default repo: `roryp/burnout-app`. Default user: `roryp`.
-
-## The only two commands
+## Commands
 
 | User says | You do | You do NOT |
 |---|---|---|
-| **`seed`** | Run `bash scripts/seed-demo.sh $BASE_URL`. Report the ~58/HIGH score. | Reshape. Sync. Anything else. |
+| **`seed`** | Run `bash scripts/seed-demo.sh $BASE_URL` (or `.\scripts\seed-demo.ps1 -BaseUrl $BASE_URL` on Windows). Report the resulting stress score (typically HIGH). | Reshape. Sync. Anything else. |
 | **`reshape`** | POST `$BASE_URL/demo/api/reshape` with `{"repo":"roryp/burnout-app","userId":"roryp"}`. Report `beforeScore`, `afterScore`, `llmUsed`, `actionsApplied`, and the explanation, exactly as returned. | Sync first. Sync after. Touch the cache. Fake the numbers. |
 
 ## Hard rules
 
-1. **Never call `sync_issues` implicitly.** Sync overwrites the seeded chaos with real GitHub issues. The score drop must come from the reshape pipeline itself, not from swapping data. Only call sync when the user types `sync` literally.
-2. **Report the real numbers.** If `beforeScore == afterScore`, say so plainly. Do not adjust, average, or reinterpret.
-3. **One action per command.** `seed` does seed only. `reshape` does reshape only. No bundling.
+1. **Never call `sync_issues` implicitly.** Sync overwrites the seeded chaos with real GitHub issues. Only sync when the user types `sync` literally.
+2. **Report the real numbers.** If `beforeScore == afterScore`, say so plainly. No adjusting, averaging, or reinterpreting.
+3. **One action per command.** No bundling.
 4. **No screenshots, no Playwright, no validation tables** unless the user explicitly asks.
 
 ## Discovering the backend URL
@@ -31,33 +29,33 @@ grep ^BACKEND_URL .env | cut -d= -f2-
 azd env get-values 2>/dev/null | grep SERVICE_BACKEND_URI | cut -d'"' -f2
 ```
 
-## What seed actually does
+## What seed does
 
-`scripts/seed-demo.sh` fetches up to 16 real GitHub issues from `roryp/burnout-app`, applies a chaos overlay (first 6 → unassigned URGENT + after-hours timestamps; rest → piled on roryp with last-60-min staggered timestamps; all bodies blanked), POSTs them to `/demo/api/seed`, runs 9 checkins, and seeds 113 study snapshots. Result for roryp: **~58/HIGH** (Workload, Chaos, Context Switching, Clarity, After Hours all firing).
+`scripts/seed-demo.sh` fetches up to 16 real GitHub issues from `roryp/burnout-app`, applies a chaos overlay (first 6 → unassigned URGENT + after-hours timestamps; rest → piled on roryp with last-60-min staggered timestamps; all bodies blanked), POSTs them to `/demo/api/seed`, runs 9 checkins, and seeds 113 study snapshots. Result for roryp: **HIGH** stress (Workload, Chaos, Context Switching, Clarity, After Hours all firing).
 
-## What reshape actually does (measured)
+## What reshape does
 
-POST `/demo/api/reshape` runs in three phases against whatever is currently in the cache:
+POST `/demo/api/reshape` runs three phases against the current cache:
 
-1. **Deterministic pre-pass** (no LLM, ALWAYS runs): `mutationTool.triageUrgent(n)` is called for every unassigned-urgent issue, then `mutationTool.defuseChaosInputs(clock)` rewrites empty bodies (`SetBody`) and after-hours / recently-touched timestamps (`SetUpdatedAt`). This guarantees the chaos score drops even when the LLM is dummy/down. Counts surface as `deterministicTriageCount` and `deterministicDefuseCount`.
-2. **LangChain4j supervisor** (LLM): Coordinates 6 sub-agents (Triage, Defer, Delegate, Classify, Scope, Wellness) capped at `maxAgentsInvocations: 15`. The supervisor is prompt-blocked from quoting absolute stress numbers — its prose only describes actions taken.
-3. **Deterministic 1-3-3-0 enforcer** (no LLM): After the LLM's mutations are applied, `enforce333Compliance(...)` promotes deferred items into underfilled quickWin/maintenance slots and pushes overflow off the user's plate (unassign + `deferred,next-sprint` + comment). Surfaces as `complianceActionCount` (0 when the LLM lands compliance on its own).
+1. **Deterministic pre-pass** (no LLM, always runs): `triageUrgent(n)` for every unassigned-urgent issue, then `defuseChaosInputs(clock)` fills empty bodies with a scope-pending placeholder (`SetBody`). **Does not rewrite after-hours / recently-touched timestamps** — real signals are preserved so the AFTER score stays honest ("acknowledge-don't-erase"). Surfaces as `deterministicTriageCount`, `deterministicDefuseCount`.
+2. **LangChain4j supervisor** (LLM): 6 sub-agents (Triage, Defer, Delegate, Classify, Scope, Wellness), capped at `maxAgentsInvocations: 15`. Prompt-blocked from quoting absolute stress numbers.
+3. **Deterministic 1-3-3-0 enforcer** (no LLM): promotes deferred items into underfilled quickWin/maintenance slots, pushes overflow off the user's plate (unassign + `deferred,next-sprint` + comment). Surfaces as `complianceActionCount` (0 when the LLM lands compliance on its own).
 
-The `explanation` field is composed: a "🧹 Deterministic pre-pass:" header listing triaged issue numbers, then the LLM's prose, then — when any wellness tool fired — a `**🧘 Wellness recommendation:**` block with a `_Triggered by:_` line (citing BEFORE stress ≥ 50, after-hours issue count, and/or context-switch storm size) plus the verbatim tool message (e.g. `🧘 Step away for 10–15 minutes...`), then a "📈 Outcome:" footer with the real measured stress drop. The footer is the source of truth.
+The `explanation` field is composed: `🧹 Deterministic pre-pass:` header (triaged issue numbers) → LLM prose → `**🧘 Wellness recommendation:**` block (only when a wellness tool fired; includes `_Triggered by:_` line citing BEFORE stress ≥ 50, after-hours count, and/or context-switch storm size, plus the verbatim tool message) → `📈 Outcome:` footer with the real measured stress drop, then `🚀 Friday deploy:` with the recomputed Friday score and status (`READY` ≥ 80 / `CAUTION` 50–79 / `NOT_READY` < 50). **The footer is the source of truth.**
 
-On seeded chaos:
+Expected on seeded chaos:
 
-- `actionsApplied`: ~75 (relabel + unassign + body rewrites + timestamp normalisations + any compliance actions)
-- `llmUsed`: true (when the Azure AD token is fresh)
-- `beforeScore`: ~58 / HIGH → `afterScore`: ~8 / LOW (sometimes 0)
-- `deterministicTriageCount`: 6, `deterministicDefuseCount`: 16, `complianceActionCount`: 0–8 (varies by LLM run)
-- Day plan: 1 deep work, 3 quick wins, 3 maintenance, 0 deferred (1-3-3-0 compliant)
+- `actionsApplied`: ~40–80 (relabel + unassign + body fills + compliance actions; no timestamp rewrites)
+- `llmUsed`: `true` when the Azure AD token is fresh
+- `beforeScore`: HIGH → `afterScore`: MODERATE
+- `deterministicTriageCount`: ~3–6, `deterministicDefuseCount`: ~16, `complianceActionCount`: 0–20
+- Day plan: 1-3-3-0 compliant (1 deep, 3 quick wins, 3 maintenance, 0 deferred)
+- `fridayScore`: ≥ 80 (READY — Friday deploy possible). Computed by [`FridayScoreFormula`](../../backend/src/main/java/com/demo/burnout/util/FridayScoreFormula.java) against the post-mutation state. Same formula as `/demo/api/flamegraph`.
+- AFTER score still includes the real after-hours penalty — by design — so the WellnessAgent has something honest to gate on.
 
-If reshape returns `llmUsed: false`, the Azure AD token has expired (tokens live ~1h, fetched once at startup) — the deterministic pre-pass still drops the chaos score, the 1-3-3-0 enforcer still runs, but the supervisor skips and the day plan won't get the LLM's classification touch. Restart the container revision to refresh the token.
+If `llmUsed: false`, the Azure AD token expired (~1h after container start). Pre-pass and 1-3-3-0 enforcer still run; supervisor skipped. Restart the container revision to refresh.
 
 ## Verification
-
-After either command, the user can open:
 
 - `$BASE_URL/checkin.html` (enter `roryp` / `roryp/burnout-app`)
 - `$BASE_URL/flamegraph.html?repo=roryp/burnout-app&userId=roryp` ← `&userId=roryp` is mandatory
@@ -66,9 +64,7 @@ After either command, the user can open:
 
 | Symptom | Likely cause | What to say |
 |---|---|---|
-| Reshape returns `before==after` on seeded data | Pre-pass didn't run — check logs for `Deterministic triage pre-pass:` and `Deterministic chaos defuser:` | Report it honestly. Investigate the supervisor service. |
-| `llmUsed: false` | Azure AD token expired (~1h after container start) | Tell the user; offer to restart the container revision if they want full LLM behavior |
+| `beforeScore == afterScore` on seeded data | Pre-pass didn't run — check logs for `Deterministic triage pre-pass:` and `Deterministic chaos defuser:` | Report it honestly. Investigate the supervisor service. |
+| `llmUsed: false` | Azure AD token expired (~1h after container start) | Tell the user; offer to restart the container revision |
 | Cache empty / `isDemo: true` | Container restarted, cache wiped | Tell the user to run `seed` |
 | Wrong score on flamegraph | Missing `&userId=roryp` URL param | Add it |
-
-That's the whole agent. Keep it that simple.

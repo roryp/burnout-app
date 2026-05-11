@@ -30,7 +30,7 @@ export function getDemoReshapeData(repo: string): ReshapeResponse {
     compliance: { isCompliant: true, violations: [] },
     stressScore: 58,
     stressLevel: 'HIGH',
-    expectedStressScore: 8,
+    expectedStressScore: 32,
     fridayScore: 78,
     agentExplanation: `📊 **Demo Mode** — backend unreachable.
 

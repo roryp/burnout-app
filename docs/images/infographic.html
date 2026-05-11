@@ -148,8 +148,8 @@ body { width: 1920px; height: 1080px; font-family: 'Segoe UI', Arial, sans-serif
   <div class="card s5">
     <div class="card-header"><div class="num">5</div>RESHAPE — Pre-pass + LangChain4j Supervisor</div>
     <div class="card-body">
-      <h3>Deterministic Pre-pass (no LLM — guarantees the drop)</h3>
-      <span class="mono" style="font-size:10.5px;"><span class="highlight">triageUrgent(n)</span> for every unassigned-urgent issue<br/>&nbsp;&nbsp;−urgent · −priority:critical · −priority:high · +triaged,backlog<br/><span class="highlight">defuseChaosInputs(clock)</span> — SetBody (fills empty)<br/>&nbsp;&nbsp;+ SetUpdatedAt (normalises after-hours / touched-today → 10:00)</span>
+      <h3>Deterministic Pre-pass (no LLM &mdash; guarantees the drop)</h3>
+      <span class="mono" style="font-size:10.5px;"><span class="highlight">triageUrgent(n)</span> for every unassigned-urgent issue<br/>&nbsp;&nbsp;−urgent · −priority:critical · −priority:high · +triaged,backlog<br/><span class="highlight">defuseChaosInputs(clock)</span> &mdash; SetBody (fills empty bodies only)<br/>&nbsp;&nbsp;<span class="dim">no timestamp rewriting &mdash; real after-hours / touched-today signals preserved (acknowledge-don't-erase)</span></span>
 
       <h3>Azure OpenAI Configuration</h3>
       <span class="mono">Model: <span class="highlight">gpt-4o</span> &bull; temp 0.3 &bull; chatModel: 1024 tokens &bull; planner: 512<br/>Strategy: SUMMARY &bull; maxAgentsInvocations: <span class="highlight">15</span> &bull; retries: 2<br/>Memory: MessageWindowChatMemory, max <span class="highlight">10</span> messages</span>
@@ -174,7 +174,7 @@ body { width: 1920px; height: 1080px; font-family: 'Segoe UI', Arial, sans-serif
     <div class="card-header"><div class="num">6</div>OUTPUT &amp; PERSISTENCE</div>
     <div class="card-body">
       <h3>GitHubMutationPlan (sealed interface, 6 records)</h3>
-      <span class="mono" style="font-size:10.5px;">GitHubAction: AddLabels &bull; RemoveLabels &bull; Comment<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&bull; Unassign &bull; SetBody &bull; SetUpdatedAt<br/>Apply &rarr; IssueCache, then RECALCULATE entire pipeline (AFTER score)</span>
+      <span class="mono" style="font-size:10.5px;">GitHubAction: AddLabels &bull; RemoveLabels &bull; Comment<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&bull; Unassign &bull; SetBody &bull; <span class="dim">SetUpdatedAt (legacy &mdash; no longer emitted)</span><br/>Apply &rarr; IssueCache, then RECALCULATE entire pipeline (AFTER score)</span>
 
       <h3>Friday Deploy Score (100 → 0, uses &gt; not ≥)</h3>
       <span class="mono">chaos <span class="highlight">&gt; 5</span> → &minus;20 &nbsp;|&nbsp; chaos <span class="highlight">&gt; 8</span> → &minus;20 (cumulative &minus;40)<br/>unresolvedUrgent &gt; 0 → &minus;15 &nbsp;|&nbsp; !compliant → &minus;15<br/>afterHours → &minus;10 &nbsp;|&nbsp; mysteryMeat &gt; 3 → &minus;10<br/><span class="tag tag-green">≥ 80 READY</span> <span class="tag tag-warn">≥ 50 CAUTION</span> <span class="tag tag-crit">&lt; 50 NOT_READY</span></span>

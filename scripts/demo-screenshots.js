@@ -81,9 +81,11 @@ const { chromium } = require('playwright');
             await page.fill('input[placeholder*="octocat"]', 'roryp');
             await page.fill('input[placeholder*="owner/repo"]', 'roryp/burnout-app');
             await page.click('button:has-text("Check My Stress")');
-            await page.waitForSelector('text=LOW', { timeout: 15000 }).catch(() => {
-                return page.waitForSelector('[class*="score"]', { timeout: 5000 });
-            });
+            // After reshape, stress is typically MODERATE (chaos defused, real after-hours preserved).
+            // Fall back to LOW if the LLM did extra work, then to any score element if neither resolves.
+            await page.waitForSelector('text=MODERATE', { timeout: 15000 })
+                .catch(() => page.waitForSelector('text=LOW', { timeout: 5000 }))
+                .catch(() => page.waitForSelector('[class*="score"]', { timeout: 5000 }));
         });
 
         // --- AFTER: Checkin with drilldown expanded ---
@@ -92,9 +94,9 @@ const { chromium } = require('playwright');
             await page.fill('input[placeholder*="octocat"]', 'roryp');
             await page.fill('input[placeholder*="owner/repo"]', 'roryp/burnout-app');
             await page.click('button:has-text("Check My Stress")');
-            await page.waitForSelector('text=LOW', { timeout: 15000 }).catch(() => {
-                return page.waitForSelector('[class*="score"]', { timeout: 5000 });
-            });
+            await page.waitForSelector('text=MODERATE', { timeout: 15000 })
+                .catch(() => page.waitForSelector('text=LOW', { timeout: 5000 }))
+                .catch(() => page.waitForSelector('[class*="score"]', { timeout: 5000 }));
             await page.waitForTimeout(500);
             const toggles = await page.$$('.issue-toggle');
             for (const toggle of toggles) {

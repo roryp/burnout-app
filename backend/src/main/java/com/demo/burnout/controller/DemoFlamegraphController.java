@@ -325,6 +325,16 @@ public class DemoFlamegraphController {
 
         DayStructure afterPlan = buildDayPlan(mutatedIssues, userId);
 
+        // Friday deploy readiness after the reshape. Same formula used by
+        // /demo/api/flamegraph so the number surfaced in the explanation
+        // matches what the user sees on the page.
+        int afterFridayScore = calculateFridayScore(afterChaos, afterCompliance, afterState);
+        String fridayStatus = afterFridayScore >= 80
+            ? "READY — Friday deploy possible"
+            : afterFridayScore >= 50
+                ? "CAUTION — Friday deploy possible with eyes open"
+                : "NOT_READY — defer to Monday";
+
         // Authoritative outcome footer appended to the LLM explanation.
         // The supervisor LLM only sees the BEFORE state, so any absolute
         // stress number it writes is stale. We append the real numbers
@@ -343,11 +353,12 @@ public class DemoFlamegraphController {
             ? String.format(" + %d compliance action(s) to enforce 1-3-3-0", complianceActionCount)
             : "";
         String outcomeFooter = String.format(
-            "%n%n**📈 Outcome:** stress %d/100 (%s) → %d/100 (%s), %s. %d action(s) applied (%d from deterministic pre-pass: %d triage + %d defuse%s).",
+            "%n%n**📈 Outcome:** stress %d/100 (%s) → %d/100 (%s), %s. %d action(s) applied (%d from deterministic pre-pass: %d triage + %d defuse%s).%n**🚀 Friday deploy:** %d/100 — %s.",
             beforeScore, state.getStressLevel().name(),
             afterScore, afterState.getStressLevel().name(),
             dropPart,
-            totalActions, prePassActions, triagedCount, defusedCount, compliancePart);
+            totalActions, prePassActions, triagedCount, defusedCount, compliancePart,
+            afterFridayScore, fridayStatus);
         String groundedExplanation = (llmExplanation == null ? "" : llmExplanation) + outcomeFooter;
 
         // Use a LinkedHashMap because Map.of caps at 10 entries and we want
@@ -376,6 +387,9 @@ public class DemoFlamegraphController {
         // updatedAt falls outside 9 AM–6 PM in the active timezone).
         body.put("afterHoursBefore", state.issuesUpdatedAfterHours());
         body.put("afterHoursAfter", afterState.issuesUpdatedAfterHours());
+        // Friday deploy readiness — same formula as /demo/api/flamegraph.
+        body.put("fridayScore", afterFridayScore);
+        body.put("fridayStatus", fridayStatus);
         body.put("dayPlan", Map.of(
             "deepWork", afterPlan.deepWork() != null ? afterPlan.deepWork().number() : 0,
             "quickWins", afterPlan.quickWins().stream().map(Issue::number).toList(),
@@ -591,14 +605,14 @@ public class DemoFlamegraphController {
     }
 
     private int calculateFridayScore(ChaosMetrics chaos, ComplianceReport compliance, WorldState state) {
-        int score = 100;
-        if (chaos.score() > 5) score -= 20;
-        if (chaos.score() > 8) score -= 20;
-        if (!compliance.isCompliant()) score -= 15;
-        if (state.urgentUnassigned() > 0) score -= 15;
-        if (chaos.afterHoursSignal()) score -= 10;
-        if (state.mysteryMeatCount() > 3) score -= 10;
-        return Math.max(0, score);
+        // Delegate to the single source of truth. See FridayScoreFormula for
+        // the rationale (no double-counting of chaos components, structural
+        // 1-3-3-0 compliance check derived from bucketCounts).
+        return com.demo.burnout.util.FridayScoreFormula.compute(
+            compliance,
+            state.mysteryMeatCount(),
+            state.urgentUnassigned(),
+            chaos.afterHoursSignal());
     }
 
     /**

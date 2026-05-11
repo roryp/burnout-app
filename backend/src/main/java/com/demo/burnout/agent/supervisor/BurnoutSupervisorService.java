@@ -137,18 +137,20 @@ public class BurnoutSupervisorService {
             triagedCount, unassignedUrgentList);
 
         // DETERMINISTIC CHAOS DEFUSER — fill empty bodies and normalise
-        // after-hours / recently-touched timestamps. The chaos score is
-        // bucketed (LOW≤2, MEDIUM≤5, HIGH≤8, CRITICAL>8) and uses binary
-        // factors (mysteryMeat≥3, urgent≥3, touched≥6, afterHours,
-        // labels≥12), so partial improvement does not show up. Defusing
-        // every contributor is what actually moves the bucket.
+        // empty bodies (mystery-meat). The chaos score is bucketed
+        // (LOW≤2, MEDIUM≤5, HIGH≤8, CRITICAL>8) and uses binary factors
+        // (mysteryMeat≥3, urgent≥3, touched≥6, afterHours, labels≥12),
+        // so partial improvement does not show up. Acknowledge-don't-erase:
+        // we deliberately do NOT scrub after-hours / recently-touched
+        // timestamps — those signals reflect real human behaviour and
+        // stay visible to the AFTER score and to the WellnessAgent gate.
         int defusedCount = mutationTool.defuseChaosInputs(clock);
-        log.info("Deterministic chaos defuser: normalised body/updatedAt on {} issue(s)", defusedCount);
+        log.info("Deterministic chaos defuser: filled {} empty body / bodies (timestamps left untouched)", defusedCount);
 
         // Pre-pass note prepended to whatever explanation we end up with —
         // this is how the user finds out the deterministic phase ran.
         String prePassNote = String.format(
-            "**🧹 Deterministic pre-pass:** triaged %d unassigned-urgent issue(s)%s and defused %d chaos input(s) (empty bodies / after-hours timestamps) before the LLM was invoked.%n",
+            "**🧹 Deterministic pre-pass:** triaged %d unassigned-urgent issue(s)%s and filled %d empty issue body/bodies before the LLM was invoked. After-hours / recent-touch signals were left intact so the AFTER score reflects real activity.%n",
             triagedCount,
             unassignedUrgentNumbers.isEmpty() ? "" : " (" + unassignedUrgentList + ")",
             defusedCount);
