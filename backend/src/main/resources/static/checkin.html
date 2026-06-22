@@ -558,9 +558,13 @@
     if (params.get('userId')) document.getElementById('userId').value = params.get('userId');
     if (params.get('repo')) document.getElementById('repo').value = params.get('repo');
 
-    // Populate timezone dropdown
+    // Populate timezone dropdown.
+    // Default to UTC so the after-hours metric matches the flamegraph and
+    // reshape endpoints, which compute against the server clock (UTC). A
+    // `?tz=` URL param overrides the default for deep-linked check-ins.
     const tzSelect = document.getElementById('tz');
     const detectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const defaultTz = params.get('tz') || 'UTC';
     const commonZones = [
       'Pacific/Auckland', 'Australia/Sydney', 'Australia/Perth', 'Asia/Tokyo',
       'Asia/Shanghai', 'Asia/Kolkata', 'Asia/Dubai', 'Africa/Johannesburg',
@@ -569,8 +573,8 @@
       'America/Buenos_Aires', 'America/New_York', 'America/Chicago',
       'America/Denver', 'America/Los_Angeles', 'America/Anchorage', 'Pacific/Honolulu', 'UTC'
     ];
-    // Ensure detected timezone is in the list
-    const zones = commonZones.includes(detectedTz) ? commonZones : [detectedTz, ...commonZones];
+    // Ensure the detected and default timezones are both selectable in the list
+    const zones = [...new Set([defaultTz, detectedTz, ...commonZones])];
     zones.forEach(function(tz) {
       const opt = document.createElement('option');
       opt.value = tz;
@@ -580,7 +584,7 @@
       } catch (e) {
         opt.textContent = tz.replace(/_/g, ' ');
       }
-      if (tz === detectedTz) opt.selected = true;
+      if (tz === defaultTz) opt.selected = true;
       tzSelect.appendChild(opt);
     });
 
