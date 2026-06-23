@@ -52,3 +52,5 @@ scripts/record-copilot-workflow.mjs
 docs/generate_timeline.py
 script.txt
 archive-*.zip
+
+node_modules/
