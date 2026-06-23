@@ -14,6 +14,11 @@ mvnw.cmd
 mcp-app/node_modules/
 mcp-app/dist/
 
+# Top-level node (playwright dev dep for recording scripts — install locally)
+/node_modules/
+/package.json
+/package-lock.json
+
 # IDE
 .idea/
 *.iml
@@ -47,7 +52,7 @@ demo-issues.json
 real-issues.json
 .playwright-mcp/
 IMAGE_GENERATION_GUIDE.md
-docs/images/demo/copilot-workflow.webm
+docs/images/demo/*.webm
 scripts/record-copilot-workflow.mjs
 docs/generate_timeline.py
 script.txt
